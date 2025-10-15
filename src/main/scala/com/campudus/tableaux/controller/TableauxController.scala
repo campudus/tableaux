@@ -74,6 +74,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       column <- repository.retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
       _ <- repository.deleteCellAnnotation(column, rowId, uuid)
@@ -100,6 +101,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       column <- repository.retrieveColumn(table, columnId)
       _ = if (column.languageType == LanguageNeutral) {
         throw UnprocessableEntityException(
@@ -120,6 +122,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       _ <- roleModel.checkAuthorization(ViewTable, ComparisonObjects(table))
 
       annotations <- repository.retrieveTableWithCellAnnotations(table)
@@ -271,6 +274,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       _ <- roleModel.checkAuthorization(CreateRow, ComparisonObjects(table))
       row <- values match {
         case Some(seq) =>
@@ -344,6 +348,7 @@ class TableauxController(
     logger.info(s"updateRowAnnotations $tableId $rowId $finalFlagOpt $archivedFlagOpt")
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
       _ = checkForTaxonomyTable(table, archivedFlagOpt)
       updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlagOpt, archivedFlagOpt)
@@ -360,6 +365,7 @@ class TableauxController(
     logger.info(s"updateRowsAnnotations $tableId $finalFlagOpt $archivedFlagOpt")
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
       _ = checkForTaxonomyTable(table, archivedFlagOpt)
       _ <- repository.updateRowsAnnotations(table, finalFlagOpt, archivedFlagOpt)
@@ -372,6 +378,7 @@ class TableauxController(
     logger.info(s"duplicateRow $tableId $rowId")
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       duplicated <- repository.duplicateRow(table, rowId, duplicateOptions)
       _ <- eventClient.invalidateRow(table.id, rowId)
     } yield duplicated
@@ -392,6 +399,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       row <- repository.retrieveRow(table, rowId, columnFilter)
     } yield row
   }
@@ -472,6 +480,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       rows <- repository.retrieveForeignRows(table, columnId, rowId, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
   }
@@ -484,6 +493,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       annotations <- repository.retrieveCellAnnotations(table, columnId, rowId)
     } yield annotations
   }
@@ -509,6 +519,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       _ <- roleModel.checkAuthorization(ViewTable, ComparisonObjects(table))
       dependentRows <- repository.retrieveDependentRows(table, rowId)
     } yield dependentRows
@@ -535,6 +546,7 @@ class TableauxController(
     logger.info(s"deleteRow $tableId $rowId $replacingRowIdOpt")
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       _ <- roleModel.checkAuthorization(DeleteRow, ComparisonObjects(table))
       _ <- repository.deleteRow(table, rowId, replacingRowIdOpt)
     } yield {
@@ -551,6 +563,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       updated <- repository.deleteLink(table, columnId, rowId, toId)
     } yield updated
   }
@@ -566,6 +579,7 @@ class TableauxController(
     logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $locationType")
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       filled <- repository.updateCellLinkOrder(table, columnId, rowId, toId, locationType)
     } yield filled
   }
@@ -577,6 +591,7 @@ class TableauxController(
     logger.info(s"replaceCellValue $tableId $columnId $rowId $value")
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       filled <- repository.replaceCellValue(table, columnId, rowId, value, forceHistory)
     } yield filled
   }
@@ -603,6 +618,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       cleared <- repository.clearCellValue(table, columnId, rowId)
     } yield cleared
   }
@@ -616,6 +632,7 @@ class TableauxController(
     // TODO introduce a Cell identifier with tableId, columnId and rowId
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       column <- repository.retrieveColumn(table, columnId)
 
       _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
@@ -633,6 +650,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       colList <- repository.retrieveColumns(table)
       rowList <- repository.retrieveRows(table, None, None, Pagination(None, None))
     } yield CompleteTable(table, colList, rowList)
@@ -685,6 +703,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       historySequence <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, typeOpt, includeDeleted)
     } yield SeqHistory(historySequence)
   }
@@ -701,6 +720,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       historySequence <- repository.retrieveColumnHistory(table, columnId, langtagOpt, typeOpt, includeDeleted)
     } yield SeqHistory(historySequence)
   }
@@ -717,6 +737,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       historySequence <- repository.retrieveRowHistory(table, rowId, langtagOpt, typeOpt, includeDeleted)
     } yield {
       SeqHistory(historySequence)
@@ -734,6 +755,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       historySequence <- repository.retrieveTableHistory(table, langtagOpt, typeOpt, includeDeleted)
     } yield SeqHistory(historySequence)
   }
@@ -746,6 +768,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       _ <- repository.addRowPermissions(table, rowId, rowPermissions)
     } yield EmptyObject()
   }
@@ -758,6 +781,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       _ <- repository.deleteRowPermissions(table, rowId)
     } yield EmptyObject()
   }
@@ -770,6 +794,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       _ <- repository.replaceRowPermissions(table, rowId, rowPermissions)
     } yield EmptyObject()
   }

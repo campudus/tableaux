@@ -421,33 +421,106 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
   )
 
   @Test
-  def unionTable_retrieveCell_shouldFail(implicit c: TestContext): Unit =
-    okTest {
+  def unionTable_notImplementedMethods_shouldFail(implicit c: TestContext): Unit = okTest {
+    // not implemented endpoints in TableauxController
+    val cellPayload = Json.obj("value" -> Json.obj("de" -> "foo", "en" -> "bar"))
+    val permissionsPayload = Json.obj("value" -> Json.arr("role:admin"))
+    val orderPayload = Json.obj("location" -> "end")
+    val anyUuid = "7e3982f3-7328-45f9-b499-9424a20bf5ff"
 
-      val cellPostPayload = Json.obj("values" -> Json.obj("de" -> "foo", "en" -> "bar"))
-
-      for {
-        tableId <- createUnionTable()
-        retrieveCellException <-
-          sendRequest("GET", s"/tables/$tableId/columns/1/rows/1").recover({ case ex => ex })
-        postCellException <-
-          sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", cellPostPayload).recover({ case ex => ex })
-        patchCellException <-
-          sendRequest("PATCH", s"/tables/$tableId/columns/1/rows/1", cellPostPayload).recover({ case ex => ex })
-      } yield {
-        println("Expected exception: " + expectedException)
-        assertEquals(expectedException, retrieveCellException)
-        assertEquals(expectedException, postCellException)
-        assertEquals(expectedException, patchCellException)
-      }
+    for {
+      tableId <- createUnionTable()
+      retrieveCell <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/1").recover({ case ex => ex })
+      postCell <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", cellPayload).recover({ case ex => ex })
+      patchCell <- sendRequest("PATCH", s"/tables/$tableId/columns/1/rows/1", cellPayload).recover({ case ex => ex })
+      deleteCell <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1").recover({ case ex => ex })
+      retrieveAnnotationsTable <- sendRequest("GET", s"/tables/$tableId/annotations").recover({ case ex => ex })
+      retrieveRow <- sendRequest("GET", s"/tables/$tableId/rows/1").recover({ case ex => ex })
+      retrieveForeignRows <-
+        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/foreignRows").recover({ case ex => ex })
+      retrieveDependentRows <- sendRequest("GET", s"/tables/$tableId/rows/1/dependent").recover({ case ex => ex })
+      retrieveCellAnnotations <-
+        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/annotations").recover({ case ex => ex })
+      retrieveCellHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/history").recover({ case ex => ex })
+      retrieveColumnHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/history").recover({ case ex => ex })
+      retrieveRowHistory <- sendRequest("GET", s"/tables/$tableId/rows/1/history").recover({ case ex => ex })
+      retrieveTableHistory <- sendRequest("GET", s"/tables/$tableId/history").recover({ case ex => ex })
+      addRowPermissions <-
+        sendRequest("PATCH", s"/tables/$tableId/rows/1/permissions", permissionsPayload).recover({ case ex => ex })
+      deleteRowPermissions <- sendRequest("DELETE", s"/tables/$tableId/rows/1/permissions").recover({ case ex => ex })
+      replaceRowPermissions <-
+        sendRequest("PUT", s"/tables/$tableId/rows/1/permissions", permissionsPayload).recover({ case ex => ex })
+      retrieveCellHistory <-
+        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/history").recover({ case ex => ex })
+      createRow <- sendRequest("POST", s"/tables/$tableId/rows", Json.obj()).recover({ case ex => ex })
+      duplicateRow <- sendRequest("POST", s"/tables/$tableId/rows/1/duplicate").recover({ case ex => ex })
+      updateRowAnnotations <-
+        sendRequest("PATCH", s"/tables/$tableId/rows/1/annotations", Json.obj()).recover({ case ex => ex })
+      updateRowsAnnotations <-
+        sendRequest("PATCH", s"/tables/$tableId/rows/annotations", Json.obj()).recover({ case ex => ex })
+      changeLinkOrder <-
+        sendRequest("PUT", s"/tables/$tableId/columns/4/rows/1/link/1/order", orderPayload).recover({ case ex => ex })
+      deleteCellAnnotation <-
+        sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/annotations/$anyUuid").recover({ case ex => ex })
+      deleteRow <- sendRequest("DELETE", s"/tables/$tableId/rows/1").recover({ case ex => ex })
+      deleteAttachment <-
+        sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/attachment/$anyUuid").recover({ case ex => ex })
+      deleteLink <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/link/1").recover({ case ex => ex })
+    } yield {
+      assertEquals(expectedException, retrieveCell)
+      assertEquals(expectedException, postCell)
+      assertEquals(expectedException, patchCell)
+      assertEquals(expectedException, deleteCell)
+      assertEquals(expectedException, retrieveAnnotationsTable)
+      assertEquals(expectedException, retrieveRow)
+      assertEquals(expectedException, retrieveForeignRows)
+      assertEquals(expectedException, retrieveDependentRows)
+      assertEquals(expectedException, retrieveCellAnnotations)
+      assertEquals(expectedException, retrieveCellHistory)
+      assertEquals(expectedException, retrieveColumnHistory)
+      assertEquals(expectedException, retrieveRowHistory)
+      assertEquals(expectedException, retrieveTableHistory)
+      assertEquals(expectedException, addRowPermissions)
+      assertEquals(expectedException, deleteRowPermissions)
+      assertEquals(expectedException, replaceRowPermissions)
+      assertEquals(expectedException, retrieveCellHistory)
+      assertEquals(expectedException, createRow)
+      assertEquals(expectedException, duplicateRow)
+      assertEquals(expectedException, updateRowAnnotations)
+      assertEquals(expectedException, updateRowsAnnotations)
+      assertEquals(expectedException, changeLinkOrder)
+      assertEquals(expectedException, deleteCellAnnotation)
+      assertEquals(expectedException, deleteRow)
+      assertEquals(expectedException, deleteAttachment)
+      assertEquals(expectedException, deleteLink)
     }
+  }
 }
 
-// TODOs
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
-// - deleteTable
-// - history: table und column
-// - data: row, rows, columns rows, first row
-// - annotations: rows, columns, langtag
-// - permissions: table row
-// - content: `/tables/{tableId}/columns/{columnId}/rows/{rowId}` should not work, because on union table there is more than one row for that address
+  // EPs to implement for union tables
+
+  // - retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows")
+  // - retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first")
+  // - retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows")
+
+  // TODO: implement the endpoints above with correct pagination,
+  // TODO: What about filtering, sorting, ...???
+
+  @Test
+  def unionTable_retrieveRows_ok(implicit c: TestContext): Unit = okTest {
+    // not implemented endpoints in TableauxController
+    for {
+      tableId <- createUnionTable()
+      // retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").recover({ case ex => ex })
+      // retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first").recover({ case ex => ex })
+      retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows")
+    } yield {
+      println("### rows: " + retrieveRows)
+      val expectedEmptyRows = Json.obj("rows" -> Json.arr())
+      assertJSONEquals(expectedEmptyRows, retrieveRows)
+    }
+  }
+}
