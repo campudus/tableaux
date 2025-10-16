@@ -44,12 +44,12 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
 
   /**
     * Inserts test data into the three tables used for union table testing.
-    *   - table1: 3 rows
-    *   - table2: 5 rows
-    *   - table3: 8 rows
+    *   - table2: 3 rows
+    *   - table3: 5 rows
+    *   - table4: 8 rows
     */
-  def insertTestDataIntoTables(tableId1: TableId, tableId2: TableId, tableId3: TableId): Future[Unit] = {
-    val table1ColumnsAndRows = Json.obj(
+  def insertTestDataIntoTables(tableId2: TableId, tableId3: TableId, tableId4: TableId): Future[Unit] = {
+    val table2ColumnsAndRows = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2), Json.obj("id" -> 3), Json.obj("id" -> 4)),
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
@@ -57,7 +57,7 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
         Json.obj("values" -> Json.arr("color3", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1)))
       )
     )
-    val table2ColumnsAndRows = Json.obj(
+    val table3ColumnsAndRows = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 3), Json.obj("id" -> 4), Json.obj("id" -> 2)),
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
@@ -68,7 +68,7 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
       )
     )
 
-    val table3ColumnsAndRows = Json.obj(
+    val table4ColumnsAndRows = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 4), Json.obj("id" -> 2), Json.obj("id" -> 3), Json.obj("id" -> 1)),
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
@@ -83,9 +83,9 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     )
 
     for {
-      _ <- sendRequest("POST", s"/tables/$tableId1/rows", table1ColumnsAndRows)
       _ <- sendRequest("POST", s"/tables/$tableId2/rows", table2ColumnsAndRows)
       _ <- sendRequest("POST", s"/tables/$tableId3/rows", table3ColumnsAndRows)
+      _ <- sendRequest("POST", s"/tables/$tableId4/rows", table4ColumnsAndRows)
     } yield ()
   }
 
@@ -100,25 +100,25 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
    * 
    * The tables and their columns configuration is as follows:
    * 
-   * glossLink (id: 1)
+   * glossLink table1 (id: 1)
    * ┌───┬─────┐
    * │id │name │
    * ├───┼─────┤
    * │0  │1    │
    * └───┴─────┘
-   * table1 (id: 2)
+   * table2 (id: 2)
    * ┌───┬─────┬──────┬─────┬───────────┐
    * │id │name │color │prio │glossLevel │
    * ├───┼─────┼──────┼─────┼───────────┤
    * │0  │1    │2     │3    │4          │
    * └───┴─────┴──────┴─────┴───────────┘
-   * table2 (id: 3)
+   * table3 (id: 3)
    * ┌───┬─────┬──────┬─────┬───────────┐
    * │id │name │color │prio │glossLevel │
    * ├───┼─────┼──────┼─────┼───────────┤
    * │0  │1    │3     │4    │2          │
    * └───┴─────┴──────┴─────┴───────────┘
-   * table3 (id: 4)
+   * table4 (id: 4)
    * ┌───┬─────┬──────┬─────┬───────────┐
    * │id │name │color │prio │glossLevel │
    * ├───┼─────┼──────┼─────┼───────────┤
@@ -133,9 +133,9 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
    *
    * If inserted, tables have the following number of rows:
    *
-   * - table1: 3 rows
-   * - table2: 5 rows
-   * - table3: 8 rows
+   * - table2: 3 rows
+   * - table3: 5 rows
+   * - table4: 8 rows
    */
   def createUnionTable(shouldInsertRows: Boolean = false): Future[TableId] = {
   // format: on
@@ -148,22 +148,22 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
       glossLinkTableId <- createDefaultTable(name = "glossLink")
       createColumnGloss = createCardinalityLinkColumn(glossLinkTableId, "glossLevel", 0, 1)
 
-      tableId1 <- sendRequest("POST", "/tables", createTableJson("table1")).map(_.getLong("id"))
-      tableId2 <- sendRequest("POST", "/tables", createTableJson("table2")).map(_.getLong("id"))
-      tableId3 <- sendRequest("POST", "/tables", createTableJson("table3")).map(_.getLong("id"))
+      tableId2 <- sendRequest("POST", "/tables", createTableJson("table1")).map(_.getLong("id"))
+      tableId3 <- sendRequest("POST", "/tables", createTableJson("table2")).map(_.getLong("id"))
+      tableId4 <- sendRequest("POST", "/tables", createTableJson("table3")).map(_.getLong("id"))
 
-      table1Columns = Columns(createColumnName, createColumnColor, createColumnPrio, createColumnGloss)
-      table2Columns = Columns(createColumnName, createColumnGloss, createColumnColor, createColumnPrio)
-      table3Columns = Columns(createColumnGloss, createColumnColor, createColumnPrio, createColumnName)
+      table2Columns = Columns(createColumnName, createColumnColor, createColumnPrio, createColumnGloss)
+      table3Columns = Columns(createColumnName, createColumnGloss, createColumnColor, createColumnPrio)
+      table4Columns = Columns(createColumnGloss, createColumnColor, createColumnPrio, createColumnName)
 
       // create columns with different ordering in each table
-      _ <- sendRequest("POST", s"/tables/$tableId1/columns", table1Columns)
       _ <- sendRequest("POST", s"/tables/$tableId2/columns", table2Columns)
       _ <- sendRequest("POST", s"/tables/$tableId3/columns", table3Columns)
+      _ <- sendRequest("POST", s"/tables/$tableId4/columns", table4Columns)
 
       _ <-
         if (shouldInsertRows) {
-          insertTestDataIntoTables(tableId1, tableId2, tableId3)
+          insertTestDataIntoTables(tableId2, tableId3, tableId4)
         } else {
           Future.successful(())
         }
@@ -172,7 +172,7 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
         "name" -> "union",
         "type" -> "union",
         "displayName" -> Json.obj("de" -> "Union Table"),
-        "originTables" -> Json.arr(tableId1, tableId3, tableId2)
+        "originTables" -> Json.arr(tableId2, tableId4, tableId3)
       )
       resultUnionTable <- sendRequest("POST", "/tables", payload)
 
@@ -560,27 +560,27 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   /**
     * Tables have the following number of rows:
     *
-    *   - table1: 3 rows
-    *   - table2: 5 rows
-    *   - table3: 8 rows
+    *   - table2: 3 rows
+    *   - table3: 5 rows
+    *   - table4: 8 rows
     *
     * request1: offset: 0, limit: 7, totalSize: 16 -> response has 7 rows
     *
-    *   - table1: 3 rows
-    *   - table2: 4 rows
+    *   - table2: 3 rows
     *   - table3: 4 rows
+    *   - table4: 4 rows
     *
     * request2: offset: 7, limit: 7, totalSize: 16 -> response has 7 rows
     *
-    *   - table1: 0 rows
-    *   - table2: 1 rows
-    *   - table3: 6 rows
+    *   - table2: 0 rows
+    *   - table3: 1 rows
+    *   - table4: 6 rows
     *
     * request3: offset: 14, limit: 7, totalSize: 16 -> response has 2 rows
     *
-    *   - table1: 0 rows
     *   - table2: 0 rows
-    *   - table3: 2 rows
+    *   - table3: 0 rows
+    *   - table4: 2 rows
     */
   @Test
   def unionTable_retrieveRows_ok(implicit c: TestContext): Unit = okTest {
