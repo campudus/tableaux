@@ -25,27 +25,34 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
 
   def createTableJson(name: String) = Json.obj("name" -> name)
 
-  def createTextColumnJson(name: String) = Columns().add(Identifier(TextCol(name))).getJson
+  def createTextColumnJson(name: String) = Identifier(TextCol(name))
 
-  def createMultilangTextColumnJson(name: String) = Columns().add(Multilanguage(TextCol(name))).getJson
+  def createMultilangTextColumnJson(name: String) = Multilanguage(TextCol(name))
 
-  def createNumberColumnJson(name: String, decimalDigits: Option[Int] = None) =
-    Columns().add(NumericCol(name, decimalDigits)).getJson
+  def createNumberColumnJson(name: String, decimalDigits: Option[Int] = None) = NumericCol(name, decimalDigits)
 
   def createCardinalityLinkColumn(
       toTableId: TableId,
       name: String,
       from: Int,
       to: Int
-  ) = Columns(LinkBiDirectionalCol(
-    name,
-    toTableId,
-    Constraint(Cardinality(from, to), deleteCascade = false)
-  )).getJson
+  ) = LinkBiDirectionalCol(name, toTableId, Constraint(Cardinality(from, to), deleteCascade = false))
 
   def fetchTable(tableId: TableId) = sendRequest("GET", s"/completetable/$tableId")
 
   def fetchColumns(tableId: TableId) = sendRequest("GET", s"/tables/$tableId/columns")
+
+  // format: off
+  /*
+  Row response of UnionTables have additional properties:
+
+  - rowId of the origin table
+  - tableId of the origin table
+
+  The pagination of rows must always be calculated in BE and ordering is first by table then by row.
+  */
+  // format: on
+
 
   // format: off
   /**
@@ -88,8 +95,14 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
    * ├───┼─────┼──────┼─────┼───────────┤
    * │0  │4    │2     │3    │1          │
    * └───┴─────┴──────┴─────┴───────────┘
+   *
+   * If inserted, tables have the following number of rows:
+   *
+   * - table1: 3 rows
+   * - table2: 5 rows
+   * - table3: 8 rows
    */
-  def createUnionTable(): Future[TableId] = {
+  def createUnionTable(shouldInsertRows: Boolean = false): Future[TableId] = {
   // format: on
 
     val createColumnName = createTextColumnJson("name")
@@ -104,21 +117,64 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
       tableId2 <- sendRequest("POST", "/tables", createTableJson("table2")).map(_.getLong("id"))
       tableId3 <- sendRequest("POST", "/tables", createTableJson("table3")).map(_.getLong("id"))
 
+      table1Columns = Columns(createColumnName, createColumnColor, createColumnPrio, createColumnGloss)
+      table2Columns = Columns(createColumnName, createColumnGloss, createColumnColor, createColumnPrio)
+      table3Columns = Columns(createColumnGloss, createColumnColor, createColumnPrio, createColumnName)
+
       // create columns in tables in different order
-      _ <- sendRequest("POST", s"/tables/$tableId1/columns", createColumnName)
-      _ <- sendRequest("POST", s"/tables/$tableId1/columns", createColumnColor)
-      _ <- sendRequest("POST", s"/tables/$tableId1/columns", createColumnPrio)
-      _ <- sendRequest("POST", s"/tables/$tableId1/columns", createColumnGloss)
+      _ <- sendRequest("POST", s"/tables/$tableId1/columns", table1Columns)
+      _ <- sendRequest("POST", s"/tables/$tableId2/columns", table2Columns)
+      _ <- sendRequest("POST", s"/tables/$tableId3/columns", table3Columns)
 
-      _ <- sendRequest("POST", s"/tables/$tableId2/columns", createColumnName)
-      _ <- sendRequest("POST", s"/tables/$tableId2/columns", createColumnGloss)
-      _ <- sendRequest("POST", s"/tables/$tableId2/columns", createColumnColor)
-      _ <- sendRequest("POST", s"/tables/$tableId2/columns", createColumnPrio)
+      _ <-
+        if (shouldInsertRows) {
+          val insertRowsTable1 = Json.obj(
+            "rows" -> Json.arr(
+              Json.obj(
+                "values" -> Json.obj(
+                  "1" -> Json.obj("value" -> "Red"),
+                  "2" -> Json.obj("value" -> Json.obj("de" -> "Rot", "en" -> "Red")),
+                  "3" -> Json.obj("value" -> 1),
+                  "4" -> Json.obj("value" -> Json.arr(1))
+                )
+              ),
+              Json.obj(
+                "values" -> Json.obj(
+                  "1" -> Json.obj("value" -> "Blue"),
+                  "2" -> Json.obj("value" -> Json.obj("de" -> "Blau", "en" -> "Blue")),
+                  "3" -> Json.obj("value" -> 2),
+                  "4" -> Json.obj("value" -> Json.arr(2))
+                )
+              ),
+              Json.obj(
+                "values" -> Json.obj(
+                  "1" -> Json.obj("value" -> "Green"),
+                  "2" -> Json.obj("value" -> Json.obj("de" -> "Grün", "en" -> "Green")),
+                  "3" -> Json.obj("value" -> 3),
+                  "4" -> Json.obj("value" -> Json.arr(3))
+                )
+              )
+            )
+          )
+          val fillStringCellJson = Json.obj("value" -> s"table1row1")
+          val fillStringCellJson2 = Json.obj("value" -> s"table1row2")
+          val fillNumberCellJson = Json.obj("value" -> 1)
+          val fillNumberCellJson2 = Json.obj("value" -> 2)
 
-      _ <- sendRequest("POST", s"/tables/$tableId3/columns", createColumnGloss)
-      _ <- sendRequest("POST", s"/tables/$tableId3/columns", createColumnColor)
-      _ <- sendRequest("POST", s"/tables/$tableId3/columns", createColumnPrio)
-      _ <- sendRequest("POST", s"/tables/$tableId3/columns", createColumnName)
+          // val xxx =
+          //   Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row1", 1, false))))
+
+          for {
+            _ <- sendRequest("POST", s"/tables/$tableId1/rows")
+            // _ <- sendRequest("POST", s"/tables/$tableId1/rows")
+            // _ <- sendRequest("POST", s"/tables/$tableId1/columns/1/rows/1", Json.obj("value" -> s"table1row1"))
+            // _ <- sendRequest("POST", s"/tables/$tableId1/columns/1/rows/2", Json.obj("value" -> s"table1row2"))
+            // _ <- sendRequest("POST", s"/tables/$tableId1/columns/2/rows/1", fillNumberCellJson)
+            // _ <- sendRequest("POST", s"/tables/$tableId1/columns/2/rows/2", fillNumberCellJson2)
+          } yield ()
+        } else {
+          Future.successful(())
+        }
 
       payload = Json.obj(
         "name" -> "union",
@@ -509,14 +565,40 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   // TODO: implement the endpoints above with correct pagination,
   // TODO: What about filtering, sorting, ...???
 
+  /**
+    * Tables have the following number of rows:
+    *
+    *   - table1: 3 rows
+    *   - table2: 5 rows
+    *   - table3: 8 rows
+    *
+    * request1: offset: 0, limit: 7, totalSize: 16 -> response has 7 rows
+    *
+    *   - table1: 3 rows
+    *   - table2: 4 rows
+    *   - table3: 4 rows
+    *
+    * request2: offset: 7, limit: 7, totalSize: 16 -> response has 7 rows
+    *
+    *   - table1: 0 rows
+    *   - table2: 1 rows
+    *   - table3: 6 rows
+    *
+    * request3: offset: 14, limit: 7, totalSize: 16 -> response has 2 rows
+    *
+    *   - table1: 0 rows
+    *   - table2: 0 rows
+    *   - table3: 2 rows
+    */
   @Test
   def unionTable_retrieveRows_ok(implicit c: TestContext): Unit = okTest {
     // not implemented endpoints in TableauxController
     for {
       tableId <- createUnionTable()
+      // tableId <- createUnionTable(true)
       // retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").recover({ case ex => ex })
       // retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first").recover({ case ex => ex })
-      retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows")
+      retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows?offset=0&limit=7")
     } yield {
       println("### rows: " + retrieveRows)
       val expectedEmptyRows = Json.obj("rows" -> Json.arr())
