@@ -42,17 +42,52 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
 
   def fetchColumns(tableId: TableId) = sendRequest("GET", s"/tables/$tableId/columns")
 
-  // format: off
-  /*
-  Row response of UnionTables have additional properties:
+  /**
+    * Inserts test data into the three tables used for union table testing.
+    *   - table1: 3 rows
+    *   - table2: 5 rows
+    *   - table3: 8 rows
+    */
+  def insertTestDataIntoTables(tableId1: TableId, tableId2: TableId, tableId3: TableId): Future[Unit] = {
+    val table1ColumnsAndRows = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2), Json.obj("id" -> 3), Json.obj("id" -> 4)),
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color2", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.arr(2))),
+        Json.obj("values" -> Json.arr("color3", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1)))
+      )
+    )
+    val table2ColumnsAndRows = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 3), Json.obj("id" -> 4), Json.obj("id" -> 2)),
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color2", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color3", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color4", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color5", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(1)))
+      )
+    )
 
-  - rowId of the origin table
-  - tableId of the origin table
+    val table3ColumnsAndRows = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 4), Json.obj("id" -> 2), Json.obj("id" -> 3), Json.obj("id" -> 1)),
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color2", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color3", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(2))),
+        Json.obj("values" -> Json.arr("color4", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color5", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(2))),
+        Json.obj("values" -> Json.arr("color6", Json.obj("de" -> "Weiß", "en" -> "White"), 6, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color7", Json.obj("de" -> "Rosa", "en" -> "Pink"), 7, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color8", Json.obj("de" -> "Lila", "en" -> "Purple"), 8, Json.arr(2)))
+      )
+    )
 
-  The pagination of rows must always be calculated in BE and ordering is first by table then by row.
-  */
-  // format: on
-
+    for {
+      _ <- sendRequest("POST", s"/tables/$tableId1/rows", table1ColumnsAndRows)
+      _ <- sendRequest("POST", s"/tables/$tableId2/rows", table2ColumnsAndRows)
+      _ <- sendRequest("POST", s"/tables/$tableId3/rows", table3ColumnsAndRows)
+    } yield ()
+  }
 
   // format: off
   /**
@@ -111,7 +146,7 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
 
     for {
       glossLinkTableId <- createDefaultTable(name = "glossLink")
-      createColumnGloss = createCardinalityLinkColumn(glossLinkTableId, "glossLevel", 1, 0)
+      createColumnGloss = createCardinalityLinkColumn(glossLinkTableId, "glossLevel", 0, 1)
 
       tableId1 <- sendRequest("POST", "/tables", createTableJson("table1")).map(_.getLong("id"))
       tableId2 <- sendRequest("POST", "/tables", createTableJson("table2")).map(_.getLong("id"))
@@ -121,57 +156,14 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
       table2Columns = Columns(createColumnName, createColumnGloss, createColumnColor, createColumnPrio)
       table3Columns = Columns(createColumnGloss, createColumnColor, createColumnPrio, createColumnName)
 
-      // create columns in tables in different order
+      // create columns with different ordering in each table
       _ <- sendRequest("POST", s"/tables/$tableId1/columns", table1Columns)
       _ <- sendRequest("POST", s"/tables/$tableId2/columns", table2Columns)
       _ <- sendRequest("POST", s"/tables/$tableId3/columns", table3Columns)
 
       _ <-
         if (shouldInsertRows) {
-          val insertRowsTable1 = Json.obj(
-            "rows" -> Json.arr(
-              Json.obj(
-                "values" -> Json.obj(
-                  "1" -> Json.obj("value" -> "Red"),
-                  "2" -> Json.obj("value" -> Json.obj("de" -> "Rot", "en" -> "Red")),
-                  "3" -> Json.obj("value" -> 1),
-                  "4" -> Json.obj("value" -> Json.arr(1))
-                )
-              ),
-              Json.obj(
-                "values" -> Json.obj(
-                  "1" -> Json.obj("value" -> "Blue"),
-                  "2" -> Json.obj("value" -> Json.obj("de" -> "Blau", "en" -> "Blue")),
-                  "3" -> Json.obj("value" -> 2),
-                  "4" -> Json.obj("value" -> Json.arr(2))
-                )
-              ),
-              Json.obj(
-                "values" -> Json.obj(
-                  "1" -> Json.obj("value" -> "Green"),
-                  "2" -> Json.obj("value" -> Json.obj("de" -> "Grün", "en" -> "Green")),
-                  "3" -> Json.obj("value" -> 3),
-                  "4" -> Json.obj("value" -> Json.arr(3))
-                )
-              )
-            )
-          )
-          val fillStringCellJson = Json.obj("value" -> s"table1row1")
-          val fillStringCellJson2 = Json.obj("value" -> s"table1row2")
-          val fillNumberCellJson = Json.obj("value" -> 1)
-          val fillNumberCellJson2 = Json.obj("value" -> 2)
-
-          // val xxx =
-          //   Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row1", 1, false))))
-
-          for {
-            _ <- sendRequest("POST", s"/tables/$tableId1/rows")
-            // _ <- sendRequest("POST", s"/tables/$tableId1/rows")
-            // _ <- sendRequest("POST", s"/tables/$tableId1/columns/1/rows/1", Json.obj("value" -> s"table1row1"))
-            // _ <- sendRequest("POST", s"/tables/$tableId1/columns/1/rows/2", Json.obj("value" -> s"table1row2"))
-            // _ <- sendRequest("POST", s"/tables/$tableId1/columns/2/rows/1", fillNumberCellJson)
-            // _ <- sendRequest("POST", s"/tables/$tableId1/columns/2/rows/2", fillNumberCellJson2)
-          } yield ()
+          insertTestDataIntoTables(tableId1, tableId2, tableId3)
         } else {
           Future.successful(())
         }
@@ -592,17 +584,24 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
     */
   @Test
   def unionTable_retrieveRows_ok(implicit c: TestContext): Unit = okTest {
-    // not implemented endpoints in TableauxController
     for {
-      tableId <- createUnionTable()
-      // tableId <- createUnionTable(true)
+      tableId <- createUnionTable(true)
       // retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").recover({ case ex => ex })
       // retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first").recover({ case ex => ex })
+
+      retrieveAllUnionTableRows <- sendRequest("GET", s"/tables/$tableId/rows")
+      retrieveTable2Rows <- sendRequest("GET", s"/tables/2/rows")
+      retrieveTable3Rows <- sendRequest("GET", s"/tables/3/rows")
+      retrieveTable4Rows <- sendRequest("GET", s"/tables/4/rows")
       retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows?offset=0&limit=7")
     } yield {
       println("### rows: " + retrieveRows)
-      val expectedEmptyRows = Json.obj("rows" -> Json.arr())
-      assertJSONEquals(expectedEmptyRows, retrieveRows)
+      assertEquals(3, retrieveTable2Rows.getJsonArray("rows").size())
+      assertEquals(5, retrieveTable3Rows.getJsonArray("rows").size())
+      assertEquals(8, retrieveTable4Rows.getJsonArray("rows").size())
+
+      assertEquals(0, retrieveAllUnionTableRows.getJsonObject("page").getInteger("totalSize"))
+      assertEquals(0, retrieveAllUnionTableRows.getJsonArray("rows").size())
     }
   }
 }
