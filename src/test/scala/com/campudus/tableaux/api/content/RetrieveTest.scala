@@ -2,7 +2,6 @@ package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.domain.Pagination
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel
 import com.campudus.tableaux.router.auth.permission.RoleModel
@@ -13,10 +12,12 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.ext.sql
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.JsonObject
 
-import org.junit.{Ignore, Test}
 import org.junit.Assert._
+import org.junit.Ignore
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
 
