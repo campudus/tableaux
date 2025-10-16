@@ -1305,9 +1305,20 @@ class TableauxModel(
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination
   )(implicit user: TableauxUser): Future[RowSeq] = {
-    // TODO: if the table is of kind UnionTable, we need to retrieve the rows from the underlying original tables in a completely different way
     if (table.tableType == UnionTable) {
       Future.successful(RowSeq(Seq.empty, Page(pagination, Some(0))))
+
+      // pseudo code
+
+      // foreach originTable
+
+      // get table
+      // get totalSize <- (retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt))
+      // calculate and build a pagination for each table
+      // request those tables that are needed for the current page
+      // build resulting page
+      // and return the rowSeq with additional infos (tableId, linkId, ...)
+
     } else {
       for {
         columns <- retrieveColumns(table)
