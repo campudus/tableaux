@@ -1316,7 +1316,43 @@ class TableauxModel(
       columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(implicit user: TableauxUser): Future[RowSeq] = {
     if (table.tableType == UnionTable) {
-      Future.successful(RowSeq(Seq.empty, Page(pagination, Some(0))))
+      for {
+        rowSequences <- table.originTables match {
+          case None => Future.failed(InvalidRequestException("Union table has no origin tables defined"))
+          case Some(originTables) => Future.sequence(
+              originTables.map { tableId =>
+                {
+                  for {
+                    originTable <- retrieveTable(tableId)
+                    columns <- retrieveColumns(originTable)
+                    filteredColumns = roleModel
+                      .filterDomainObjects[ColumnType[_]](
+                        ViewCellValue,
+                        columns,
+                        ComparisonObjects(originTable),
+                        isInternalCall = false
+                      )
+                    rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
+                    resultRows <-
+                      if (config.isRowPermissionCheckEnabled) {
+                        removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
+                      } else {
+                        Future.successful(rowSeq.rows)
+                      }
+                  } yield {
+                    val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+                    RowSeq(filteredRows, rowSeq.page)
+                  }
+                }
+              }
+            )
+        }
+      } yield {
+        println("XXX: retrieved row sequences from origin tables: " + rowSequences.map(_.rows.size))
+        val rowSequenceUnion = rowSequences.flatMap(_.rows)
+        val unionTotalSize = rowSequences.map(_.page.totalSize.getOrElse(0L)).sum
+        RowSeq(rowSequenceUnion, Page(pagination, Some(unionTotalSize)))
+      }
 
       // pseudo code
 
