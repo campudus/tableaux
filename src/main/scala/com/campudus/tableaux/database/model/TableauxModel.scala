@@ -1291,12 +1291,7 @@ class TableauxModel(
         linkDirection
       )
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
-      resultRowSeq <-
-        if (config.isRowPermissionCheckEnabled) {
-          removeUnauthorizedForeignValuesFromRows(representingColumns, rowSeq)
-        } else {
-          Future.successful(rowSeq)
-        }
+      resultRowSeq <- filterRows(representingColumns, rowSeq)
     } yield {
       val filteredForeignRows = roleModel.filterDomainObjects(ViewRow, resultRowSeq, ComparisonObjects(), false)
       val rowsSeq = RowSeq(filteredForeignRows, Page(pagination, Some(totalSize)))
@@ -1304,8 +1299,26 @@ class TableauxModel(
     }
   }
 
-  private def copyFirstColumnOfRowsSeq(rowsSeq: RowSeq): RowSeq = {
+  private def copyFirstColumnOfRowsSeq(rowsSeq: RowSeq): RowSeq =
     rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
+
+  private def filterColumns(table: Table, columns: Seq[ColumnType[_]])(
+      implicit user: TableauxUser
+  ): Seq[ColumnType[_]] = {
+    roleModel.filterDomainObjects[ColumnType[_]](
+      ViewCellValue,
+      columns,
+      ComparisonObjects(table),
+      isInternalCall = false
+    )
+  }
+
+  private def filterRows(columns: Seq[ColumnType[_]], rows: Seq[Row])(implicit user: TableauxUser): Future[Seq[Row]] = {
+    if (config.isRowPermissionCheckEnabled) {
+      removeUnauthorizedForeignValuesFromRows(columns, rows)
+    } else {
+      Future.successful(rows)
+    }
   }
 
   def retrieveRows(
@@ -1330,21 +1343,10 @@ class TableauxModel(
                   for {
                     acc <- accFuture
                     originTable <- retrieveTable(tableId)
-                    _ = println("XXX: retrieving rows from origin table: " + originTable.name)
                     columns <- retrieveColumns(originTable)
-                    filteredColumns = roleModel.filterDomainObjects[ColumnType[_]](
-                      ViewCellValue,
-                      columns,
-                      ComparisonObjects(originTable),
-                      isInternalCall = false
-                    )
+                    filteredColumns = filterColumns(originTable, columns)
                     rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
-                    resultRows <-
-                      if (config.isRowPermissionCheckEnabled) {
-                        removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
-                      } else {
-                        Future.successful(rowSeq.rows)
-                      }
+                    resultRows <- filterRows(filteredColumns, rowSeq.rows)
                   } yield {
                     val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
                     RowSeq(acc.rows ++ filteredRows, rowSeq.page)
@@ -1370,20 +1372,9 @@ class TableauxModel(
     } else {
       for {
         columns <- retrieveColumns(table)
-        filteredColumns = roleModel
-          .filterDomainObjects[ColumnType[_]](
-            ViewCellValue,
-            columns,
-            ComparisonObjects(table),
-            isInternalCall = false
-          )
+        filteredColumns = filterColumns(table, columns)
         rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
-        resultRows <-
-          if (config.isRowPermissionCheckEnabled) {
-            removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
-          } else {
-            Future.successful(rowSeq.rows)
-          }
+        resultRows <- filterRows(filteredColumns, rowSeq.rows)
       } yield {
         val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
         RowSeq(filteredRows, rowSeq.page)
