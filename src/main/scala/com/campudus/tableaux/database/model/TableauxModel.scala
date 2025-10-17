@@ -1321,6 +1321,69 @@ class TableauxModel(
     }
   }
 
+  def retrieveUnionTableRows(
+      table: Table,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  )(implicit user: TableauxUser): Future[RowSeq] = {
+
+    def retrieveAndProcessTableRows(
+        tableId: TableId,
+        acc: RowSeq,
+        totalSize: Long,
+        tablePagination: Pagination,
+        finalFlagOpt: Option[Boolean],
+        archivedFlagOpt: Option[Boolean]
+    ): Future[(RowSeq, Long)] = {
+      for {
+        originTable <- retrieveTable(tableId)
+        columns <- retrieveColumns(originTable)
+        filteredColumns = filterColumns(originTable, columns)
+        rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination)
+        resultRows <- filterRows(filteredColumns, rowSeq.rows)
+      } yield {
+        val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+        val combinedRows = acc.rows ++ filteredRows
+        (RowSeq(combinedRows, rowSeq.page), totalSize)
+      }
+    }
+
+    table.originTables match {
+      case None =>
+        Future.failed(InvalidRequestException("Union table has no origin tables defined"))
+
+      case Some(originTables) =>
+        val originalOffset = pagination.offset.getOrElse(0L).toInt
+        val originalLimit = pagination.limit.getOrElse((Int.MaxValue).toLong).toInt
+
+        for {
+          foldResult <- originTables.foldLeft(Future.successful((RowSeq(Seq.empty, Page(pagination, Some(0L))), 0L)))(
+            (accFuture, tableId) =>
+              for {
+                (acc, accTotalSize) <- accFuture
+                rowCount <- retrieveRowModel.size(tableId, finalFlagOpt, archivedFlagOpt)
+
+                totalSize = accTotalSize + rowCount
+                tableOffset = Math.max(0, originalOffset - accTotalSize)
+                tableLimit = Math.max(0, originalLimit - Math.max(0, accTotalSize - originalOffset))
+                tablePagination = Pagination(Some(tableOffset), Some(tableLimit))
+
+                result <-
+                  if (rowCount < tableOffset) {
+                    Future.successful((acc, totalSize))
+                  } else {
+                    retrieveAndProcessTableRows(tableId, acc, totalSize, tablePagination, finalFlagOpt, archivedFlagOpt)
+                  }
+              } yield result
+          )
+        } yield {
+          val (rowSeq, totalSize) = foldResult
+          RowSeq(rowSeq.rows, Page(pagination, Some(totalSize)))
+        }
+    }
+  }
+
   def retrieveRows(
       table: Table,
       finalFlagOpt: Option[Boolean],
@@ -1329,73 +1392,7 @@ class TableauxModel(
       columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(implicit user: TableauxUser): Future[RowSeq] = {
     if (table.tableType == UnionTable) {
-      for {
-        (rowSeq, totalSize) <- table.originTables match {
-          case None => Future.failed(InvalidRequestException("Union table has no origin tables defined"))
-          case Some(originTables) =>
-            for {
-              // TODO: do the totalSize request in one query?!
-              totalSize <- Future.sequence(originTables.map({
-                tableId => retrieveRowModel.size(tableId, finalFlagOpt, archivedFlagOpt)
-              }))
-              rowSeq <- originTables.foldLeft(Future.successful(RowSeq(Seq.empty, Page(pagination, Some(0L))))) {
-                (accFuture, tableId) =>
-                  println(s"XXX: pagination: ${pagination.getJson.toString()}")
-                  val offset = pagination.offset.getOrElse(0L).toInt
-                  val limit = pagination.limit.getOrElse((Int.MaxValue).toLong).toInt
-                  for {
-                    acc <- accFuture
-                    result <-
-                      if (acc.rows.size >= limit) {
-                        println(s"XXX: Skipping retrieval for table ${tableId}: " +
-                          s"current row count ${acc.rows.size} >= limit ${limit}")
-                        Future.successful(acc)
-                      } else {
-                        for {
-                          originTable <- retrieveTable(tableId)
-                          columns <- retrieveColumns(originTable)
-                          filteredColumns = filterColumns(originTable, columns)
-                          rowSeq <-
-                            retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
-                          resultRows <- filterRows(filteredColumns, rowSeq.rows)
-                        } yield {
-                          val filteredRows =
-                            roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
-                          val combinedRows = acc.rows ++ filteredRows
-                          println(
-                            s"XXX: Retrieved ${rowSeq.rows.size} rows from table ${originTable.id}, total so far: ${combinedRows.size}"
-                          )
-
-                          val limitedRows = pagination.limit match {
-                            case Some(limit) => combinedRows.take(limit.toInt)
-                            case None => combinedRows
-                          }
-                          RowSeq(limitedRows, rowSeq.page)
-                        }
-                      }
-                  } yield result
-              }
-            } yield {
-              println(s"XXX: Retrieved totalSizes for union table ${table.id}: ${totalSize.mkString(", ")}")
-              (rowSeq, totalSize)
-            }
-        }
-      } yield {
-        println(s"XXX: Total size for union table ${table.id}: ${totalSize.sum}")
-        RowSeq(rowSeq.rows, Page(pagination, Some(totalSize.sum)))
-      }
-
-      // pseudo code
-
-      // foreach originTable
-
-      // get table
-      // get totalSize <- (retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt))
-      // calculate and build a pagination for each table
-      // request those tables that are needed for the current page
-      // build resulting page
-      // and return the rowSeq with additional infos (tableId, linkId, ...)
-
+      retrieveUnionTableRows(table, finalFlagOpt, archivedFlagOpt, pagination)
     } else {
       for {
         columns <- retrieveColumns(table)
