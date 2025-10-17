@@ -589,8 +589,8 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   def unionTable_retrieveRows_ok(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- createUnionTable(true)
-      // retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").recover({ case ex => ex })
-      // retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first").recover({ case ex => ex })
+      retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").recover({ case ex => ex })
+      retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first").recover({ case ex => ex })
 
       retrieveAllUnionTableRows <- sendRequest("GET", s"/tables/$tableId/rows")
       retrieveTable2Rows <- sendRequest("GET", s"/tables/2/rows")
@@ -623,6 +623,18 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       assertJSONEquals(
         Json.obj("offset" -> 0, "limit" -> 7, "totalSize" -> 16),
         retrieveFirstSevenRows.getJsonObject("page")
+      )
+
+      assertEquals(7, retrieveSecondSevenRows.getJsonArray("rows").size())
+      assertJSONEquals(
+        Json.obj("offset" -> 7, "limit" -> 7, "totalSize" -> 16),
+        retrieveSecondSevenRows.getJsonObject("page")
+      )
+
+      assertEquals(2, retrieveLastTwoRows.getJsonArray("rows").size())
+      assertJSONEquals(
+        Json.obj("offset" -> 14, "limit" -> 7, "totalSize" -> 16),
+        retrieveLastTwoRows.getJsonObject("page")
       )
     }
   }
