@@ -1334,27 +1334,54 @@ class TableauxModel(
           case None => Future.failed(InvalidRequestException("Union table has no origin tables defined"))
           case Some(originTables) =>
             for {
-
-              totalSize <- Future.sequence(originTables.map { tableId =>
-                retrieveRowModel.size(tableId, finalFlagOpt, archivedFlagOpt)
-              })
+              // TODO: do the totalSize request in one query?!
+              totalSize <- Future.sequence(originTables.map({
+                tableId => retrieveRowModel.size(tableId, finalFlagOpt, archivedFlagOpt)
+              }))
               rowSeq <- originTables.foldLeft(Future.successful(RowSeq(Seq.empty, Page(pagination, Some(0L))))) {
                 (accFuture, tableId) =>
+                  println(s"XXX: pagination: ${pagination.getJson.toString()}")
+                  val offset = pagination.offset.getOrElse(0L).toInt
+                  val limit = pagination.limit.getOrElse((Int.MaxValue).toLong).toInt
                   for {
                     acc <- accFuture
-                    originTable <- retrieveTable(tableId)
-                    columns <- retrieveColumns(originTable)
-                    filteredColumns = filterColumns(originTable, columns)
-                    rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
-                    resultRows <- filterRows(filteredColumns, rowSeq.rows)
-                  } yield {
-                    val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
-                    RowSeq(acc.rows ++ filteredRows, rowSeq.page)
-                  }
+                    result <-
+                      if (acc.rows.size >= limit) {
+                        println(s"XXX: Skipping retrieval for table ${tableId}: " +
+                          s"current row count ${acc.rows.size} >= limit ${limit}")
+                        Future.successful(acc)
+                      } else {
+                        for {
+                          originTable <- retrieveTable(tableId)
+                          columns <- retrieveColumns(originTable)
+                          filteredColumns = filterColumns(originTable, columns)
+                          rowSeq <-
+                            retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
+                          resultRows <- filterRows(filteredColumns, rowSeq.rows)
+                        } yield {
+                          val filteredRows =
+                            roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+                          val combinedRows = acc.rows ++ filteredRows
+                          println(
+                            s"XXX: Retrieved ${rowSeq.rows.size} rows from table ${originTable.id}, total so far: ${combinedRows.size}"
+                          )
+
+                          val limitedRows = pagination.limit match {
+                            case Some(limit) => combinedRows.take(limit.toInt)
+                            case None => combinedRows
+                          }
+                          RowSeq(limitedRows, rowSeq.page)
+                        }
+                      }
+                  } yield result
               }
-            } yield (rowSeq, totalSize)
+            } yield {
+              println(s"XXX: Retrieved totalSizes for union table ${table.id}: ${totalSize.mkString(", ")}")
+              (rowSeq, totalSize)
+            }
         }
       } yield {
+        println(s"XXX: Total size for union table ${table.id}: ${totalSize.sum}")
         RowSeq(rowSeq.rows, Page(pagination, Some(totalSize.sum)))
       }
 
