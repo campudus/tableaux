@@ -596,18 +596,34 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       retrieveTable2Rows <- sendRequest("GET", s"/tables/2/rows")
       retrieveTable3Rows <- sendRequest("GET", s"/tables/3/rows")
       retrieveTable4Rows <- sendRequest("GET", s"/tables/4/rows")
-      retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows?offset=0&limit=7")
+
+      retrieveFirstTwoRows <- sendRequest("GET", s"/tables/$tableId/rows?offset=0&limit=2")
+
+      retrieveFirstSevenRows <- sendRequest("GET", s"/tables/$tableId/rows?offset=0&limit=7")
+      retrieveSecondSevenRows <- sendRequest("GET", s"/tables/$tableId/rows?offset=7&limit=7")
+      retrieveLastTwoRows <- sendRequest("GET", s"/tables/$tableId/rows?offset=14&limit=7")
     } yield {
-      // println("### rows: " + retrieveRows)
       assertEquals(3, retrieveTable2Rows.getJsonArray("rows").size())
       assertEquals(8, retrieveTable3Rows.getJsonArray("rows").size())
       assertEquals(5, retrieveTable4Rows.getJsonArray("rows").size())
 
       assertEquals(16, retrieveAllUnionTableRows.getJsonObject("page").getInteger("totalSize"))
-      assertEquals(16, retrieveAllUnionTableRows.getJsonArray("rows").size())
+      assertJSONEquals(
+        Json.obj("offset" -> null, "limit" -> null, "totalSize" -> 16),
+        retrieveAllUnionTableRows.getJsonObject("page")
+      )
 
-      // assertEquals(7, retrieveRows.getJsonArray("rows").size())
-      // assertEquals(7, retrieveRows.getJsonObject("page").getInteger("totalSize"))
+      assertEquals(2, retrieveFirstTwoRows.getJsonArray("rows").size())
+      assertJSONEquals(
+        Json.obj("offset" -> 0, "limit" -> 2, "totalSize" -> 16),
+        retrieveFirstTwoRows.getJsonObject("page")
+      )
+
+      assertEquals(7, retrieveFirstSevenRows.getJsonArray("rows").size())
+      assertJSONEquals(
+        Json.obj("offset" -> 0, "limit" -> 7, "totalSize" -> 16),
+        retrieveFirstSevenRows.getJsonObject("page")
+      )
     }
   }
 }
