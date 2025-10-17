@@ -57,19 +57,9 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
         Json.obj("values" -> Json.arr("color3", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1)))
       )
     )
+
     val table3ColumnsAndRows = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 3), Json.obj("id" -> 4), Json.obj("id" -> 2)),
-      "rows" -> Json.arr(
-        Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
-        Json.obj("values" -> Json.arr("color2", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
-        Json.obj("values" -> Json.arr("color3", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1))),
-        Json.obj("values" -> Json.arr("color4", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
-        Json.obj("values" -> Json.arr("color5", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(1)))
-      )
-    )
-
-    val table4ColumnsAndRows = Json.obj(
-      "columns" -> Json.arr(Json.obj("id" -> 4), Json.obj("id" -> 2), Json.obj("id" -> 3), Json.obj("id" -> 1)),
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
         Json.obj("values" -> Json.arr("color2", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
@@ -79,6 +69,17 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
         Json.obj("values" -> Json.arr("color6", Json.obj("de" -> "Weiß", "en" -> "White"), 6, Json.emptyArr())),
         Json.obj("values" -> Json.arr("color7", Json.obj("de" -> "Rosa", "en" -> "Pink"), 7, Json.arr(1))),
         Json.obj("values" -> Json.arr("color8", Json.obj("de" -> "Lila", "en" -> "Purple"), 8, Json.arr(2)))
+      )
+    )
+
+    val table4ColumnsAndRows = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 4), Json.obj("id" -> 2), Json.obj("id" -> 3), Json.obj("id" -> 1)),
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color2", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color3", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color4", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color5", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(1)))
       )
     )
 
@@ -564,23 +565,25 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
     *   - table3: 5 rows
     *   - table4: 8 rows
     *
+    * With union table ordering: table2, table4, table3 we get:
+    *
     * request1: offset: 0, limit: 7, totalSize: 16 -> response has 7 rows
     *
     *   - table2: 3 rows
-    *   - table3: 4 rows
+    *   - table3: 0 rows
     *   - table4: 4 rows
     *
     * request2: offset: 7, limit: 7, totalSize: 16 -> response has 7 rows
     *
     *   - table2: 0 rows
-    *   - table3: 1 rows
-    *   - table4: 6 rows
+    *   - table3: 6 rows
+    *   - table4: 1 rows
     *
     * request3: offset: 14, limit: 7, totalSize: 16 -> response has 2 rows
     *
     *   - table2: 0 rows
-    *   - table3: 0 rows
-    *   - table4: 2 rows
+    *   - table3: 2 rows
+    *   - table4: 0 rows
     */
   @Test
   def unionTable_retrieveRows_ok(implicit c: TestContext): Unit = okTest {
@@ -597,8 +600,8 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
     } yield {
       // println("### rows: " + retrieveRows)
       assertEquals(3, retrieveTable2Rows.getJsonArray("rows").size())
-      assertEquals(5, retrieveTable3Rows.getJsonArray("rows").size())
-      assertEquals(8, retrieveTable4Rows.getJsonArray("rows").size())
+      assertEquals(8, retrieveTable3Rows.getJsonArray("rows").size())
+      assertEquals(5, retrieveTable4Rows.getJsonArray("rows").size())
 
       assertEquals(16, retrieveAllUnionTableRows.getJsonObject("page").getInteger("totalSize"))
       assertEquals(16, retrieveAllUnionTableRows.getJsonArray("rows").size())
