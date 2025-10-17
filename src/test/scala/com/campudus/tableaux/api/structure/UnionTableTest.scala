@@ -148,9 +148,9 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
       glossLinkTableId <- createDefaultTable(name = "glossLink")
       createColumnGloss = createCardinalityLinkColumn(glossLinkTableId, "glossLevel", 0, 1)
 
-      tableId2 <- sendRequest("POST", "/tables", createTableJson("table1")).map(_.getLong("id"))
-      tableId3 <- sendRequest("POST", "/tables", createTableJson("table2")).map(_.getLong("id"))
-      tableId4 <- sendRequest("POST", "/tables", createTableJson("table3")).map(_.getLong("id"))
+      tableId2 <- sendRequest("POST", "/tables", createTableJson("table2")).map(_.getLong("id"))
+      tableId3 <- sendRequest("POST", "/tables", createTableJson("table3")).map(_.getLong("id"))
+      tableId4 <- sendRequest("POST", "/tables", createTableJson("table4")).map(_.getLong("id"))
 
       table2Columns = Columns(createColumnName, createColumnColor, createColumnPrio, createColumnGloss)
       table3Columns = Columns(createColumnName, createColumnGloss, createColumnColor, createColumnPrio)
@@ -595,13 +595,16 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       retrieveTable4Rows <- sendRequest("GET", s"/tables/4/rows")
       retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows?offset=0&limit=7")
     } yield {
-      println("### rows: " + retrieveRows)
+      // println("### rows: " + retrieveRows)
       assertEquals(3, retrieveTable2Rows.getJsonArray("rows").size())
       assertEquals(5, retrieveTable3Rows.getJsonArray("rows").size())
       assertEquals(8, retrieveTable4Rows.getJsonArray("rows").size())
 
-      assertEquals(0, retrieveAllUnionTableRows.getJsonObject("page").getInteger("totalSize"))
-      assertEquals(0, retrieveAllUnionTableRows.getJsonArray("rows").size())
+      assertEquals(16, retrieveAllUnionTableRows.getJsonObject("page").getInteger("totalSize"))
+      assertEquals(16, retrieveAllUnionTableRows.getJsonArray("rows").size())
+
+      // assertEquals(7, retrieveRows.getJsonArray("rows").size())
+      // assertEquals(7, retrieveRows.getJsonObject("page").getInteger("totalSize"))
     }
   }
 }
