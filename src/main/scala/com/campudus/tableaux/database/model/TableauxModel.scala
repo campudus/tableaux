@@ -1307,21 +1307,27 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[RowSeq] = {
     if (table.tableType == UnionTable) {
       for {
-        rowSequences <- table.originTables match {
+        (rowSeq, totalSize) <- table.originTables match {
           case None => Future.failed(InvalidRequestException("Union table has no origin tables defined"))
-          case Some(originTables) => Future.sequence(
-              originTables.map { tableId =>
-                {
+          case Some(originTables) =>
+            for {
+
+              totalSize <- Future.sequence(originTables.map { tableId =>
+                retrieveRowModel.size(tableId, finalFlagOpt, archivedFlagOpt)
+              })
+              rowSeq <- originTables.foldLeft(Future.successful(RowSeq(Seq.empty, Page(pagination, Some(0L))))) {
+                (accFuture, tableId) =>
                   for {
+                    acc <- accFuture
                     originTable <- retrieveTable(tableId)
+                    _ = println("XXX: retrieving rows from origin table: " + originTable.name)
                     columns <- retrieveColumns(originTable)
-                    filteredColumns = roleModel
-                      .filterDomainObjects[ColumnType[_]](
-                        ViewCellValue,
-                        columns,
-                        ComparisonObjects(originTable),
-                        isInternalCall = false
-                      )
+                    filteredColumns = roleModel.filterDomainObjects[ColumnType[_]](
+                      ViewCellValue,
+                      columns,
+                      ComparisonObjects(originTable),
+                      isInternalCall = false
+                    )
                     rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
                     resultRows <-
                       if (config.isRowPermissionCheckEnabled) {
@@ -1331,17 +1337,13 @@ class TableauxModel(
                       }
                   } yield {
                     val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
-                    RowSeq(filteredRows, rowSeq.page)
+                    RowSeq(acc.rows ++ filteredRows, rowSeq.page)
                   }
-                }
               }
-            )
+            } yield (rowSeq, totalSize)
         }
       } yield {
-        println("XXX: retrieved row sequences from origin tables: " + rowSequences.map(_.rows.size))
-        val rowSequenceUnion = rowSequences.flatMap(_.rows)
-        val unionTotalSize = rowSequences.map(_.page.totalSize.getOrElse(0L)).sum
-        RowSeq(rowSequenceUnion, Page(pagination, Some(unionTotalSize)))
+        RowSeq(rowSeq.rows, Page(pagination, Some(totalSize.sum)))
       }
 
       // pseudo code
