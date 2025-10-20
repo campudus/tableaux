@@ -15,6 +15,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.Json
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 import org.junit.Assert._
@@ -22,6 +23,69 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 sealed trait UnionTableTestHelper extends TableauxTestBase {
+
+  val unionTableCol1 = Json.obj(
+    "name" -> "originTable",
+    "kind" -> "text",
+    "ordering" -> 1,
+    "displayName" -> Json.obj("de" -> "Ursprungstabelle", "en" -> "Origin Table"),
+    "description" -> Json.obj(
+      "de" -> "Der Tabellenname, aus der die Daten stammen",
+      "en" -> "The name of the table from which the data is taken"
+    )
+  )
+
+  val unionTableCol2 = Json.obj(
+    "name" -> "name",
+    "kind" -> "text",
+    "ordering" -> 1,
+    "displayName" -> Json.obj("de" -> "Marketing Name", "en" -> "Marketing Name"),
+    "description" -> Json.obj("de" -> "Marketingname der Farbe", "en" -> "marketing name of the color"),
+    "originColumns" -> Json.obj(
+      "2" -> Json.obj("id" -> 1),
+      "3" -> Json.obj("id" -> 1),
+      "4" -> Json.obj("id" -> 4)
+    )
+  )
+
+  val unionTableCol3 = Json.obj(
+    "name" -> "color",
+    "kind" -> "text",
+    "ordering" -> 2,
+    "displayName" -> Json.obj("de" -> "Name der Farbe", "en" -> "Color Name"),
+    "description" -> Json.obj("de" -> "Name der Farbe", "en" -> "Name of the color"),
+    "originColumns" -> Json.obj(
+      "2" -> Json.obj("id" -> 2),
+      "3" -> Json.obj("id" -> 3),
+      "4" -> Json.obj("id" -> 2)
+    )
+  )
+
+  val unionTableCol4 = Json.obj(
+    "name" -> "prio",
+    "kind" -> "numeric",
+    "ordering" -> 3,
+    "displayName" -> Json.obj("de" -> "Prio", "en" -> "Priority"),
+    "description" -> Json.obj("de" -> "Die Priorität der Farbe", "en" -> "The priority of the color"),
+    "originColumns" -> Json.obj(
+      "2" -> Json.obj("id" -> 3),
+      "3" -> Json.obj("id" -> 4),
+      "4" -> Json.obj("id" -> 3)
+    )
+  )
+
+  val unionTableCol5 = Json.obj(
+    "name" -> "glossLevel",
+    "kind" -> "unionlink",
+    "ordering" -> 3,
+    "displayName" -> Json.obj("de" -> "Glanzgrad", "en" -> "Gloss Level"),
+    "description" -> Json.obj("de" -> "Der Glanzgrad der Farbe", "en" -> "The gloss level of the color"),
+    "originColumns" -> Json.obj(
+      "2" -> Json.obj("id" -> 4),
+      "3" -> Json.obj("id" -> 2),
+      "4" -> Json.obj("id" -> 1)
+    )
+  )
 
   def createTableJson(name: String) = Json.obj("name" -> name)
 
@@ -90,6 +154,15 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     } yield ()
   }
 
+  def addColumnsToUnionTable(tableId: TableId, columns: Seq[JsonObject]): Future[JsonObject] =
+    sendRequest(
+      "POST",
+      s"/tables/$tableId/columns",
+      Json.obj("columns" -> Json.arr(columns: _*))
+    )
+
+  
+
   // format: off
   /**
    * Creates three almost identical tables but with different column order.
@@ -138,7 +211,7 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
    * - table3: 5 rows
    * - table4: 8 rows
    */
-  def createUnionTable(shouldInsertRows: Boolean = false): Future[TableId] = {
+  def createUnionTable(shouldInsertRows: Boolean = false, shouldCreateColumns: Boolean = true): Future[TableId] = {
   // format: on
 
     val createColumnName = createTextColumnJson("name")
@@ -177,6 +250,16 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
       )
       resultUnionTable <- sendRequest("POST", "/tables", payload)
 
+      _ <-
+        if (shouldCreateColumns) {
+          addColumnsToUnionTable(
+            resultUnionTable.getLong("id"),
+            Seq(unionTableCol2, unionTableCol3, unionTableCol4, unionTableCol5)
+          )
+        } else {
+          Future.successful(())
+        }
+
     } yield resultUnionTable.getLong("id")
   }
 }
@@ -187,7 +270,7 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
   @Test
   def createUnionTable_withOriginTables_ok(implicit c: TestContext): Unit = okTest {
     for {
-      tableId <- createUnionTable()
+      tableId <- createUnionTable(false, false)
       unionTable <- sendRequest("GET", s"/completetable/$tableId")
     } yield {
       val expectedUnionTable = Json.obj(
@@ -250,68 +333,8 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
   def updateUnionTable_addColumnsToUnionTable_ok(implicit c: TestContext): Unit = okTest {
     import scala.collection.JavaConverters._
 
-    val unionTableCol1 = Json.obj(
-      "name" -> "originTable",
-      "kind" -> "text",
-      "ordering" -> 1,
-      "displayName" -> Json.obj("de" -> "Ursprungstabelle", "en" -> "Origin Table"),
-      "description" -> Json.obj(
-        "de" -> "Der Tabellenname, aus der die Daten stammen",
-        "en" -> "The name of the table from which the data is taken"
-      )
-    )
-
-    val unionTableCol2 = Json.obj(
-      "name" -> "name",
-      "kind" -> "text",
-      "ordering" -> 1,
-      "displayName" -> Json.obj("de" -> "Marketing Name", "en" -> "Marketing Name"),
-      "description" -> Json.obj("de" -> "Marketingname der Farbe", "en" -> "marketing name of the color"),
-      "originColumns" -> Json.obj(
-        "2" -> Json.obj("id" -> 1),
-        "3" -> Json.obj("id" -> 1),
-        "4" -> Json.obj("id" -> 4)
-      )
-    )
-    val unionTableCol3 = Json.obj(
-      "name" -> "color",
-      "kind" -> "text",
-      "ordering" -> 2,
-      "displayName" -> Json.obj("de" -> "Name der Farbe", "en" -> "Color Name"),
-      "description" -> Json.obj("de" -> "Name der Farbe", "en" -> "Name of the color"),
-      "originColumns" -> Json.obj(
-        "2" -> Json.obj("id" -> 2),
-        "3" -> Json.obj("id" -> 3),
-        "4" -> Json.obj("id" -> 2)
-      )
-    )
-    val unionTableCol4 = Json.obj(
-      "name" -> "prio",
-      "kind" -> "numeric",
-      "ordering" -> 3,
-      "displayName" -> Json.obj("de" -> "Prio", "en" -> "Priority"),
-      "description" -> Json.obj("de" -> "Die Priorität der Farbe", "en" -> "The priority of the color"),
-      "originColumns" -> Json.obj(
-        "2" -> Json.obj("id" -> 3),
-        "3" -> Json.obj("id" -> 4),
-        "4" -> Json.obj("id" -> 3)
-      )
-    )
-    val unionTableCol5 = Json.obj(
-      "name" -> "glossLevel",
-      "kind" -> "unionlink",
-      "ordering" -> 3,
-      "displayName" -> Json.obj("de" -> "Glanzgrad", "en" -> "Gloss Level"),
-      "description" -> Json.obj("de" -> "Der Glanzgrad der Farbe", "en" -> "The gloss level of the color"),
-      "originColumns" -> Json.obj(
-        "2" -> Json.obj("id" -> 4),
-        "3" -> Json.obj("id" -> 2),
-        "4" -> Json.obj("id" -> 1)
-      )
-    )
-
     for {
-      tableId <- createUnionTable()
+      tableId <- createUnionTable(false, false)
 
       columns <- sendRequest(
         "POST",
@@ -415,7 +438,7 @@ class DeleteUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
       )
 
       for {
-        tableId <- createUnionTable()
+        tableId <- createUnionTable(false, false)
         _ <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(unionTableCol)))
         _ <- sendRequest("DELETE", s"/tables/$tableId/columns/1")
       } yield ()
@@ -440,7 +463,7 @@ class DeleteUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
       )
 
       for {
-        tableId <- createUnionTable()
+        tableId <- createUnionTable(false, false)
         // add a column
         columns <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(unionTableCol)))
         _ <- sendRequest("DELETE", s"/tables/$tableId")
@@ -607,7 +630,7 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       assertEquals(8, retrieveTable3Rows.getJsonArray("rows").size())
       assertEquals(5, retrieveTable4Rows.getJsonArray("rows").size())
 
-      assertEquals(16, retrieveAllUnionTableRows.getJsonObject("page").getInteger("totalSize"))
+      assertEquals(16, retrieveAllUnionTableRows.getJsonArray("rows").size())
       assertJSONEquals(
         Json.obj("offset" -> null, "limit" -> null, "totalSize" -> 16),
         retrieveAllUnionTableRows.getJsonObject("page")
@@ -636,6 +659,74 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
         Json.obj("offset" -> 14, "limit" -> 7, "totalSize" -> 16),
         retrieveLastTwoRows.getJsonObject("page")
       )
+    }
+  }
+
+  @Test
+  def unionTable_retrieveAllRows_hasColumnOrderingOfUnionTable(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createUnionTable(true)
+
+      _ <- sendRequest("GET", s"/completetable/$tableId")
+
+      unionColumns <- fetchColumns(tableId).map(_.getJsonArray("columns")).map(_.asScala.collect({
+        case obj: JsonObject => obj
+      }).toList)
+
+      retrieveAllUnionTableRows <- sendRequest("GET", s"/tables/$tableId/rows")
+    } yield {
+      val rows = retrieveAllUnionTableRows.getJsonArray("rows")
+
+      println(s"XXX unionColumns: $unionColumns")
+
+      val valuesStringColumn1 =
+        rows.asScala.map(row => {
+          val values = row.asInstanceOf[JsonObject].getJsonArray("values")
+          Option(values.getString(0)).getOrElse("")
+        }).mkString(",")
+
+      println(s"XXX rows: $valuesStringColumn1")
+
+      assertEquals(
+        "color1,color2,color3,color1,color2,color3,color4,color5,color1,color2,color3,color4,color5,color6,color7,color8",
+        valuesStringColumn1
+      )
+
+      val valuesStringColumn2 =
+        rows.asScala.map(row => {
+          val values = row.asInstanceOf[JsonObject].getJsonArray("values")
+          Option(values.getJsonObject(1))
+            .flatMap(obj => Option(obj.getString("de")))
+            .getOrElse("")
+        }).mkString(",")
+
+      println(s"XXX rows: $valuesStringColumn2")
+
+      val valuesStringColumn3 =
+        rows.asScala.map(row => {
+          val values = row.asInstanceOf[JsonObject].getJsonArray("values")
+          Option(values.getLong(2)).getOrElse(0L)
+        }).mkString(",")
+
+      println(s"XXX rows: $valuesStringColumn3")
+
+      val valuesStringColumn4 =
+        rows.asScala.map(row => {
+          val values = row.asInstanceOf[JsonObject].getJsonArray("values")
+          Option(values.getJsonArray(3))
+            .map(_.asScala.collect {
+              case obj: JsonObject => Option(obj.getString("id")).getOrElse("")
+            })
+            .getOrElse(Seq.empty)
+        }).mkString(",")
+
+      println(s"XXX rows: $valuesStringColumn4")
+
+      // rows.asScala.map(row => row.asInstanceOf[JsonObject].getJsonArray("values").getString(0)).mkString(",")
+      // val valuesColumn1 = rows.map(row => row.asInstanceOf[JsonObject].getJsonArray("values").getString(0)).toList
+
+      // println(s"XXX rows: $rows")
+      // println(s"XXX rows: $valuesColumn1")
     }
   }
 }

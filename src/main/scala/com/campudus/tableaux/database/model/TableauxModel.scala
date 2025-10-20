@@ -1313,7 +1313,8 @@ class TableauxModel(
   }
 
   def retrieveUnionTableRows(
-      table: Table,
+      unionTable: Table,
+      unionTableColumns: Seq[ColumnType[_]],
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination
@@ -1336,17 +1337,35 @@ class TableauxModel(
       } yield {
         val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
         val combinedRows = acc.rows ++ filteredRows
+
+        // TODO: add tableId to each row
+        // TODO: sort columns in rows
+
         (RowSeq(combinedRows, rowSeq.page), totalSize)
       }
     }
 
-    table.originTables match {
+    unionTable.originTables match {
       case None =>
         Future.failed(InvalidRequestException("Union table has no origin tables defined"))
 
       case Some(originTables) =>
         val originalOffset = pagination.offset.getOrElse(0L).toInt
         val originalLimit = pagination.limit.getOrElse((Int.MaxValue).toLong).toInt
+
+        println(s"XXX: unionTableColumns = ${unionTableColumns.toList}")
+
+        val originTableColumns = unionTableColumns.map(_.originColumns).flatten.distinct.toList
+        println(s"XXX: originTableColumns = $originTableColumns")
+
+        val originTableIds: Seq[Map[Long, Long]] = originTableColumns.map(_.tableToColumn)
+        println(s"XXX: originTableIds = $originTableIds")
+
+        val originColumnId2columnId: Map[Long, Long] = originTableColumns.map(otc =>
+          otc.tableToColumn.filter({ case (tableId, _) => originTables.contains(tableId) })
+        ).flatten.toMap
+
+        println(s"XXX: originColumnId2columnId = $originColumnId2columnId")
 
         for {
           foldResult <- originTables.foldLeft(Future.successful((RowSeq(Seq.empty, Page(pagination, Some(0L))), 0L)))(
@@ -1364,7 +1383,14 @@ class TableauxModel(
                   if (rowCount < tableOffset) {
                     Future.successful((acc, totalSize))
                   } else {
-                    retrieveAndProcessTableRows(tableId, acc, totalSize, tablePagination, finalFlagOpt, archivedFlagOpt)
+                    retrieveAndProcessTableRows(
+                      tableId,
+                      acc,
+                      totalSize,
+                      tablePagination,
+                      finalFlagOpt,
+                      archivedFlagOpt
+                    )
                   }
               } yield result
           )
@@ -1382,7 +1408,10 @@ class TableauxModel(
       pagination: Pagination
   )(implicit user: TableauxUser): Future[RowSeq] = {
     if (table.tableType == UnionTable) {
-      retrieveUnionTableRows(table, finalFlagOpt, archivedFlagOpt, pagination)
+      for {
+        unionTableColumns <- retrieveColumns(table)
+        rowSeq <- retrieveUnionTableRows(table, unionTableColumns, finalFlagOpt, archivedFlagOpt, pagination)
+      } yield rowSeq
     } else {
       for {
         columns <- retrieveColumns(table)
