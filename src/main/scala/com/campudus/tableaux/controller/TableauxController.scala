@@ -632,7 +632,6 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ = UnionTableHelper.notImplemented(table)
       colList <- repository.retrieveColumns(table)
       rowList <- repository.retrieveRows(table, None, None, Pagination(None, None))
     } yield CompleteTable(table, colList, rowList)

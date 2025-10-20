@@ -1331,7 +1331,7 @@ class TableauxModel(
         originTable <- retrieveTable(tableId)
         columns <- retrieveColumns(originTable)
         filteredColumns = filterColumns(originTable, columns)
-        rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination)
+        rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination, true)
         resultRows <- filterRows(filteredColumns, rowSeq.rows)
       } yield {
         val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
@@ -1427,16 +1427,19 @@ class TableauxModel(
       columns: Seq[ColumnType[_]],
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
-      pagination: Pagination
+      pagination: Pagination,
+      skipRetrieveSize: Boolean = false
   )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
-      totalSize <- retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt)
+      totalSizeOpt <-
+        if (skipRetrieveSize) Future.successful(None)
+        else retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt).map(Some(_))
       rawRows <- retrieveRowModel.retrieveAll(table.id, columns, finalFlagOpt, archivedFlagOpt, pagination)
       rowSeq <- mapRawRows(table, columns, rawRows)
     } yield {
-      RowSeq(rowSeq, Page(pagination, Some(totalSize)))
+      RowSeq(rowSeq, Page(pagination, totalSizeOpt))
     }
   }
 
