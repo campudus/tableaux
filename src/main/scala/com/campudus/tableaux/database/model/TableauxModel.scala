@@ -1321,7 +1321,10 @@ class TableauxModel(
     }
   }
 
-  private def addOriginColumnValues(originColumnValue: JsonObject)(rows: Seq[Row]): Seq[Row] = {
+  private def addAndReorderOriginColumnValues(
+      originColumnValue: JsonObject,
+      originColumn2UnionColumnMapping: Map[Long, Long]
+  )(rows: Seq[Row]): Seq[Row] = {
     rows.map({ row =>
       Row(
         row.table,
@@ -1336,6 +1339,7 @@ class TableauxModel(
 
   def retrieveAndProcessTableRows(
       tableId: TableId,
+      unionTableColumns: Seq[ColumnType[_]],
       acc: RowSeq,
       totalSize: Long,
       tablePagination: Pagination,
@@ -1351,7 +1355,30 @@ class TableauxModel(
     } yield {
       val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
       val originColumnValue = originTable.getDisplayNameJson
-      val combinedRows = acc.rows ++ addOriginColumnValues(originColumnValue)(filteredRows)
+
+      val originTableColumnOffset = 1L // because we add the origin column at position 1
+
+      val originColumn2UnionColumnMapping: Map[Long, Long] = unionTableColumns
+        .flatMap(utc =>
+          utc.originColumns
+            .filter(otc => otc.tableToColumn.contains(originTable.id))
+            .map(otc => (otc.tableToColumn(originTable.id) + originTableColumnOffset, utc.id))
+        )
+        .toMap
+
+      val unifyColumns = addAndReorderOriginColumnValues(originColumnValue, originColumn2UnionColumnMapping)(_)
+
+      println(
+        s"XXX: originColumn2UnionColumnMapping - off by one wegen column origintable " +
+          s"(originTablePos -> unionTablePos) = $originColumn2UnionColumnMapping"
+      )
+
+      // TODO: reorder newly added values
+      // XXX: (originTablePos -> unionTablePos) = Map(2 -> 2, 3 -> 3, 4 -> 4, 5 -> 5)
+      // XXX: (originTablePos -> unionTablePos) = Map(5 -> 2, 3 -> 3, 4 -> 4, 2 -> 5)
+      // XXX: (originTablePos -> unionTablePos) = Map(2 -> 2, 4 -> 3, 5 -> 4, 3 -> 5)
+
+      val combinedRows = acc.rows ++ unifyColumns(filteredRows)
 
       (RowSeq(combinedRows, rowSeq.page), totalSize)
     }
@@ -1373,20 +1400,6 @@ class TableauxModel(
         val originalOffset = pagination.offset.getOrElse(0L).toInt
         val originalLimit = pagination.limit.getOrElse((Int.MaxValue).toLong).toInt
 
-        println(s"XXX: unionTableColumns = ${unionTableColumns.toList}")
-
-        val originTableColumns = unionTableColumns.map(_.originColumns).flatten.distinct.toList
-        // println(s"XXX: originTableColumns = $originTableColumns")
-
-        // val originTableIds: Seq[Map[Long, Long]] = originTableColumns.map(_.tableToColumn)
-        // println(s"XXX: originTableIds = $originTableIds")
-
-        val originColumnId2columnId: Map[Long, Long] = originTableColumns.map(otc =>
-          otc.tableToColumn.filter({ case (tableId, _) => originTables.contains(tableId) })
-        ).flatten.toMap
-
-        println(s"XXX: originColumnId2columnId = $originColumnId2columnId")
-
         for {
           foldResult <- originTables.foldLeft(Future.successful((RowSeq(Seq.empty, Page(pagination, Some(0L))), 0L)))(
             (accFuture, tableId) =>
@@ -1405,6 +1418,7 @@ class TableauxModel(
                   } else {
                     retrieveAndProcessTableRows(
                       tableId,
+                      unionTableColumns,
                       acc,
                       totalSize,
                       tablePagination,
