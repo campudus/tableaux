@@ -60,6 +60,16 @@ case class Table(
     originTables: Option[Seq[TableId]]
 )(implicit roleModel: RoleModel = RoleModel(), user: TableauxUser) extends DomainObject {
 
+  def getDisplayNameJson: JsonObject = {
+    val displayNameJson = Json.obj()
+    displayInfos.foreach { di =>
+      di.optionalName.map(name => {
+        displayNameJson.mergeIn(Json.obj(di.langtag -> name))
+      })
+    }
+    displayNameJson
+  }
+
   override def getJson: JsonObject = {
     val tableJson = Json.obj(
       "id" -> id,
