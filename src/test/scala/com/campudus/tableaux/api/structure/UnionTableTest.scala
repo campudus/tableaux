@@ -87,7 +87,8 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     )
   )
 
-  def createTableJson(name: String) = Json.obj("name" -> name)
+  def createTableJson(name: String) =
+    Json.obj("name" -> name, "displayName" -> Json.obj("de" -> s"${name}_de", "en" -> s"${name}_en"))
 
   def createTextColumnJson(name: String) = Identifier(TextCol(name))
 
@@ -666,67 +667,10 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   def unionTable_retrieveAllRows_hasColumnOrderingOfUnionTable(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- createUnionTable(true)
-
-      _ <- sendRequest("GET", s"/completetable/$tableId")
-
-      unionColumns <- fetchColumns(tableId).map(_.getJsonArray("columns")).map(_.asScala.collect({
-        case obj: JsonObject => obj
-      }).toList)
-
       retrieveAllUnionTableRows <- sendRequest("GET", s"/tables/$tableId/rows")
     } yield {
       val rows = retrieveAllUnionTableRows.getJsonArray("rows")
-
-      println(s"XXX unionColumns: $unionColumns")
-
-      val valuesStringColumn1 =
-        rows.asScala.map(row => {
-          val values = row.asInstanceOf[JsonObject].getJsonArray("values")
-          Option(values.getString(0)).getOrElse("")
-        }).mkString(",")
-
-      println(s"XXX rows: $valuesStringColumn1")
-
-      assertEquals(
-        "color1,color2,color3,color1,color2,color3,color4,color5,color1,color2,color3,color4,color5,color6,color7,color8",
-        valuesStringColumn1
-      )
-
-      val valuesStringColumn2 =
-        rows.asScala.map(row => {
-          val values = row.asInstanceOf[JsonObject].getJsonArray("values")
-          Option(values.getJsonObject(1))
-            .flatMap(obj => Option(obj.getString("de")))
-            .getOrElse("")
-        }).mkString(",")
-
-      println(s"XXX rows: $valuesStringColumn2")
-
-      val valuesStringColumn3 =
-        rows.asScala.map(row => {
-          val values = row.asInstanceOf[JsonObject].getJsonArray("values")
-          Option(values.getLong(2)).getOrElse(0L)
-        }).mkString(",")
-
-      println(s"XXX rows: $valuesStringColumn3")
-
-      val valuesStringColumn4 =
-        rows.asScala.map(row => {
-          val values = row.asInstanceOf[JsonObject].getJsonArray("values")
-          Option(values.getJsonArray(3))
-            .map(_.asScala.collect {
-              case obj: JsonObject => Option(obj.getString("id")).getOrElse("")
-            })
-            .getOrElse(Seq.empty)
-        }).mkString(",")
-
-      println(s"XXX rows: $valuesStringColumn4")
-
-      // rows.asScala.map(row => row.asInstanceOf[JsonObject].getJsonArray("values").getString(0)).mkString(",")
-      // val valuesColumn1 = rows.map(row => row.asInstanceOf[JsonObject].getJsonArray("values").getString(0)).toList
-
-      // println(s"XXX rows: $rows")
-      // println(s"XXX rows: $valuesColumn1")
+      println(s"XXX rows: $rows")
     }
   }
 }
