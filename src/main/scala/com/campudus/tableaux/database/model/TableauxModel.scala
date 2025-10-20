@@ -1312,6 +1312,42 @@ class TableauxModel(
     }
   }
 
+  private def addOriginColumnValues(originColumnValue: JsonObject)(rows: Seq[Row]): Seq[Row] = {
+    rows.map({ row =>
+      Row(
+        row.table,
+        row.id,
+        row.rowLevelAnnotations,
+        row.rowPermissions,
+        row.cellLevelAnnotations,
+        originColumnValue +: row.values
+      )
+    })
+  }
+
+  def retrieveAndProcessTableRows(
+      tableId: TableId,
+      acc: RowSeq,
+      totalSize: Long,
+      tablePagination: Pagination,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  )(implicit user: TableauxUser): Future[(RowSeq, Long)] = {
+    for {
+      originTable <- retrieveTable(tableId)
+      columns <- retrieveColumns(originTable)
+      filteredColumns = filterColumns(originTable, columns)
+      rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination, true)
+      resultRows <- filterRows(filteredColumns, rowSeq.rows)
+    } yield {
+      val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+      val originColumnValue = originTable.getDisplayNameJson
+      val combinedRows = acc.rows ++ addOriginColumnValues(originColumnValue)(filteredRows)
+
+      (RowSeq(combinedRows, rowSeq.page), totalSize)
+    }
+  }
+
   def retrieveUnionTableRows(
       unionTable: Table,
       unionTableColumns: Seq[ColumnType[_]],
@@ -1319,31 +1355,6 @@ class TableauxModel(
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination
   )(implicit user: TableauxUser): Future[RowSeq] = {
-
-    def retrieveAndProcessTableRows(
-        tableId: TableId,
-        acc: RowSeq,
-        totalSize: Long,
-        tablePagination: Pagination,
-        finalFlagOpt: Option[Boolean],
-        archivedFlagOpt: Option[Boolean]
-    ): Future[(RowSeq, Long)] = {
-      for {
-        originTable <- retrieveTable(tableId)
-        columns <- retrieveColumns(originTable)
-        filteredColumns = filterColumns(originTable, columns)
-        rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination, true)
-        resultRows <- filterRows(filteredColumns, rowSeq.rows)
-      } yield {
-        val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
-        val combinedRows = acc.rows ++ filteredRows
-
-        // TODO: add tableId to each row
-        // TODO: sort columns in rows
-
-        (RowSeq(combinedRows, rowSeq.page), totalSize)
-      }
-    }
 
     unionTable.originTables match {
       case None =>
@@ -1356,10 +1367,10 @@ class TableauxModel(
         println(s"XXX: unionTableColumns = ${unionTableColumns.toList}")
 
         val originTableColumns = unionTableColumns.map(_.originColumns).flatten.distinct.toList
-        println(s"XXX: originTableColumns = $originTableColumns")
+        // println(s"XXX: originTableColumns = $originTableColumns")
 
-        val originTableIds: Seq[Map[Long, Long]] = originTableColumns.map(_.tableToColumn)
-        println(s"XXX: originTableIds = $originTableIds")
+        // val originTableIds: Seq[Map[Long, Long]] = originTableColumns.map(_.tableToColumn)
+        // println(s"XXX: originTableIds = $originTableIds")
 
         val originColumnId2columnId: Map[Long, Long] = originTableColumns.map(otc =>
           otc.tableToColumn.filter({ case (tableId, _) => originTables.contains(tableId) })
