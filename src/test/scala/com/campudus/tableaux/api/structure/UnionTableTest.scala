@@ -669,7 +669,7 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   }
 
   @Test
-  def unionTable_retrieveAllRows_hasColumnOrderingOfUnionTable(implicit c: TestContext): Unit = okTest {
+  def unionTable_retrieveAllRows_haveColumnOrderingOfUnionTable(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- createUnionTable(true)
       retrieveAllUnionTableRows <- sendRequest("GET", s"/tables/$tableId/rows")
@@ -678,6 +678,13 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       retrieveTable4Columns <- sendRequest("GET", s"/tables/4/columns")
     } yield {
       val rows = retrieveAllUnionTableRows.getJsonArray("rows")
+
+      val concatTableIds =
+        rows.asScala.map(row =>
+          row.asInstanceOf[JsonObject].getInteger("tableId")
+        ).mkString(",")
+
+      assertEquals("2,2,2,4,4,4,4,4,4,4,4,3,3,3,3,3", concatTableIds)
 
       val concatStringColumn1 =
         rows.asScala.map(row =>

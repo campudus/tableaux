@@ -819,18 +819,21 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  def addRowPermissions(table: Table, row: Row, rowPermissions: RowPermissionSeq): Future[Option[RowPermissionSeq]] = {
+  def addRowPermissions(
+      table: Table,
+      row: RowLike,
+      rowPermissions: RowPermissionSeq
+  ): Future[Option[RowPermissionSeq]] = {
     val mergedSeq = (row.rowPermissions.value ++ rowPermissions).distinct
     updateRowPermissions(table.id, row.id, Some(mergedSeq))
   }
 
-  def deleteRowPermissions(table: Table, row: Row): Future[Option[RowPermissionSeq]] = {
+  def deleteRowPermissions(table: Table, row: RowLike): Future[Option[RowPermissionSeq]] =
     updateRowPermissions(table.id, row.id, None)
-  }
 
   def replaceRowPermissions(
       table: Table,
-      row: Row,
+      row: RowLike,
       rowPermissions: RowPermissionSeq
   ): Future[Option[RowPermissionSeq]] =
     updateRowPermissions(table.id, row.id, Some(rowPermissions))
