@@ -343,7 +343,7 @@ class TableauxController(
       archivedFlagOpt: Option[Boolean]
   )(
       implicit user: TableauxUser
-  ): Future[Row] = {
+  ): Future[RowLike] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"updateRowAnnotations $tableId $rowId $finalFlagOpt $archivedFlagOpt")
     for {
@@ -373,7 +373,7 @@ class TableauxController(
   }
 
   def duplicateRow(tableId: TableId, rowId: RowId, duplicateOptions: Option[DuplicateRowOptions])(implicit
-  user: TableauxUser): Future[Row] = {
+  user: TableauxUser): Future[RowLike] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"duplicateRow $tableId $rowId")
     for {
@@ -388,7 +388,7 @@ class TableauxController(
       tableId: TableId,
       rowId: RowId,
       columnFilter: ColumnFilter = ColumnFilter(None, None)
-  )(implicit user: TableauxUser): Future[Row] = {
+  )(implicit user: TableauxUser): Future[RowLike] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(rowId),
