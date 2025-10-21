@@ -124,27 +124,35 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     )
 
     val table3ColumnsAndRows = Json.obj(
+      // "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 3), Json.obj("id" -> 4), Json.obj("id" -> 2)),
+      // "rows" -> Json.arr(
+      //   Json.obj("values" -> Json.arr("color12", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
+      //   Json.obj("values" -> Json.arr("color13", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
+      //   Json.obj("values" -> Json.arr("color14", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1))),
+      //   Json.obj("values" -> Json.arr("color15", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
+      //   Json.obj("values" -> Json.arr("color16", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(1)))
+      // )
       "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 3), Json.obj("id" -> 4), Json.obj("id" -> 2)),
       "rows" -> Json.arr(
-        Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
-        Json.obj("values" -> Json.arr("color2", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
-        Json.obj("values" -> Json.arr("color3", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(2))),
-        Json.obj("values" -> Json.arr("color4", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
-        Json.obj("values" -> Json.arr("color5", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(2))),
-        Json.obj("values" -> Json.arr("color6", Json.obj("de" -> "Weiß", "en" -> "White"), 6, Json.emptyArr())),
-        Json.obj("values" -> Json.arr("color7", Json.obj("de" -> "Rosa", "en" -> "Pink"), 7, Json.arr(1))),
-        Json.obj("values" -> Json.arr("color8", Json.obj("de" -> "Lila", "en" -> "Purple"), 8, Json.arr(2)))
+        Json.obj("values" -> Json.arr("color12", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color13", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color14", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color15", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color16", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(1)))
       )
     )
 
     val table4ColumnsAndRows = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 4), Json.obj("id" -> 2), Json.obj("id" -> 3), Json.obj("id" -> 1)),
       "rows" -> Json.arr(
-        Json.obj("values" -> Json.arr("color1", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
-        Json.obj("values" -> Json.arr("color2", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
-        Json.obj("values" -> Json.arr("color3", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1))),
-        Json.obj("values" -> Json.arr("color4", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
-        Json.obj("values" -> Json.arr("color5", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(1)))
+        Json.obj("values" -> Json.arr("color4", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color5", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color6", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(2))),
+        Json.obj("values" -> Json.arr("color7", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color8", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(2))),
+        Json.obj("values" -> Json.arr("color9", Json.obj("de" -> "Weiß", "en" -> "White"), 6, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color10", Json.obj("de" -> "Rosa", "en" -> "Pink"), 7, Json.arr(1))),
+        Json.obj("values" -> Json.arr("color11", Json.obj("de" -> "Lila", "en" -> "Purple"), 8, Json.arr(2)))
       )
     )
 
@@ -668,9 +676,63 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
     for {
       tableId <- createUnionTable(true)
       retrieveAllUnionTableRows <- sendRequest("GET", s"/tables/$tableId/rows")
+
+      retrieveTable4Rows <- sendRequest("GET", s"/tables/4/rows")
+      retrieveTable4Columns <- sendRequest("GET", s"/tables/4/columns")
     } yield {
       val rows = retrieveAllUnionTableRows.getJsonArray("rows")
       println(s"XXX rows: $rows")
+      println(s"XXX table4 columns: ${retrieveTable4Columns}")
+      println(s"XXX table4 rows: $retrieveTable4Rows")
+
+      val concatStringColumn1 =
+        rows.asScala.map(row =>
+          row.asInstanceOf[JsonObject].getJsonArray("values").getJsonObject(0).getString("de")
+        ).mkString(",")
+
+      assertEquals(
+        List(
+          List.fill(3)("table2_de").mkString(","),
+          List.fill(8)("table4_de").mkString(","),
+          List.fill(5)("table3_de").mkString(",")
+        ).mkString(","),
+        concatStringColumn1
+      )
+
+      val concatStringColumn2 =
+        rows.asScala.map(row =>
+          row.asInstanceOf[JsonObject].getJsonArray("values").getString(1)
+        ).mkString(",")
+
+      assertEquals(
+        "color1,color2,color3,color4,color5,color6,color7,color8,color9,color10,color11,color12,color13,color14,color15,color16",
+        concatStringColumn2
+      )
+
+      val concatStringColumn3 =
+        rows.asScala.map(row =>
+          row.asInstanceOf[JsonObject].getJsonArray("values").getJsonObject(2).getString("de")
+        ).mkString(",")
+
+      assertEquals(
+        "Rot,Blau,Grün,Rot,Blau,Grün,Gelb,Schwarz,Weiß,Rosa,Lila,Rot,Blau,Grün,Gelb,Schwarz",
+        concatStringColumn3
+      )
+      val concatStringColumn4 =
+        rows.asScala.map(row =>
+          row.asInstanceOf[JsonObject].getJsonArray("values").getInteger(3)
+        ).mkString(",")
+
+      assertEquals("1,2,3,1,2,3,4,5,6,7,8,1,2,3,4,5", concatStringColumn4)
+
+      val concatStringColumn5 =
+        rows.asScala.map(row =>
+          row.asInstanceOf[JsonObject].getJsonArray("values").getJsonArray(4)
+            .asScala.map(link => link.asInstanceOf[JsonObject].getInteger("id")).mkString(",")
+        ).mkString(",")
+
+      assertEquals("1,2,1,1,,2,,2,,1,2,1,,1,,1", concatStringColumn5)
+
     }
   }
 }
