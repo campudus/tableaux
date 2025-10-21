@@ -334,7 +334,6 @@ class ColumnModel(val connection: DatabaseConnection)(
             })
 
         case groupColumnInfo: CreateGroupColumn => {
-          println("groupColumnInfo: " + groupColumnInfo)
           createGroupColumn(table, groupColumnInfo)
             .map({
               case CreatedColumnInformation(_, id, ordering, displayInfos) =>
@@ -1461,7 +1460,6 @@ class ColumnModel(val connection: DatabaseConnection)(
         )
 
       _ = checkForStatusColumnDependency(columnId, columns, "deleted")
-      _ = println(s"Deleting column: $column from table: ${table.id}")
 
       _ <- {
         column match {
