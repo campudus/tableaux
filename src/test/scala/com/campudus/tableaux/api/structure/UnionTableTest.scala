@@ -633,8 +633,8 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       retrieveLastTwoRows <- sendRequest("GET", s"/tables/$tableId/rows?offset=14&limit=7")
     } yield {
       assertEquals(3, retrieveTable2Rows.getJsonArray("rows").size())
-      assertEquals(8, retrieveTable3Rows.getJsonArray("rows").size())
-      assertEquals(5, retrieveTable4Rows.getJsonArray("rows").size())
+      assertEquals(5, retrieveTable3Rows.getJsonArray("rows").size())
+      assertEquals(8, retrieveTable4Rows.getJsonArray("rows").size())
 
       assertEquals(16, retrieveAllUnionTableRows.getJsonArray("rows").size())
       assertJSONEquals(
