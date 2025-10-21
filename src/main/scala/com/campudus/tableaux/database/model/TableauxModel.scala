@@ -400,7 +400,7 @@ class TableauxModel(
 
   }
 
-  def createRow(table: Table, rowPermissionsOpt: Option[Seq[String]])(implicit user: TableauxUser): Future[Row] = {
+  def createRow(table: Table, rowPermissionsOpt: Option[Seq[String]])(implicit user: TableauxUser): Future[RowLike] = {
     for {
       rowId <- createRowModel.createRow(table, Seq.empty, rowPermissionsOpt)
       _ <- createHistoryModel.createRow(table, rowId, rowPermissionsOpt)
@@ -580,7 +580,7 @@ class TableauxModel(
 
   def updateRowAnnotations(table: Table, rowId: RowId, finalFlagOpt: Option[Boolean], archivedFlagOpt: Option[Boolean])(
       implicit user: TableauxUser
-  ): Future[Row] = {
+  ): Future[RowLike] = {
 
     for {
       _ <- finalFlagOpt match {
@@ -1079,9 +1079,9 @@ class TableauxModel(
 
   private def removeUnauthorizedForeignValuesFromRows(
       columns: Seq[ColumnType[_]],
-      rows: Seq[Row],
+      rows: Seq[RowLike],
       shouldHideValuesByRowPermissions: Boolean = true
-  )(implicit user: TableauxUser): Future[Seq[Row]] = {
+  )(implicit user: TableauxUser): Future[Seq[RowLike]] = {
     Future.sequence(rows map {
       case row => removeUnauthorizedLinkAndConcatValuesFromRow(columns, row, shouldHideValuesByRowPermissions)
     })
@@ -1089,9 +1089,9 @@ class TableauxModel(
 
   private def removeUnauthorizedLinkAndConcatValuesFromRow(
       columns: Seq[ColumnType[_]],
-      row: Row,
+      row: RowLike,
       shouldHideValuesByRowPermissions: Boolean = true
-  )(implicit user: TableauxUser): Future[Row] = {
+  )(implicit user: TableauxUser): Future[RowLike] = {
     val rowValues = row.values
     val rowLevelAnnotations = row.rowLevelAnnotations
     val rowPermissions = row.rowPermissions
@@ -1207,7 +1207,7 @@ class TableauxModel(
     }
   }
 
-  def retrieveRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
+  def retrieveRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[RowLike] = {
     for {
       columns <- retrieveColumns(table)
       filteredColumns = roleModel
@@ -1291,7 +1291,10 @@ class TableauxModel(
   }
 
   private def copyFirstColumnOfRowsSeq(rowsSeq: RowSeq): RowSeq =
-    rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
+    rowsSeq.copy(rows = rowsSeq.rows.map({
+      case row: Row => row.copy(values = row.values.take(1))
+      case row: UnionTableRow => row.copy(values = row.values.take(1))
+    }))
 
   private def filterColumns(table: Table, columns: Seq[ColumnType[_]])(
       implicit user: TableauxUser
@@ -1304,7 +1307,8 @@ class TableauxModel(
     )
   }
 
-  private def filterRows(columns: Seq[ColumnType[_]], rows: Seq[Row])(implicit user: TableauxUser): Future[Seq[Row]] = {
+  private def filterRows(columns: Seq[ColumnType[_]], rows: Seq[RowLike])(implicit
+  user: TableauxUser): Future[Seq[RowLike]] = {
     if (config.isRowPermissionCheckEnabled) {
       removeUnauthorizedForeignValuesFromRows(columns, rows)
     } else {
@@ -1317,7 +1321,7 @@ class TableauxModel(
       originColumn2UnionColumnMapping: Map[Long, Long],
       originColumnOrdering: Seq[Long],
       unionColumnOrdering: Seq[Long]
-  )(rows: Seq[Row]): Seq[Row] = {
+  )(rows: Seq[RowLike]): Seq[RowLike] = {
     rows.map({ row =>
       val reorderedValues = originColumn2UnionColumnMapping.foldLeft(
         Vector.fill(row.values.size + 1)(null: Any).updated(0, originColumnValue)
@@ -1328,7 +1332,7 @@ class TableauxModel(
         acc.updated(unionColumnIndex.toInt, theValue)
       }
 
-      Row(
+      UnionTableRow(
         row.table,
         row.id,
         row.rowLevelAnnotations,
@@ -1503,7 +1507,7 @@ class TableauxModel(
   }
 
   def duplicateRow(table: Table, rowId: RowId, options: Option[DuplicateRowOptions])(implicit
-  user: TableauxUser): Future[Row] = {
+  user: TableauxUser): Future[RowLike] = {
     val isConstrainedLink = (link: LinkColumn) => link.linkDirection.constraint.cardinality.from > 0
     val shouldAnnotateSkipped = options.fold(false)(_.annotateSkipped)
     val shouldSkipConstrained = options.fold(false)(_.skipConstrainedFrom)
