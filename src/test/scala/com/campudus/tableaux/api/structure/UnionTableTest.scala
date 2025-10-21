@@ -587,9 +587,6 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   // - retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first")
   // - retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows")
 
-  // TODO: implement the endpoints above with correct pagination,
-  // TODO: What about filtering, sorting, ...???
-
   /**
     * Tables have the following number of rows:
     *
@@ -681,9 +678,6 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       retrieveTable4Columns <- sendRequest("GET", s"/tables/4/columns")
     } yield {
       val rows = retrieveAllUnionTableRows.getJsonArray("rows")
-      println(s"XXX rows: $rows")
-      println(s"XXX table4 columns: ${retrieveTable4Columns}")
-      println(s"XXX table4 rows: $retrieveTable4Rows")
 
       val concatStringColumn1 =
         rows.asScala.map(row =>
