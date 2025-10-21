@@ -1322,17 +1322,62 @@ class TableauxModel(
   }
 
   private def addAndReorderOriginColumnValues(
+      originTableId: TableId,
       originColumnValue: JsonObject,
-      originColumn2UnionColumnMapping: Map[Long, Long]
+      originColumn2UnionColumnMapping: Map[Long, Long],
+      originColumnOrdering: Seq[Long],
+      unionColumnOrdering: Seq[Long]
   )(rows: Seq[Row]): Seq[Row] = {
+    // TODO: reorder newly added values
+    // XXX: (originTablePos -> unionTablePos) = Map(2 -> 2, 3 -> 3, 4 -> 4, 5 -> 5)
+    // XXX: (originTablePos -> unionTablePos) = Map(5 -> 2, 3 -> 3, 4 -> 4, 2 -> 5)
+    // XXX: (originTablePos -> unionTablePos) = Map(2 -> 2, 4 -> 3, 5 -> 4, 3 -> 5)
+    println(s"XXX: originColumn2UnionColumnMapping = $originColumn2UnionColumnMapping")
+    // println(s"XXX: originColumnOrdering = ${originColumnOrdering.toList}")
+    println(s"XXX: adding origin column value = $originColumnValue")
+
     rows.map({ row =>
+      println(s"XXX: ### rowId: ${row.id}")
+      println(s"XXX: original row values = ${row.values.toList}")
+
+      // println(s"XXX: row.values.size = ${row.values.size}")
+
+      val reorderedValues = new Array[Any](row.values.size + 1)
+      reorderedValues(0) = originColumnValue
+      // println(s"XXX: reorderedValues.size = ${reorderedValues.size}")
+
+      originColumn2UnionColumnMapping.foreach({
+        case (originColumnId, unionColumnId) =>
+          println(s"XXX: finding mapping for originColumnId = $originColumnId to unionColumnId = $unionColumnId")
+          val originColumnIndex =
+            originColumnOrdering.indexOf(originColumnId) // because originColumnOrdering is 1-based
+          val unionColumnIndex =
+            unionColumnOrdering.indexOf(unionColumnId) // because unionColumnOrdering is 1-based
+          // println(
+          //   s"XXX: mapping originPos = $originColumnId to unionPos = $unionColumnId with value = ${row.values(originColumnId.toInt)}"
+          // )
+          val theValue = row.values(originColumnIndex.toInt)
+          println(
+            s"XXX: mapping originColumnIndex = $originColumnIndex to " +
+              s"unionColumnIndex = $unionColumnIndex with value = ${theValue}"
+          )
+          reorderedValues(unionColumnIndex.toInt) = theValue
+      })
+
+      // val newRow = originColumnValue +: reorderedValues
+      val newRow = reorderedValues
+
+      println(s"XXX: newRow = ${newRow.toList}")
+
+      // List(color1, {"de":"Rot","en":"Red"}, 1, [{"id":1,"value":"table1row1"}])
+
       Row(
         row.table,
         row.id,
         row.rowLevelAnnotations,
         row.rowPermissions,
         row.cellLevelAnnotations,
-        originColumnValue +: row.values
+        newRow
       )
     })
   }
@@ -1356,21 +1401,53 @@ class TableauxModel(
       val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
       val originColumnValue = originTable.getDisplayNameJson
 
-      val originTableColumnOffset = 1L // because we add the origin column at position 1
+      val originColumnOrdering = filteredColumns.map(c => c.id)
+      val unionColumnOrdering = unionTableColumns.map(c => c.id)
+
+      // val originTableColumnOffset = 1L // because we add the origin column at position 1
+      // val originTableColumnOffset = -1L // because we add the origin column at position 1
+      println(s"XXX: ## tableId: ${originTable.id} ######################################")
+      println(s"XXX: originColumnOrdering: ${originColumnOrdering.toList}")
+      println(s"XXX: unionColumnOrdering: ${unionColumnOrdering.toList}")
+      println(s"XXX: unionTableColumns tableId to columnId: ${unionTableColumns.map(c =>
+        c.originColumns.map({
+          otc =>
+            otc.tableToColumn.get(originTable.id) match {
+              case Some(pos) => s"${pos} -> ${c.id}"
+              case None => s"${originTable.id} -> N/A"
+            }
+        }).toString
+      ).toList}")
 
       val originColumn2UnionColumnMapping: Map[Long, Long] = unionTableColumns
         .flatMap(utc =>
           utc.originColumns
-            .filter(otc => otc.tableToColumn.contains(originTable.id))
-            .map(otc => (otc.tableToColumn(originTable.id) + originTableColumnOffset, utc.id))
+            // .filter(otc => otc.tableToColumn.contains(originTable.id))
+            .map(otc =>
+              (
+                otc.tableToColumn(originTable.id) - 1, // array off by one
+                utc.id - 2 // array off by one minus virtual concat column
+              )
+            )
         )
         .toMap
 
-      val unifyColumns = addAndReorderOriginColumnValues(originColumnValue, originColumn2UnionColumnMapping)(_)
+      val originColumn2UnionColumnMapping2: Map[Long, Long] = unionTableColumns
+        .flatMap(utc =>
+          utc.originColumns.filter(otc => otc.tableToColumn.contains(originTable.id))
+            .map(otc => (otc.tableToColumn(originTable.id), utc.id))
+        )
+        .toMap
+
+      // val unifyColumns = addAndReorderOriginColumnValues(tableId, originColumnValue, originColumn2UnionColumnMapping)(_)
 
       println(
-        s"XXX: originColumn2UnionColumnMapping - off by one wegen column origintable " +
+        s"XXX: originColumn2UnionColumnMapping (array off by one)" +
           s"(originTablePos -> unionTablePos) = $originColumn2UnionColumnMapping"
+      )
+      println(
+        s"XXX: originColumn2UnionColumnMapping (echte Positionen)" +
+          s"(originTablePos -> unionTablePos) = $originColumn2UnionColumnMapping2"
       )
 
       // TODO: reorder newly added values
@@ -1378,7 +1455,17 @@ class TableauxModel(
       // XXX: (originTablePos -> unionTablePos) = Map(5 -> 2, 3 -> 3, 4 -> 4, 2 -> 5)
       // XXX: (originTablePos -> unionTablePos) = Map(2 -> 2, 4 -> 3, 5 -> 4, 3 -> 5)
 
-      val combinedRows = acc.rows ++ unifyColumns(filteredRows)
+      // val combinedRows = acc.rows ++ unifyColumns(filteredRows)
+      val combinedRows = acc.rows ++ addAndReorderOriginColumnValues(
+        tableId,
+        originColumnValue,
+        originColumn2UnionColumnMapping2,
+        originColumnOrdering,
+        unionColumnOrdering
+      )(filteredRows)
+
+      println(s"XXX: ## tableId: ${tableId} end ######################################")
+      println("")
 
       (RowSeq(combinedRows, rowSeq.page), totalSize)
     }
