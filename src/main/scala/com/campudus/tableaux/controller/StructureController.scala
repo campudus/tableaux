@@ -705,8 +705,8 @@ class StructureController(
 
       changedColumn <- table.tableType match {
         case GenericTable => performChangeFx(table)
+        case UnionTable => performChangeFx(table)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
-        case UnionTable => Future.failed(ForbiddenException("TODO not implemented yet", "column"))
         case TaxonomyTable =>
           if (columnId > 4) performChangeFx(table)
           else Future.failed(ForbiddenException("can't change a default column of a taxonomy table", "column"))
