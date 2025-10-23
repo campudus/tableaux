@@ -1,16 +1,24 @@
 package com.campudus.tableaux.router
 
-import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
+import com.campudus.tableaux.ArgumentChecker._
+import com.campudus.tableaux.InvalidJsonException
+import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.WrongJsonTypeException
 import com.campudus.tableaux.controller.StructureController
-import com.campudus.tableaux.database.domain.{ColumnFilter, DisplayInfos, GenericTable, TableType}
+import com.campudus.tableaux.database.domain.ColumnFilter, DisplayInfos
+import com.campudus.tableaux.database.domain.GenericTable
+import com.campudus.tableaux.database.domain.TableType
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
-import io.vertx.scala.ext.web.{Router, RoutingContext}
+import io.vertx.scala.ext.web.Router
+import io.vertx.scala.ext.web.RoutingContext
 import io.vertx.scala.ext.web.handler.BodyHandler
 
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
 
 object StructureRouter {
 
@@ -197,16 +205,24 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 
   private def createColumn(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
+
     for {
       tableId <- getTableId(context)
+      json = getJson(context)
+      columnObjects = toJsonObjectSeq("columns", json).get
+      _ = checkArguments(greaterZero(tableId), nonEmpty(columnObjects, "columns"))
     } yield {
-      sendReply(
-        context,
-        asyncGetReply {
-          val json = getJson(context)
-          controller.createColumns(tableId, toCreateColumnSeq(json))
-        }
-      )
+      for {
+        table <- controller.retrieveTable(tableId)
+      } yield {
+        sendReply(
+          context,
+          asyncGetReply {
+            val json = getJson(context)
+            controller.createColumns(tableId, toCreateColumnSeq2(table, json))
+          }
+        )
+      }
     }
   }
 
