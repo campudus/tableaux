@@ -26,7 +26,7 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
 
   val unionTableCol1 = Json.obj(
     "name" -> "originTable",
-    "kind" -> "text",
+    "kind" -> "origintable",
     "ordering" -> 1,
     "displayName" -> Json.obj("de" -> "Ursprungstabelle", "en" -> "Origin Table"),
     "description" -> Json.obj(
@@ -76,7 +76,7 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
 
   val unionTableCol5 = Json.obj(
     "name" -> "glossLevel",
-    "kind" -> "unionlink",
+    "kind" -> "link",
     "ordering" -> 3,
     "displayName" -> Json.obj("de" -> "Glanzgrad", "en" -> "Gloss Level"),
     "description" -> Json.obj("de" -> "Der Glanzgrad der Farbe", "en" -> "The gloss level of the color"),
@@ -295,7 +295,7 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
               "de" -> "Der Tabellenname, aus der die Daten stammen",
               "en" -> "The name of the table from which the data is taken"
             ),
-            "kind" -> "text" // internally "origintable"
+            "kind" -> "origintable"
           )
         ),
         "rows" -> Json.emptyArr()
