@@ -64,6 +64,8 @@ case class UnionTableRow(
     json.mergeIn(Json.obj(
       "tableId" -> table.id
     ))
+    // TODO: temporary add multiplier for row id to be able to show rows in FE
+    // json.put("id", id + table.id * 100)
     json
   }
 }
