@@ -413,7 +413,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       columnCreate <- createUnionColumn(table, createColumn)
         .map({
           case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-            SimpleValueColumn(
+            UnionColumn(
               createColumn.kind,
               createColumn.languageType,
               applyColumnInformation(id, ordering, displayInfos)
@@ -1050,6 +1050,9 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
 
+    // val qqq = generateRetrieveColumnsQuery(identifiersOnly)
+    // println(s"###LOG###: qqq: ${qqq}")
+
     for {
       result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
 
@@ -1147,6 +1150,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def mapColumn(
+      table: Table,
       depth: Int,
       kind: TableauxDbType,
       languageType: LanguageType,
@@ -1155,17 +1159,19 @@ class ColumnModel(val connection: DatabaseConnection)(
       rules: JsonArray,
       showMemberColumns: Boolean
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
-    kind match {
-      case AttachmentType =>
+    (table.tableType, kind) match {
+      case (UnionTable, _) =>
+        Future(UnionColumn(kind, languageType, columnInformation))
+      case (_, AttachmentType) =>
         Future(AttachmentColumn(columnInformation))
 
-      case StatusType =>
+      case (_, StatusType) =>
         mapStatusColumn(columnInformation, rules)
 
-      case LinkType =>
+      case (_, LinkType) =>
         mapLinkColumn(depth, columnInformation)
 
-      case GroupType =>
+      case (_, GroupType) =>
         // placeholder for now, grouped columns will be filled in later
         Future(GroupColumn(columnInformation, Seq.empty, formatPattern, showMemberColumns))
 
@@ -1332,7 +1338,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         originColumns
       )
 
-      column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
+      column <- mapColumn(table, depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
     } yield column
   }
 
@@ -1461,13 +1467,19 @@ class ColumnModel(val connection: DatabaseConnection)(
 
       _ = checkForStatusColumnDependency(columnId, columns, "deleted")
 
+      _ = println(s"###LOG###: column: ${column}")
+
       _ <- {
         column match {
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
           case c: LinkColumn => deleteLink(c, bothDirections)
           case c: AttachmentColumn => deleteAttachment(c)
-          case c: OriginTableColumn =>
+          // case c: UnionColumn =>
+          //   Future.failed(DatabaseException("Column origintable can't be deleted", "delete-column-origintable"))
+          case c: UnionColumn if c.kind == OriginTableType =>
             Future.failed(DatabaseException("Column origintable can't be deleted", "delete-column-origintable"))
+          // case c: OriginTableColumn =>
+          //   Future.failed(DatabaseException("Column origintable can't be deleted", "delete-column-origintable"))
           case c: ColumnType[_] => deleteSimpleColumn(c)
         }
       }

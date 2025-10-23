@@ -397,7 +397,7 @@ object SimpleValueColumn {
       case DateTimeType => DateTimeColumn.apply
       case IntegerType => IntegerColumn.apply
       case OriginTableType => OriginTableColumn.apply
-      case UnionLinkType => UnionLinkColumn.apply
+      // case UnionLinkType => UnionLinkColumn.apply
 
       case _ => throw new IllegalArgumentException("Can only map type to SimpleValueColumn")
     }
@@ -784,18 +784,62 @@ case class OriginTableColumn(override val languageType: LanguageType)(
   }
 }
 
-case class UnionLinkColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+// case class UnionColumn(
+//     override val columnInformation: ColumnInformation,
+//     to: ColumnType[_],
+//     linkId: LinkId,
+//     linkDirection: LinkDirection
+// )(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ColumnType[Seq[RowId]]
+//     with LazyLogging {
+//   override val kind: LinkType.type = LinkType
+//   override val languageType: LanguageType = to.languageType
+
+//   override def getJson: JsonObject = {
+//     val baseJson = Json.obj(
+//       "toTable" -> to.table.id,
+//       "toColumn" -> to.getJson
+//     )
+
+//     val constraintJson = linkDirection.constraint.getJson match {
+//       case json if json.isEmpty => Json.emptyObj()
+//       case json => Json.obj("constraint" -> json)
+//     }
+
+//     super.getJson
+//       .mergeIn(baseJson)
+//       .mergeIn(constraintJson)
+//   }
+// }
+
+case class UnionColumn(
+    override val kind: TableauxDbType,
+    override val languageType: LanguageType,
+    override val columnInformation: ColumnInformation
+)(
     implicit override val roleModel: RoleModel,
     val user: TableauxUser
-) extends SimpleValueColumn[UnionLinkColumn](UnionLinkType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[UnionLinkColumn] = Try(value.asInstanceOf[UnionLinkColumn])
+) extends SimpleValueColumn[UnionColumn](kind)(languageType) {
+  override def checkValidSingleValue[B](value: B): Try[UnionColumn] = Try(value.asInstanceOf[UnionColumn])
 
-  override def getJson: JsonObject = {
-    // TODO: temporarily return link instead of unionlink to test FE behavior
-    val overrideKind = Json.obj("kind" -> "unionlink")
-    super.getJson.mergeIn(overrideKind)
-  }
+  // override def getJson: JsonObject = {
+  //   // TODO: temporarily return link instead of unionlink to test FE behavior
+  //   val overrideKind = Json.obj("kind" -> "unionlink")
+  //   super.getJson.mergeIn(overrideKind)
+  // }
 }
+
+// case class UnionLinkColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+//     implicit override val roleModel: RoleModel,
+//     val user: TableauxUser
+// ) extends SimpleValueColumn[UnionLinkColumn](UnionLinkType)(languageType) {
+//   override def checkValidSingleValue[B](value: B): Try[UnionLinkColumn] = Try(value.asInstanceOf[UnionLinkColumn])
+
+//   override def getJson: JsonObject = {
+//     // TODO: temporarily return link instead of unionlink to test FE behavior
+//     val overrideKind = Json.obj("kind" -> "unionlink")
+//     super.getJson.mergeIn(overrideKind)
+//   }
+// }
 
 /**
   * Column seq is just a sequence of columns.

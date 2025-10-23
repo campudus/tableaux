@@ -56,7 +56,7 @@ class StructureController(
   def createColumns(tableId: TableId, columns: Seq[CreateColumn])(
       implicit user: TableauxUser
   ): Future[ColumnSeq] = {
-    checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
+    // checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
     logger.info(s"createColumns $tableId columns $columns")
 
     for {
@@ -68,7 +68,10 @@ class StructureController(
         case _ => columnStruc.createColumns(table, columns)
       }
 
+      _ = println(s"###LOG###: bis daher geht es gut 1+2")
+
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
+      _ = println(s"###LOG###: bis daher geht es gut 3")
       sorted = retrieved.sortBy(_.ordering)
     } yield {
       sorted.foreach(col => eventClient.columnCreated(tableId, col.id))
