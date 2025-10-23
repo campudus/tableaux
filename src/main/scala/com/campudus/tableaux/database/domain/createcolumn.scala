@@ -18,7 +18,7 @@ sealed trait CreateColumn {
   val maxLength: Option[Int] = None
   val minLength: Option[Int] = None
   val decimalDigits: Option[Int] = None
-  val originColumns: Option[CreateOriginColumns] = None
+  val originColumns: Option[OriginColumns] = None
 }
 
 case class CreateSimpleColumn(
@@ -34,7 +34,7 @@ case class CreateSimpleColumn(
     override val maxLength: Option[Int] = None,
     override val minLength: Option[Int] = None,
     override val decimalDigits: Option[Int] = None,
-    override val originColumns: Option[CreateOriginColumns] = None
+    override val originColumns: Option[OriginColumns] = None
 ) extends CreateColumn
 
 case class CreateBackLinkColumn(
