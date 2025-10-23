@@ -314,11 +314,7 @@ sealed trait ColumnType[+A] extends DomainObject {
       })
     })
 
-    columnInformation.originColumns.map(oc => {
-      json.mergeIn(oc.getJson)
-      // temp get a dummy json
-      // json.mergeIn(Json.obj("originColumns" -> Json.obj("1" -> Json.obj("id" -> 1))))
-    })
+    columnInformation.originColumns.map(oc => { json.mergeIn(oc.getJson) })
     json
   }
 
@@ -397,7 +393,6 @@ object SimpleValueColumn {
       case DateTimeType => DateTimeColumn.apply
       case IntegerType => IntegerColumn.apply
       case OriginTableType => OriginTableColumn.apply
-      // case UnionLinkType => UnionLinkColumn.apply
 
       case _ => throw new IllegalArgumentException("Can only map type to SimpleValueColumn")
     }
@@ -776,40 +771,14 @@ case class OriginTableColumn(override val languageType: LanguageType)(
     extends SimpleValueColumn[OriginTableColumn](OriginTableType)(languageType) {
   override def checkValidSingleValue[B](value: B): Try[OriginTableColumn] = Try(value.asInstanceOf[OriginTableColumn])
 
-  override def getJson: JsonObject = {
-    // we need the kind `origintable` only for internal purposes,
-    // we can render it externally like a normal TextColumn
-    val overrideKind = Json.obj("kind" -> "text")
-    super.getJson.mergeIn(overrideKind)
-  }
+  // TODO: temporarily use this override to test FE behavior
+  // override def getJson: JsonObject = {
+  //   // we need the kind `origintable` only for internal purposes,
+  //   // we can render it externally like a normal TextColumn
+  //   val overrideKind = Json.obj("kind" -> "text")
+  //   super.getJson.mergeIn(overrideKind)
+  // }
 }
-
-// case class UnionColumn(
-//     override val columnInformation: ColumnInformation,
-//     to: ColumnType[_],
-//     linkId: LinkId,
-//     linkDirection: LinkDirection
-// )(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ColumnType[Seq[RowId]]
-//     with LazyLogging {
-//   override val kind: LinkType.type = LinkType
-//   override val languageType: LanguageType = to.languageType
-
-//   override def getJson: JsonObject = {
-//     val baseJson = Json.obj(
-//       "toTable" -> to.table.id,
-//       "toColumn" -> to.getJson
-//     )
-
-//     val constraintJson = linkDirection.constraint.getJson match {
-//       case json if json.isEmpty => Json.emptyObj()
-//       case json => Json.obj("constraint" -> json)
-//     }
-
-//     super.getJson
-//       .mergeIn(baseJson)
-//       .mergeIn(constraintJson)
-//   }
-// }
 
 case class UnionColumn(
     override val kind: TableauxDbType,
@@ -827,19 +796,6 @@ case class UnionColumn(
   //   super.getJson.mergeIn(overrideKind)
   // }
 }
-
-// case class UnionLinkColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
-//     implicit override val roleModel: RoleModel,
-//     val user: TableauxUser
-// ) extends SimpleValueColumn[UnionLinkColumn](UnionLinkType)(languageType) {
-//   override def checkValidSingleValue[B](value: B): Try[UnionLinkColumn] = Try(value.asInstanceOf[UnionLinkColumn])
-
-//   override def getJson: JsonObject = {
-//     // TODO: temporarily return link instead of unionlink to test FE behavior
-//     val overrideKind = Json.obj("kind" -> "unionlink")
-//     super.getJson.mergeIn(overrideKind)
-//   }
-// }
 
 /**
   * Column seq is just a sequence of columns.
