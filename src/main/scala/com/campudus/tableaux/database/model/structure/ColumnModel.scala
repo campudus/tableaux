@@ -1050,9 +1050,6 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
 
-    // val qqq = generateRetrieveColumnsQuery(identifiersOnly)
-    // println(s"###LOG###: qqq: ${qqq}")
-
     for {
       result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
 
@@ -1467,19 +1464,13 @@ class ColumnModel(val connection: DatabaseConnection)(
 
       _ = checkForStatusColumnDependency(columnId, columns, "deleted")
 
-      _ = println(s"###LOG###: column: ${column}")
-
       _ <- {
         column match {
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
           case c: LinkColumn => deleteLink(c, bothDirections)
           case c: AttachmentColumn => deleteAttachment(c)
-          // case c: UnionColumn =>
-          //   Future.failed(DatabaseException("Column origintable can't be deleted", "delete-column-origintable"))
           case c: UnionColumn if c.kind == OriginTableType =>
             Future.failed(DatabaseException("Column origintable can't be deleted", "delete-column-origintable"))
-          // case c: OriginTableColumn =>
-          //   Future.failed(DatabaseException("Column origintable can't be deleted", "delete-column-origintable"))
           case c: ColumnType[_] => deleteSimpleColumn(c)
         }
       }
