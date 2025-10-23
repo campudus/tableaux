@@ -9,10 +9,10 @@ import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.Assertions._
 
-class CreateOriginColumnsTest extends TestAssertionHelper {
+class OriginColumnsTest extends TestAssertionHelper {
 
   @Test
-  def parseCreateOriginColumns_validObject_ok(): Unit = {
+  def parseOriginColumns_validObject_ok(): Unit = {
     val jString = ("""
                       |{
                       |  "originColumns": {
@@ -24,25 +24,25 @@ class CreateOriginColumnsTest extends TestAssertionHelper {
 
     val originColumnsJson = Json.fromObjectString(jString)
     val json = originColumnsJson.getJsonObject("originColumns", Json.emptyObj())
-    val createOriginColumns = CreateOriginColumns.fromJson(json)
+    val originColumns = OriginColumns.fromJson(json)
 
-    assertEquals(Map(1 -> 3, 2 -> 2, 3 -> 1), createOriginColumns.tableToColumn)
-    assertJSONEquals(originColumnsJson, createOriginColumns.getJson)
+    assertEquals(Map(1 -> 3, 2 -> 2, 3 -> 1), originColumns.tableToColumn)
+    assertJSONEquals(originColumnsJson, originColumns.getJson)
   }
 
   @Test
-  def parseCreateOriginColumns_emptyObject_error(): Unit = {
+  def parseOriginColumns_emptyObject_error(): Unit = {
     val json = Json.emptyObj()
     assertThrows[IllegalArgumentException] {
-      CreateOriginColumns.fromJson(json)
+      OriginColumns.fromJson(json)
     }
   }
 
   @Test
-  def parseCreateOriginColumns_missingObject_error(): Unit = {
+  def parseOriginColumns_missingObject_error(): Unit = {
     val json = Json.emptyObj()
     assertThrows[IllegalArgumentException] {
-      CreateOriginColumns.fromJson(json)
+      OriginColumns.fromJson(json)
     }
   }
 }

@@ -494,7 +494,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val originColumns = createColumn.originColumns
 
     originColumns match {
-      case Some(CreateOriginColumns(tableToColumnMap)) =>
+      case Some(OriginColumns(tableToColumnMap)) =>
         // Create INSERT statement for each origin column mapping
         val insertPlaceholder = tableToColumnMap.map(_ => "(?, ?, ?, ?)").mkString(", ")
         val values = tableToColumnMap.flatMap { case (originTableId, originColumnId) =>
@@ -1313,7 +1313,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val showMemberColumns = row.get[Boolean](15)
     val decimalDigits = Option(row.get[Int](16))
     val originColumns = Option(row.get[String](17))
-      .map(str => CreateOriginColumns.fromJson(Json.fromObjectString(str)))
+      .map(str => OriginColumns.fromJson(Json.fromObjectString(str)))
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
