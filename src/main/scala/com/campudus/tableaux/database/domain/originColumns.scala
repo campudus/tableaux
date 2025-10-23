@@ -5,18 +5,17 @@ import com.campudus.tableaux.database.model.TableauxModel._
 
 import org.vertx.scala.core.json._
 
-// TODO rename to OriginColumns???
-sealed trait CreateOriginColumns {
+sealed trait OriginColumns {
   val tableToColumn: Map[TableId, ColumnId]
 
   def getJson: JsonObject = {
-    Json.obj(CreateOriginColumns.fieldName -> Json.obj(tableToColumn.map { case (tableId, columnId) =>
+    Json.obj(OriginColumns.fieldName -> Json.obj(tableToColumn.map { case (tableId, columnId) =>
       tableId.toString -> Json.obj("id" -> columnId)
     }.toSeq: _*))
   }
 }
 
-object CreateOriginColumns {
+object OriginColumns {
   val fieldName = "originColumns"
 
   def getFieldNames(json: JsonObject): Seq[String] = {
@@ -29,17 +28,17 @@ object CreateOriginColumns {
     }
   }
 
-  def apply(_tableToColumn: Map[TableId, ColumnId]): CreateOriginColumns = {
-    new CreateOriginColumns {
+  def apply(_tableToColumn: Map[TableId, ColumnId]): OriginColumns = {
+    new OriginColumns {
       override val tableToColumn: Map[TableId, ColumnId] = _tableToColumn
     }
   }
 
-  def unapply(originColumns: CreateOriginColumns): Option[Map[TableId, ColumnId]] = {
+  def unapply(originColumns: OriginColumns): Option[Map[TableId, ColumnId]] = {
     Some(originColumns.tableToColumn)
   }
 
-  def fromJson(json: JsonObject): CreateOriginColumns = {
+  def fromJson(json: JsonObject): OriginColumns = {
     val tableToColumn: Map[TableId, ColumnId] = getFieldNames(json).map { tableId =>
       val columnId = json.getJsonObject(tableId).getLong("id").toLong
       (tableId.toLong, columnId)
@@ -49,6 +48,6 @@ object CreateOriginColumns {
       throw new IllegalArgumentException(s"Origin columns must not be empty in $json")
     }
 
-    CreateOriginColumns(tableToColumn)
+    OriginColumns(tableToColumn)
   }
 }
