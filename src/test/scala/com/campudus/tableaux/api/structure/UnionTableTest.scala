@@ -511,42 +511,42 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
 
     for {
       tableId <- createUnionTable()
-      retrieveCell <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/1").recover({ case ex => ex })
-      postCell <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", cellPayload).recover({ case ex => ex })
-      patchCell <- sendRequest("PATCH", s"/tables/$tableId/columns/1/rows/1", cellPayload).recover({ case ex => ex })
-      deleteCell <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1").recover({ case ex => ex })
-      retrieveAnnotationsTable <- sendRequest("GET", s"/tables/$tableId/annotations").recover({ case ex => ex })
-      retrieveRow <- sendRequest("GET", s"/tables/$tableId/rows/1").recover({ case ex => ex })
+      retrieveCell <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/1").toException()
+      postCell <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", cellPayload).toException()
+      patchCell <- sendRequest("PATCH", s"/tables/$tableId/columns/1/rows/1", cellPayload).toException()
+      deleteCell <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1").toException()
+      retrieveAnnotationsTable <- sendRequest("GET", s"/tables/$tableId/annotations").toException()
+      retrieveRow <- sendRequest("GET", s"/tables/$tableId/rows/1").toException()
       retrieveForeignRows <-
-        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/foreignRows").recover({ case ex => ex })
-      retrieveDependentRows <- sendRequest("GET", s"/tables/$tableId/rows/1/dependent").recover({ case ex => ex })
+        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/foreignRows").toException()
+      retrieveDependentRows <- sendRequest("GET", s"/tables/$tableId/rows/1/dependent").toException()
       retrieveCellAnnotations <-
-        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/annotations").recover({ case ex => ex })
-      retrieveCellHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/history").recover({ case ex => ex })
-      retrieveColumnHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/history").recover({ case ex => ex })
-      retrieveRowHistory <- sendRequest("GET", s"/tables/$tableId/rows/1/history").recover({ case ex => ex })
-      retrieveTableHistory <- sendRequest("GET", s"/tables/$tableId/history").recover({ case ex => ex })
+        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/annotations").toException()
+      retrieveCellHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/history").toException()
+      retrieveColumnHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/history").toException()
+      retrieveRowHistory <- sendRequest("GET", s"/tables/$tableId/rows/1/history").toException()
+      retrieveTableHistory <- sendRequest("GET", s"/tables/$tableId/history").toException()
       addRowPermissions <-
-        sendRequest("PATCH", s"/tables/$tableId/rows/1/permissions", permissionsPayload).recover({ case ex => ex })
-      deleteRowPermissions <- sendRequest("DELETE", s"/tables/$tableId/rows/1/permissions").recover({ case ex => ex })
+        sendRequest("PATCH", s"/tables/$tableId/rows/1/permissions", permissionsPayload).toException()
+      deleteRowPermissions <- sendRequest("DELETE", s"/tables/$tableId/rows/1/permissions").toException()
       replaceRowPermissions <-
-        sendRequest("PUT", s"/tables/$tableId/rows/1/permissions", permissionsPayload).recover({ case ex => ex })
+        sendRequest("PUT", s"/tables/$tableId/rows/1/permissions", permissionsPayload).toException()
       retrieveCellHistory <-
-        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/history").recover({ case ex => ex })
-      createRow <- sendRequest("POST", s"/tables/$tableId/rows", Json.obj()).recover({ case ex => ex })
-      duplicateRow <- sendRequest("POST", s"/tables/$tableId/rows/1/duplicate").recover({ case ex => ex })
+        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/history").toException()
+      createRow <- sendRequest("POST", s"/tables/$tableId/rows", Json.obj()).toException()
+      duplicateRow <- sendRequest("POST", s"/tables/$tableId/rows/1/duplicate").toException()
       updateRowAnnotations <-
-        sendRequest("PATCH", s"/tables/$tableId/rows/1/annotations", Json.obj()).recover({ case ex => ex })
+        sendRequest("PATCH", s"/tables/$tableId/rows/1/annotations", Json.obj()).toException()
       updateRowsAnnotations <-
-        sendRequest("PATCH", s"/tables/$tableId/rows/annotations", Json.obj()).recover({ case ex => ex })
+        sendRequest("PATCH", s"/tables/$tableId/rows/annotations", Json.obj()).toException()
       changeLinkOrder <-
-        sendRequest("PUT", s"/tables/$tableId/columns/4/rows/1/link/1/order", orderPayload).recover({ case ex => ex })
+        sendRequest("PUT", s"/tables/$tableId/columns/4/rows/1/link/1/order", orderPayload).toException()
       deleteCellAnnotation <-
-        sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/annotations/$anyUuid").recover({ case ex => ex })
-      deleteRow <- sendRequest("DELETE", s"/tables/$tableId/rows/1").recover({ case ex => ex })
+        sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/annotations/$anyUuid").toException()
+      deleteRow <- sendRequest("DELETE", s"/tables/$tableId/rows/1").toException()
       deleteAttachment <-
-        sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/attachment/$anyUuid").recover({ case ex => ex })
-      deleteLink <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/link/1").recover({ case ex => ex })
+        sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/attachment/$anyUuid").toException()
+      deleteLink <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/link/1").toException()
     } yield {
       assertEquals(expectedException, retrieveCell)
       assertEquals(expectedException, postCell)
@@ -618,8 +618,8 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   def unionTable_retrieveRows_ok(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- createUnionTable(true)
-      retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").recover({ case ex => ex })
-      retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first").recover({ case ex => ex })
+      retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").toException()
+      retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first").toException()
 
       retrieveAllUnionTableRows <- sendRequest("GET", s"/tables/$tableId/rows")
       retrieveTable2Rows <- sendRequest("GET", s"/tables/2/rows")

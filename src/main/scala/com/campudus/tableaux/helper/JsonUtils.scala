@@ -80,7 +80,7 @@ object JsonUtils extends LazyLogging {
     } yield checkedNonEmptyJsonObjectList
   }
 
-  def toCreateColumnSeq2(table: Table, json: JsonObject): Seq[CreateColumn] = {
+  def toCreateColumnSeq(tableType: TableType, json: JsonObject): Seq[CreateColumn] = {
     (for {
       columnObjects <- toJsonObjectSeq("columns", json)
       createColumnSeq <- sequence(columnObjects.map({ json =>
@@ -113,11 +113,10 @@ object JsonUtils extends LazyLogging {
             // displayName and description; both multi-language objects
             val displayInfos = DisplayInfos.fromJson(json)
 
-            // TODO: evtl. brauch ich die hier gar nicht!?!
             val originColumnsJson = json.getJsonObject(CreateOriginColumns.fieldName, Json.obj())
             val originColumns = Try(CreateOriginColumns.fromJson(originColumnsJson)).toOption
 
-            (table.tableType, dbType) match {
+            (tableType, dbType) match {
               case (UnionTable, _) =>
                 CreateSimpleColumn(
                   name,
@@ -227,169 +226,6 @@ object JsonUtils extends LazyLogging {
                 )
 
               case (_, StatusType) =>
-                val rules = json.getJsonArray("rules", new JsonArray())
-                CreateStatusColumn(
-                  name,
-                  ordering,
-                  dbType,
-                  displayInfos,
-                  attributes,
-                  rules,
-                  hidden
-                )
-
-              case _ =>
-                CreateSimpleColumn(
-                  name,
-                  ordering,
-                  dbType,
-                  languageType,
-                  identifier,
-                  displayInfos,
-                  separator,
-                  attributes,
-                  hidden,
-                  maxLength,
-                  minLength,
-                  decimalDigits,
-                  originColumns
-                )
-            }
-          }
-        }
-      }))
-    } yield createColumnSeq).get
-  }
-
-  def toCreateColumnSeq(json: JsonObject): Seq[CreateColumn] = {
-    (for {
-      columnObjects <- toJsonObjectSeq("columns", json)
-      createColumnSeq <- sequence(columnObjects.map({ json =>
-        {
-          for {
-            // required fields
-            name <- notNull(json.getString("name"), "name")
-            kind <- notNull(json.getString("kind"), "kind")
-
-            dbType <- toTableauxType(kind)
-          } yield {
-            // optional fields
-            val ordering = Try(json.getInteger("ordering").longValue()).toOption
-            val identifier = json.getBoolean("identifier", false)
-            val separator = json.getBoolean("separator", true)
-            val hidden = json.getBoolean("hidden", false)
-            val attributes = Try(json.getJsonObject("attributes")) match {
-              case Success(value) => Option(value)
-              case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
-            }
-
-            val maxLength = Try(json.getInteger("maxLength").intValue()).toOption
-            val minLength = Try(json.getInteger("minLength").intValue()).toOption
-            val decimalDigits = parseDecimalDigits(json)
-
-            // languageType or deprecated multilanguage
-            // if languageType == 'country' countryCodes must be specified
-            val languageType = parseJsonForLanguageType(json)
-
-            // displayName and description; both multi-language objects
-            val displayInfos = DisplayInfos.fromJson(json)
-
-            val originColumnsJson = json.getJsonObject(CreateOriginColumns.fieldName, Json.obj())
-            val originColumns = Try(CreateOriginColumns.fromJson(originColumnsJson)).toOption
-
-            dbType match {
-              case AttachmentType =>
-                CreateAttachmentColumn(name, ordering, identifier, displayInfos, attributes, hidden)
-
-              case LinkType =>
-                // link specific fields
-                val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
-                val toTableId = hasLong("toTable", json).get
-
-                // bi-directional information for foreign link column (backlink)
-                val toName = Try(Option(json.getString("toName"))).toOption.flatten
-                val toDisplayInfos =
-                  Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.fromJson)
-                val toOrdering = hasLong("toOrdering", json).toOption
-
-                val createBackLinkColumn = CreateBackLinkColumn(
-                  name = toName,
-                  displayInfos = toDisplayInfos,
-                  ordering = toOrdering
-                )
-
-                // constraints = cardinality and/or deleteCascade
-                val constraint =
-                  for {
-                    (cardinalityFrom, cardinalityTo) <- Try[(Int, Int)]({
-                      val cardinality = json
-                        .getJsonObject("constraint")
-                        .getJsonObject("cardinality", new JsonObject())
-
-                      (cardinality.getInteger("from", 0).intValue(), cardinality.getInteger("to", 0).intValue())
-                    }).orElse(Success((0, 0)))
-
-                    deleteCascade <- Try[Boolean](
-                      json
-                        .getJsonObject("constraint")
-                        .getBoolean("deleteCascade")
-                    ).orElse(Success(false))
-
-                    archiveCascade <- Try[Boolean](
-                      json
-                        .getJsonObject("constraint")
-                        .getBoolean("archiveCascade")
-                    ).orElse(Success(false))
-
-                    finalCascade <- Try[Boolean](
-                      json
-                        .getJsonObject("constraint")
-                        .getBoolean("finalCascade")
-                    ).orElse(Success(false))
-                  } yield Constraint(
-                    Cardinality(cardinalityFrom, cardinalityTo),
-                    deleteCascade,
-                    archiveCascade,
-                    finalCascade
-                  )
-
-                CreateLinkColumn(
-                  name,
-                  ordering,
-                  toTableId,
-                  singleDirection,
-                  identifier,
-                  displayInfos,
-                  constraint.getOrElse(DefaultConstraint),
-                  createBackLinkColumn,
-                  attributes,
-                  hidden
-                )
-
-              case GroupType =>
-                // group specific fields
-
-                val groups = checked(hasArray("groups", json)).asScala
-                  .map(_.asInstanceOf[Int])
-                  .map(_.toLong)
-                  .toSeq
-
-                val formatPattern = Try(notNull(json.getString("formatPattern"), "formatPattern").get).toOption
-                val showMemberColumns = json.getBoolean("showMemberColumns", false)
-
-                CreateGroupColumn(
-                  name,
-                  ordering,
-                  identifier,
-                  formatPattern,
-                  displayInfos,
-                  groups,
-                  attributes,
-                  hidden,
-                  showMemberColumns
-                )
-
-              case StatusType =>
                 val rules = json.getJsonArray("rules", new JsonArray())
                 CreateStatusColumn(
                   name,
