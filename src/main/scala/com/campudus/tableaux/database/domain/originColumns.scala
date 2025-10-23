@@ -7,11 +7,10 @@ import org.vertx.scala.core.json._
 
 // TODO rename to OriginColumns???
 sealed trait CreateOriginColumns {
-  val fieldName = "originColumns"
   val tableToColumn: Map[TableId, ColumnId]
 
   def getJson: JsonObject = {
-    Json.obj(fieldName -> Json.obj(tableToColumn.map { case (tableId, columnId) =>
+    Json.obj(CreateOriginColumns.fieldName -> Json.obj(tableToColumn.map { case (tableId, columnId) =>
       tableId.toString -> Json.obj("id" -> columnId)
     }.toSeq: _*))
   }
