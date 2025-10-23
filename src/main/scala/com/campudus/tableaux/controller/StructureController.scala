@@ -8,6 +8,8 @@ import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
+import com.campudus.tableaux.helper.JsonUtils.toCreateColumnSeq
+import com.campudus.tableaux.helper.JsonUtils.toJsonObjectSeq
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 import com.campudus.tableaux.verticles.ValidatorKeys
@@ -53,10 +55,16 @@ class StructureController(
     }
   }
 
-  def createColumns(tableId: TableId, columns: Seq[CreateColumn])(
-      implicit user: TableauxUser
-  ): Future[ColumnSeq] = {
-    // checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
+  def createColumns(tableId: TableId, json: JsonObject)(implicit user: TableauxUser): Future[ColumnSeq] = {
+    val columnObjects = toJsonObjectSeq("columns", json).get
+    checkArguments(greaterZero(tableId), nonEmpty(columnObjects, "columns"))
+    for {
+      table <- retrieveTable(tableId)
+      columns <- createColumns(table.id, toCreateColumnSeq(table.tableType, json))
+    } yield columns
+  }
+
+  def createColumns(tableId: TableId, columns: Seq[CreateColumn])(implicit user: TableauxUser): Future[ColumnSeq] = {
     logger.info(s"createColumns $tableId columns $columns")
 
     for {
