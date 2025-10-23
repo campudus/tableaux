@@ -229,6 +229,23 @@ trait TableauxTestBase
     }
   }
 
+  /**
+    * Extension method for Future to simplify exception handling in tests. Recovers from any exception and returns it as
+    * a successful value. Useful for testing error cases without breaking the for-comprehension.
+    *
+    * Example usage:
+    * {{{
+    *   val ex <- controller.createCompleteTable(...).toException()
+    * }}}
+    * Instead of:
+    * {{{
+    *   val ex <- controller.createCompleteTable(...).recover({ case ex => ex })
+    * }}}
+    */
+  implicit class FutureRecoverExtensions[A](future: Future[A]) {
+    def toException(): Future[Any] = future.recover({ case ex => ex })
+  }
+
   def sendRequest(method: String, path: String): Future[JsonObject] = {
     sendRequest(method, path, None)
   }

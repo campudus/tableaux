@@ -9,11 +9,14 @@ import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.JsonUtils.toCreateColumnSeq
+import com.campudus.tableaux.helper.JsonUtils.toRowValueSeq
 import com.campudus.tableaux.helper.UnionTableHelper
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
 import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -655,11 +658,26 @@ class TableauxController(
     } yield CompleteTable(table, colList, rowList)
   }
 
+  def createCompleteTable(json: JsonObject)(implicit user: TableauxUser): Future[CompleteTable] = {
+    val tableName = json.getString("name")
+    val tableType = TableType(json.getString("type", GenericTable.NAME))
+
+    val columns = toCreateColumnSeq(tableType, json)
+    val rows =
+      if (json.containsKey("rows")) {
+        toRowValueSeq(json)
+      } else {
+        Seq.empty
+      }
+    checkArguments(notNull(tableName, "tableName"), nonEmpty(columns, "columns"))
+    logger.info(s"createTable $tableName columns $columns rows $rows")
+
+    createCompleteTable(tableName, columns, rows)
+  }
+
   def createCompleteTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]])(
       implicit user: TableauxUser
   ): Future[CompleteTable] = {
-    checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
-    logger.info(s"createTable $tableName columns $columns rows $rows")
 
     for {
       _ <- roleModel.checkAuthorization(CreateTable)

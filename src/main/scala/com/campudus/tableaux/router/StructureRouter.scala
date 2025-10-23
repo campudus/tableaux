@@ -5,8 +5,10 @@ import com.campudus.tableaux.InvalidJsonException
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.WrongJsonTypeException
 import com.campudus.tableaux.controller.StructureController
+import com.campudus.tableaux.database.domain.ColumnSeq
 import com.campudus.tableaux.database.domain.ColumnFilter, DisplayInfos
 import com.campudus.tableaux.database.domain.GenericTable
+import com.campudus.tableaux.database.domain.Table
 import com.campudus.tableaux.database.domain.TableType
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
@@ -14,8 +16,10 @@ import com.campudus.tableaux.router.auth.permission.TableauxUser
 import io.vertx.scala.ext.web.Router
 import io.vertx.scala.ext.web.RoutingContext
 import io.vertx.scala.ext.web.handler.BodyHandler
+import org.vertx.scala.core.json.JsonObject
 
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -205,24 +209,17 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 
   private def createColumn(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
+    val json = getJson(context)
 
     for {
       tableId <- getTableId(context)
-      json = getJson(context)
-      columnObjects = toJsonObjectSeq("columns", json).get
-      _ = checkArguments(greaterZero(tableId), nonEmpty(columnObjects, "columns"))
     } yield {
-      for {
-        table <- controller.retrieveTable(tableId)
-      } yield {
-        sendReply(
-          context,
-          asyncGetReply {
-            val json = getJson(context)
-            controller.createColumns(tableId, toCreateColumnSeq2(table, json))
-          }
-        )
-      }
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.createColumns(tableId, json)
+        }
+      )
     }
   }
 
