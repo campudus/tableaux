@@ -792,7 +792,7 @@ case class UnionLinkColumn(override val languageType: LanguageType)(override val
 
   override def getJson: JsonObject = {
     // TODO: temporarily return link instead of unionlink to test FE behavior
-    val overrideKind = Json.obj("kind" -> "link")
+    val overrideKind = Json.obj("kind" -> "unionlink")
     super.getJson.mergeIn(overrideKind)
   }
 }
