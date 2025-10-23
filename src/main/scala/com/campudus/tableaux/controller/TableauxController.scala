@@ -658,23 +658,6 @@ class TableauxController(
     } yield CompleteTable(table, colList, rowList)
   }
 
-  def createCompleteTable(json: JsonObject)(implicit user: TableauxUser): Future[CompleteTable] = {
-    val tableName = json.getString("name")
-    val tableType = TableType(json.getString("type", GenericTable.NAME))
-
-    val columns = toCreateColumnSeq(tableType, json)
-    val rows =
-      if (json.containsKey("rows")) {
-        toRowValueSeq(json)
-      } else {
-        Seq.empty
-      }
-    checkArguments(notNull(tableName, "tableName"), nonEmpty(columns, "columns"))
-    logger.info(s"createTable $tableName columns $columns rows $rows")
-
-    createCompleteTable(tableName, columns, rows)
-  }
-
   def createCompleteTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]])(
       implicit user: TableauxUser
   ): Future[CompleteTable] = {

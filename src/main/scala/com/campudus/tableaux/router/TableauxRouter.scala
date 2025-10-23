@@ -577,7 +577,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Create table with columns and rows
+    * Create table with columns and rows. TableType is always "generic" for this endpoint
     */
   private def createCompleteTable(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
@@ -585,7 +585,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       context,
       asyncGetReply {
         val json = getJson(context)
-        controller.createCompleteTable(json)
+        val columns = toCreateColumnSeq(GenericTable, json)
+        val rows =
+          if (json.containsKey("rows")) { toRowValueSeq(json) }
+          else { Seq() }
+        for {
+          completeTable <- controller.createCompleteTable(json.getString("name"), columns, rows)
+        } yield completeTable
       }
     )
   }
