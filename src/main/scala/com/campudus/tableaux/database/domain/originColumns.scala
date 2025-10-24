@@ -5,13 +5,16 @@ import com.campudus.tableaux.database.model.TableauxModel._
 
 import org.vertx.scala.core.json._
 
+import scala.collection.JavaConverters._
+
 sealed trait OriginColumns {
   val tableToColumn: Map[TableId, ColumnId]
 
   def getJson: JsonObject = {
-    Json.obj(OriginColumns.fieldName -> Json.obj(tableToColumn.map { case (tableId, columnId) =>
-      tableId.toString -> Json.obj("id" -> columnId)
-    }.toSeq: _*))
+    val arr = Json.arr(tableToColumn.map { case (tableId, columnId) =>
+      Json.obj("tableId" -> tableId, "columnId" -> columnId)
+    }.toSeq: _*)
+    Json.obj(OriginColumns.fieldName -> arr)
   }
 }
 
@@ -38,11 +41,13 @@ object OriginColumns {
     Some(originColumns.tableToColumn)
   }
 
-  def fromJson(json: JsonObject): OriginColumns = {
-    val tableToColumn: Map[TableId, ColumnId] = getFieldNames(json).map { tableId =>
-      val columnId = json.getJsonObject(tableId).getLong("id").toLong
-      (tableId.toLong, columnId)
-    }.toMap
+  def fromJson(json: JsonArray = Json.emptyArr()): OriginColumns = {
+    val tableToColumn: Map[TableId, ColumnId] = (json.asScala).map(json => {
+      val singleMapping = json.asInstanceOf[JsonObject]
+      val tableId: TableId = singleMapping.getLong("tableId")
+      val columnId: ColumnId = singleMapping.getLong("columnId")
+      (tableId, columnId)
+    }).toMap
 
     if (tableToColumn.isEmpty) {
       throw new IllegalArgumentException(s"Origin columns must not be empty in $json")

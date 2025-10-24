@@ -41,10 +41,10 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     "ordering" -> 1,
     "displayName" -> Json.obj("de" -> "Marketing Name", "en" -> "Marketing Name"),
     "description" -> Json.obj("de" -> "Marketingname der Farbe", "en" -> "marketing name of the color"),
-    "originColumns" -> Json.obj(
-      "2" -> Json.obj("id" -> 1),
-      "3" -> Json.obj("id" -> 1),
-      "4" -> Json.obj("id" -> 4)
+    "originColumns" -> Json.arr(
+      Json.obj("tableId" -> 2, "columnId" -> 1),
+      Json.obj("tableId" -> 3, "columnId" -> 1),
+      Json.obj("tableId" -> 4, "columnId" -> 4)
     )
   )
 
@@ -54,10 +54,10 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     "ordering" -> 2,
     "displayName" -> Json.obj("de" -> "Name der Farbe", "en" -> "Color Name"),
     "description" -> Json.obj("de" -> "Name der Farbe", "en" -> "Name of the color"),
-    "originColumns" -> Json.obj(
-      "2" -> Json.obj("id" -> 2),
-      "3" -> Json.obj("id" -> 3),
-      "4" -> Json.obj("id" -> 2)
+    "originColumns" -> Json.arr(
+      Json.obj("tableId" -> 2, "columnId" -> 2),
+      Json.obj("tableId" -> 3, "columnId" -> 3),
+      Json.obj("tableId" -> 4, "columnId" -> 2)
     )
   )
 
@@ -67,10 +67,10 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     "ordering" -> 3,
     "displayName" -> Json.obj("de" -> "Prio", "en" -> "Priority"),
     "description" -> Json.obj("de" -> "Die Priorität der Farbe", "en" -> "The priority of the color"),
-    "originColumns" -> Json.obj(
-      "2" -> Json.obj("id" -> 3),
-      "3" -> Json.obj("id" -> 4),
-      "4" -> Json.obj("id" -> 3)
+    "originColumns" -> Json.arr(
+      Json.obj("tableId" -> 2, "columnId" -> 3),
+      Json.obj("tableId" -> 3, "columnId" -> 4),
+      Json.obj("tableId" -> 4, "columnId" -> 3)
     )
   )
 
@@ -80,10 +80,10 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     "ordering" -> 3,
     "displayName" -> Json.obj("de" -> "Glanzgrad", "en" -> "Gloss Level"),
     "description" -> Json.obj("de" -> "Der Glanzgrad der Farbe", "en" -> "The gloss level of the color"),
-    "originColumns" -> Json.obj(
-      "2" -> Json.obj("id" -> 4),
-      "3" -> Json.obj("id" -> 2),
-      "4" -> Json.obj("id" -> 1)
+    "originColumns" -> Json.arr(
+      Json.obj("tableId" -> 2, "columnId" -> 4),
+      Json.obj("tableId" -> 3, "columnId" -> 2),
+      Json.obj("tableId" -> 4, "columnId" -> 1)
     )
   )
 
@@ -410,10 +410,10 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
         "name" -> "name",
         "kind" -> "text",
         "ordering" -> 1
-        // "originColumns" -> Json.obj(
-        //   "2" -> Json.obj("id" -> 1),
-        //   "3" -> Json.obj("id" -> 1),
-        //   "4" -> Json.obj("id" -> 4)
+        // "originColumns" -> Json.arr(
+        //   Json.obj("tableId" -> 2, "columnId" -> 1),
+        //   Json.obj("tableId" -> 3, "columnId" -> 1),
+        //   Json.obj("tableId" -> 4, "columnId" -> 4)
         // )
       )
       for {
@@ -439,10 +439,10 @@ class DeleteUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
         "kind" -> "text",
         "ordering" -> 1,
         "description" -> Json.obj("en" -> "add a column so the column originTable is not the only one"),
-        "originColumns" -> Json.obj(
-          "2" -> Json.obj("id" -> 1),
-          "3" -> Json.obj("id" -> 1),
-          "4" -> Json.obj("id" -> 4)
+        "originColumns" -> Json.arr(
+          Json.obj("tableId" -> 2, "columnId" -> 1),
+          Json.obj("tableId" -> 3, "columnId" -> 1),
+          Json.obj("tableId" -> 4, "columnId" -> 4)
         )
       )
 
@@ -464,10 +464,10 @@ class DeleteUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
         "kind" -> "text",
         "ordering" -> 1,
         "description" -> Json.obj("en" -> "add a column so the column originTable is not the only one"),
-        "originColumns" -> Json.obj(
-          "2" -> Json.obj("id" -> 1),
-          "3" -> Json.obj("id" -> 1),
-          "4" -> Json.obj("id" -> 4)
+        "originColumns" -> Json.arr(
+          Json.obj("tableId" -> 2, "columnId" -> 1),
+          Json.obj("tableId" -> 3, "columnId" -> 1),
+          Json.obj("tableId" -> 4, "columnId" -> 4)
         )
       )
 

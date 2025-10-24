@@ -314,7 +314,7 @@ sealed trait ColumnType[+A] extends DomainObject {
       })
     })
 
-    columnInformation.originColumns.map(oc => { json.mergeIn(oc.getJson) })
+    columnInformation.originColumns.foreach(oc => { json.mergeIn(oc.getJson) })
     json
   }
 
