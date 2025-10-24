@@ -1008,7 +1008,7 @@ class ColumnModel(val connection: DatabaseConnection)(
        |  show_member_columns,
        |  decimal_digits,
        |  (
-       |    SELECT json_object_agg(origin_table_id::text, json_build_object('id', origin_column_id))
+       |    SELECT json_agg(json_build_object('tableId', origin_table_id, 'columnId', origin_column_id))
        |    FROM system_union_column
        |    WHERE table_id = c.table_id AND column_id = c.column_id
        |  ) AS origin_columns
@@ -1313,7 +1313,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val showMemberColumns = row.get[Boolean](15)
     val decimalDigits = Option(row.get[Int](16))
     val originColumns = Option(row.get[String](17))
-      .map(str => OriginColumns.fromJson(Json.fromObjectString(str)))
+      .map(str => OriginColumns.fromJson(Json.fromArrayString(str)))
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
