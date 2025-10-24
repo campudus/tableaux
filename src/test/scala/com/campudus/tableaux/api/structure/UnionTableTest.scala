@@ -736,4 +736,25 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
 
     }
   }
+
+  @Test
+  def unionTablePlain_retrieveRows_ok(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createUnionTable(true, false)
+      rowsResult <- sendRequest("GET", s"/tables/$tableId/rows")
+      columnsResult <- sendRequest("GET", s"/tables/$tableId/columns")
+    } yield {
+      assertEquals(16, rowsResult.getJsonArray("rows").size())
+
+      val rows = rowsResult.getJsonArray("rows")
+      val rowValueCount =
+        rows.asScala.headOption.map(row =>
+          row.asInstanceOf[JsonObject].getJsonArray("values").size()
+        ).getOrElse(0)
+
+      val columnsCount = columnsResult.getJsonArray("columns").size()
+      assertEquals(1, columnsCount)
+      assertEquals(1, rowValueCount)
+    }
+  }
 }

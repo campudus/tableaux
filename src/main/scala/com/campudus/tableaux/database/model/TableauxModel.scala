@@ -1324,7 +1324,7 @@ class TableauxModel(
   )(rows: Seq[RowLike]): Seq[RowLike] = {
     rows.map({ row =>
       val reorderedValues = originColumn2UnionColumnMapping.foldLeft(
-        Vector.fill(row.values.size + 1)(null: Any).updated(0, originColumnValue)
+        Vector.fill(unionColumnOrdering.size)(null: Any).updated(0, originColumnValue)
       ) { case (acc, (originColumnId, unionColumnId)) =>
         val originColumnIndex = originColumnOrdering.indexOf(originColumnId)
         val unionColumnIndex = unionColumnOrdering.indexOf(unionColumnId)
@@ -1352,24 +1352,35 @@ class TableauxModel(
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean]
   )(implicit user: TableauxUser): Future[(RowSeq, Long)] = {
+
+    def getColumnMapping(originTable: Table, unionTableColumns: Seq[ColumnType[_]]): Map[Long, Long] = {
+      unionTableColumns
+        .flatMap(utc =>
+          utc.originColumns.filter(otc =>
+            otc.tableToColumn.contains(originTable.id)
+          ).map(otc =>
+            (otc.tableToColumn(originTable.id), utc.id)
+          )
+        ).toMap
+    }
+
     for {
       originTable <- retrieveTable(tableId)
       columns <- retrieveColumns(originTable)
       filteredColumns = filterColumns(originTable, columns)
-      rowSeq <- retrieveRows(originTable, filteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination, true)
+
+      originColumnOrdering = filteredColumns.map(c => c.id)
+      unionColumnOrdering = unionTableColumns.map(c => c.id)
+      originColumn2UnionColumnMapping: Map[Long, Long] = getColumnMapping(originTable, unionTableColumns)
+
+      // retrieve only relevant columns that we need to return for the union table
+      relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
+
+      rowSeq <- retrieveRows(originTable, relevantFilteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination, true)
       resultRows <- filterRows(filteredColumns, rowSeq.rows)
     } yield {
       val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
       val originColumnValue = originTable.getDisplayNameJson
-
-      val originColumnOrdering = filteredColumns.map(c => c.id)
-      val unionColumnOrdering = unionTableColumns.map(c => c.id)
-
-      val originColumn2UnionColumnMapping: Map[Long, Long] = unionTableColumns
-        .flatMap(utc =>
-          utc.originColumns.filter(otc => otc.tableToColumn.contains(originTable.id))
-            .map(otc => (otc.tableToColumn(originTable.id), utc.id))
-        ).toMap
 
       val unifyColumns = addAndReorderOriginColumnValues(
         originColumnValue,
