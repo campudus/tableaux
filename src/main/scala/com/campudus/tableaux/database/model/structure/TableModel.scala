@@ -586,4 +586,43 @@ class TableModel(val connection: DatabaseConnection)(
       _ <- t.commit()
     } yield ()
   }
+
+  def retrieveDependentUnionTableModels(
+      originTableId: TableId,
+      originColumnId: ColumnId
+  ): Future[Seq[UnionTableModel]] = {
+    for {
+      result <- connection
+        .query(
+          """
+            |SELECT
+            |  sub.table_id,
+            |  sub.column_id,
+            |  (
+            |    SELECT json_agg(json_build_object('tableId', origin_table_id, 'columnId', origin_column_id))
+            |    FROM system_union_column suc
+            |    WHERE suc.table_id = sub.table_id
+            |      AND suc.column_id = sub.column_id
+            |  ) AS origin_columns
+            |FROM (
+            |  SELECT DISTINCT table_id, column_id
+            |  FROM system_union_column
+            |  WHERE origin_table_id = ?
+            |    AND origin_column_id = ?
+            |) sub
+            |""".stripMargin,
+          Json.arr(originTableId, originColumnId)
+        )
+    } yield {
+      resultObjectToJsonArray(result)
+        .map(arr => {
+          val tableId = arr.get[TableId](0)
+          val columnId = arr.get[ColumnId](1)
+          val jsonArrayString = arr.getString(2)
+          val jsonArray = Json.fromArrayString(jsonArrayString)
+          val originColumns = OriginColumns.fromJson(jsonArray)
+          UnionTableModel(tableId, columnId, originColumns)
+        })
+    }
+  }
 }

@@ -7,8 +7,7 @@ import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
 
-sealed trait OriginColumns {
-  val tableToColumn: Map[TableId, ColumnId]
+case class OriginColumns(tableToColumn: Map[TableId, ColumnId]) {
 
   def getJson: JsonObject = {
     val arr = Json.arr(tableToColumn.map { case (tableId, columnId) =>
@@ -29,16 +28,6 @@ object OriginColumns {
     } else {
       Seq.empty
     }
-  }
-
-  def apply(_tableToColumn: Map[TableId, ColumnId]): OriginColumns = {
-    new OriginColumns {
-      override val tableToColumn: Map[TableId, ColumnId] = _tableToColumn
-    }
-  }
-
-  def unapply(originColumns: OriginColumns): Option[Map[TableId, ColumnId]] = {
-    Some(originColumns.tableToColumn)
   }
 
   def fromJson(json: JsonArray = Json.emptyArr()): OriginColumns = {

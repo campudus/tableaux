@@ -52,6 +52,7 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     "name" -> "color",
     "kind" -> "text",
     "ordering" -> 2,
+    // TODO: "languageType" -> "language",
     "displayName" -> Json.obj("de" -> "Name der Farbe", "en" -> "Color Name"),
     "description" -> Json.obj("de" -> "Name der Farbe", "en" -> "Name of the color"),
     "originColumns" -> Json.arr(
@@ -488,6 +489,20 @@ class DeleteUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
       } yield {
         assertEquals(0, systemUnionTables)
         assertEquals(0, systemUnionColumns)
+      }
+    }
+
+  @Test
+  def deleteUnionTable_deleteColumnInOriginTable_ok(implicit c: TestContext): Unit =
+    okTest {
+      for {
+        tableId <- createUnionTable(true)
+        retrieveToBuildUpColumnCache <- sendRequest("GET", s"/tables/$tableId/rows")
+        _ <- sendRequest("DELETE", s"/tables/4/columns/4")
+
+        retrieveAllUnionTableRows <- sendRequest("GET", s"/tables/$tableId/rows").map(_.getJsonArray("rows"))
+      } yield {
+        assertEquals(16, retrieveAllUnionTableRows.size())
       }
     }
 }
