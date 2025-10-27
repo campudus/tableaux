@@ -589,30 +589,37 @@ class TableModel(val connection: DatabaseConnection)(
 
   def retrieveDependentUnionTableModels(
       originTableId: TableId,
-      originColumnId: ColumnId
+      originColumnIdOpt: Option[ColumnId] = None
   ): Future[Seq[UnionTableModel]] = {
+    val whereClause = originColumnIdOpt match {
+      case Some(_) => "WHERE origin_table_id = ? AND origin_column_id = ?"
+      case None => "WHERE origin_table_id = ?"
+    }
+
+    val binds = Json.arr(
+      Seq(originTableId) ++ originColumnIdOpt.toSeq: _*
+    )
+
     for {
-      result <- connection
-        .query(
-          """
-            |SELECT
-            |  sub.table_id,
-            |  sub.column_id,
-            |  (
-            |    SELECT json_agg(json_build_object('tableId', origin_table_id, 'columnId', origin_column_id))
-            |    FROM system_union_column suc
-            |    WHERE suc.table_id = sub.table_id
-            |      AND suc.column_id = sub.column_id
-            |  ) AS origin_columns
-            |FROM (
-            |  SELECT DISTINCT table_id, column_id
-            |  FROM system_union_column
-            |  WHERE origin_table_id = ?
-            |    AND origin_column_id = ?
-            |) sub
-            |""".stripMargin,
-          Json.arr(originTableId, originColumnId)
-        )
+      result <- connection.query(
+        s"""
+           |SELECT
+           |  sub.table_id,
+           |  sub.column_id,
+           |  (
+           |    SELECT json_agg(json_build_object('tableId', origin_table_id, 'columnId', origin_column_id))
+           |    FROM system_union_column suc
+           |    WHERE suc.table_id = sub.table_id
+           |      AND suc.column_id = sub.column_id
+           |  ) AS origin_columns
+           |FROM (
+           |  SELECT DISTINCT table_id, column_id
+           |  FROM system_union_column
+           |  $whereClause
+           |) sub
+           |""".stripMargin,
+        binds
+      )
     } yield {
       resultObjectToJsonArray(result)
         .map(arr => {
