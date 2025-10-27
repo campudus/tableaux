@@ -445,6 +445,15 @@ class StructureController(
     } yield retrieved
   }
 
+  private def maybeInvalidateUnionTableCache(tableId: TableId, columnIdOpt: Option[ColumnId] = None): Future[Unit] = {
+    for {
+      unionTableModels <- tableStruc.retrieveDependentUnionTableModels(tableId, columnIdOpt)
+      _ <- Future.sequence(unionTableModels.map(model =>
+        columnStruc.removeCache(model.tableId, None)
+      ))
+    } yield ()
+  }
+
   def deleteTable(tableId: TableId)(implicit user: TableauxUser): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"deleteTable $tableId")
@@ -452,6 +461,7 @@ class StructureController(
     for {
       table <- tableStruc.retrieve(tableId)
       _ <- roleModel.checkAuthorization(DeleteTable, ComparisonObjects(table))
+      _ <- maybeInvalidateUnionTableCache(tableId)
       columns <- columnStruc.retrieveAll(table)
 
       // only delete special column before deleting table;
@@ -478,15 +488,6 @@ class StructureController(
     }
   }
 
-  def maybeInvalidateUnionColumnCache(tableId: TableId, columnId: ColumnId): Future[Unit] = {
-    for {
-      unionTableModels <- tableStruc.retrieveDependentUnionTableModels(tableId, columnId)
-      _ <- Future.sequence(unionTableModels.map(unionTableModel => {
-        columnStruc.removeCache(unionTableModel.tableId, Some(unionTableModel.columnId))
-      }))
-    } yield ()
-  }
-
   def deleteColumn(tableId: TableId, columnId: ColumnId)(
       implicit user: TableauxUser
   ): Future[EmptyObject] = {
@@ -496,9 +497,8 @@ class StructureController(
     for {
       table <- tableStruc.retrieve(tableId)
       column <- columnStruc.retrieve(table, columnId)
-      _ <- maybeInvalidateUnionColumnCache(tableId, columnId)
-
       _ <- roleModel.checkAuthorization(DeleteColumn, ComparisonObjects(table, column))
+      _ <- maybeInvalidateUnionTableCache(tableId, Some(columnId))
       _ <- table.tableType match {
         case GenericTable | UnionTable => columnStruc.delete(table, columnId)
         case TaxonomyTable =>
