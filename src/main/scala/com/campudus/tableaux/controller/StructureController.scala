@@ -478,6 +478,15 @@ class StructureController(
     }
   }
 
+  def maybeInvalidateUnionColumnCache(tableId: TableId, columnId: ColumnId): Future[Unit] = {
+    for {
+      unionTableModels <- tableStruc.retrieveDependentUnionTableModels(tableId, columnId)
+      _ <- Future.sequence(unionTableModels.map(unionTableModel => {
+        columnStruc.removeCache(unionTableModel.tableId, Some(unionTableModel.columnId))
+      }))
+    } yield ()
+  }
+
   def deleteColumn(tableId: TableId, columnId: ColumnId)(
       implicit user: TableauxUser
   ): Future[EmptyObject] = {
@@ -487,6 +496,8 @@ class StructureController(
     for {
       table <- tableStruc.retrieve(tableId)
       column <- columnStruc.retrieve(table, columnId)
+      _ <- maybeInvalidateUnionColumnCache(tableId, columnId)
+
       _ <- roleModel.checkAuthorization(DeleteColumn, ComparisonObjects(table, column))
       _ <- table.tableType match {
         case GenericTable | UnionTable => columnStruc.delete(table, columnId)
