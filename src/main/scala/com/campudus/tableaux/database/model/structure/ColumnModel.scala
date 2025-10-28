@@ -372,30 +372,175 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
-  def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
+  private def checkCreateUnionColumns(table: Table, createColumns: Seq[CreateColumn])(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
-    // TODO: check if all createColumns have valid originColumn configs, we should fail fast!
+  ): Future[Seq[String]] = {
 
-    val haveValidOriginColumns = createColumns.foldLeft(true) {
-      case (valid, next) =>
-        valid && next.originColumns.nonEmpty
-    }
-    if (!haveValidOriginColumns) {
-      return Future.failed(
-        InvalidJsonException("All columns need to have valid originColumns for union table", "originColumns")
-      )
-    }
+    // steps
 
-    createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
-      case (future, next) =>
-        for {
-          createdColumns <- future
-          createdColumn <- createUnionTableColumn(table, next)
-        } yield {
-          createdColumns :+ createdColumn
+    // 1. iterate over all createColumns and collect references to all tables and columns from createColumn.originColumns, grouped by table -> Map[TableId, Seq[ColumnId]]
+    val table2CreateColumn = createColumns.foldLeft(Map.empty[TableId, Map[CreateColumn, Set[ColumnId]]]) {
+      case (acc, createColumn) =>
+        createColumn.originColumns match {
+          case Some(OriginColumns(tableToColumnMap)) =>
+            tableToColumnMap.foldLeft(acc) {
+              case (innerAcc, (tableId, columnId)) =>
+                // val updatedCreateColumns = innerAcc.getOrElse(tableId, Set.empty) + createColumn
+                val updatedCreateColumns = innerAcc.get(tableId) match {
+                  case Some(colMap) =>
+                    val updatedSet = colMap.get(createColumn) match {
+                      case Some(colSet) => colSet + columnId
+                      case None => Set(columnId)
+                    }
+                    colMap + (createColumn -> updatedSet)
+                  case None =>
+                    Map(createColumn -> Set(columnId))
+                }
+                innerAcc + (tableId -> updatedCreateColumns)
+            }
+          case None => acc
         }
     }
+
+    println(s"### checkCreateUnionColumns START")
+    println(s"### createColumns count: ${createColumns.length}")
+    createColumns.foreach { cc =>
+      println(s"###   - ${cc.name}: originColumns = ${cc.originColumns}")
+    }
+    println(s"### tableAndColumnRefs: $table2CreateColumn")
+
+    // 2. iterate over all referenced tables, get all their columns and check if all referenced columns exist and have the same kind, languageType
+    // var errors: Seq[String] = Seq.empty
+
+    // table2CreateColumn.foreach {
+    //   case (refTableId, createColumn2OriginColumnIds) =>
+    //     println(s"### check table: $refTableId")
+    //     val refTableFuture = tableStruc.retrieve(refTableId)
+
+    //     for {
+    //       refTableColumns <- for {
+    //         refTable <- refTableFuture
+    //         columns <- retrieveAll(refTable)
+    //       } yield columns
+    //     } yield {
+    //       createColumn2OriginColumnIds.foreach {
+    //         case (createColumn, columnIds) =>
+    //           println(s"### check createColumn: ${createColumn.name} with origin columns: ${columnIds.mkString(", ")}")
+    //           columnIds.foreach { columnId =>
+    //             val matchingColumnOpt = refTableColumns.find(_.id == columnId)
+    //             matchingColumnOpt match {
+    //               case Some(matchingColumn) =>
+    //                 if (matchingColumn.kind != createColumn.kind) {
+    //                   println(s"### ❌ mismatched kind: ${matchingColumn.kind} != ${createColumn.kind}")
+    //                   errors :+= (s"Column '${matchingColumn.id}' in table '$refTableId' has different kind: ${matchingColumn.kind} != ${createColumn.kind}")
+    //                 } else {
+    //                   println(s"### ✅ matched kind: ${matchingColumn.kind} == ${createColumn.kind}")
+
+    //                 }
+    //                 if (matchingColumn.languageType != createColumn.languageType) {
+    //                   println(
+    //                     s"### ❌ mismatched languageType: ${matchingColumn.languageType} != ${createColumn.languageType}"
+    //                   )
+    //                   errors :+= (s"Column '${matchingColumn.id}' in table '$refTableId' has different languageType: ${matchingColumn.languageType} != ${createColumn.languageType}")
+    //                 } else {
+    //                   println(
+    //                     s"### ✅ matched languageType: ${matchingColumn.languageType} == ${createColumn.languageType}"
+    //                   )
+
+    //                 }
+    //               case None => {
+    //                 println(s"### column '${columnId}' not found in table '$refTableId'")
+    //                 errors :+= (s"Column '${columnId}' not found in table '$refTableId'")
+    //               }
+    //             }
+    //           }
+    //       }
+    //     }
+    // }
+
+    // errors
+
+    Future.sequence(
+      table2CreateColumn.toSeq.map {
+        case (refTableId, createColumn2OriginColumnIds) =>
+          (for {
+            refTableColumns <- for {
+              refTable <- tableStruc.retrieve(refTableId)
+              columns <- retrieveAll(refTable)
+            } yield columns
+          } yield {
+            createColumn2OriginColumnIds.flatMap {
+              case (createColumn, columnIds) =>
+                columnIds.flatMap { columnId =>
+                  val matchingColumnOpt = refTableColumns.find(_.id == columnId)
+                  matchingColumnOpt match {
+                    case Some(matchingColumn) =>
+                      val errors = Seq.newBuilder[String]
+                      if (matchingColumn.kind != createColumn.kind) {
+                        println(s"### ❌ mismatched kind: ${matchingColumn.kind} != ${createColumn.kind}")
+                        errors += s"Column '${matchingColumn.id}' in table '$refTableId' has different kind..."
+                      } else {
+                        println(s"### ✅ matched kind: ${matchingColumn.kind} == ${createColumn.kind}")
+                      }
+                      if (matchingColumn.languageType != createColumn.languageType) {
+                        println(
+                          s"### ❌ mismatched languageType: ${matchingColumn.languageType} != ${createColumn.languageType}"
+                        )
+                        errors += s"Column '${matchingColumn.id}' in table '$refTableId' has different languageType..."
+                      } else {
+                        println(
+                          s"### ✅ matched languageType: ${matchingColumn.languageType} == ${createColumn.languageType}"
+                        )
+                      }
+                      errors.result()
+                    case None => {
+                      println(s"### column '${columnId}' not found in table '$refTableId'")
+                      Seq(s"Column '${columnId}' not found in table '$refTableId'")
+                    }
+                  }
+                }
+            }
+          }).recover {
+            case ex =>
+              Seq(s"Table '$refTableId' could not be checked, possibly it does not exist.")
+          }
+      }
+    ).map(_.flatten) // Alle Fehler aus allen Futures sammeln
+  }
+
+  def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(implicit
+  user: TableauxUser): Future[Seq[ColumnType[_]]] = {
+    for {
+      errors <- checkCreateUnionColumns(table, createColumns)
+      _ <- {
+        if (errors.nonEmpty) {
+          Future.failed(InvalidJsonException(errors.mkString(", "), "unionTable"))
+        } else {
+          Future.successful(())
+        }
+      }
+
+      // TODO: I glab des brauch ma dann garnimmer, oder?
+      // _ = {
+      //   val haveValidOriginColumns = createColumns.foldLeft(true) {
+      //     case (valid, next) =>
+      //       valid && next.originColumns.nonEmpty
+      //   }
+      //   if (!haveValidOriginColumns) {
+      //     throw InvalidJsonException("All columns need to have valid originColumns for union table", "originColumns")
+      //   }
+      // }
+
+      result <- createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
+        case (future, next) =>
+          for {
+            createdColumns <- future
+            createdColumn <- createUnionTableColumn(table, next)
+          } yield {
+            createdColumns :+ createdColumn
+          }
+      }
+    } yield result
   }
 
   def createUnionTableColumn(table: Table, createColumn: CreateColumn)(
