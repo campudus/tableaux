@@ -789,12 +789,6 @@ case class UnionColumn(
     val user: TableauxUser
 ) extends SimpleValueColumn[UnionColumn](kind)(languageType) {
   override def checkValidSingleValue[B](value: B): Try[UnionColumn] = Try(value.asInstanceOf[UnionColumn])
-
-  // override def getJson: JsonObject = {
-  //   // TODO: temporarily return link instead of unionlink to test FE behavior
-  //   val overrideKind = Json.obj("kind" -> "unionlink")
-  //   super.getJson.mergeIn(overrideKind)
-  // }
 }
 
 /**

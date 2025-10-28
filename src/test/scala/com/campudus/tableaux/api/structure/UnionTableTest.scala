@@ -341,7 +341,6 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
   @Test
   def updateUnionTable_addColumnsToUnionTable_ok(implicit c: TestContext): Unit = okTest {
-    import scala.collection.JavaConverters._
 
     for {
       tableId <- createUnionTable(false, false)
@@ -426,6 +425,73 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
         )
       } yield ()
     }
+
+  @Test
+  def updateUnionTable_addInvalidColumnsToUnionTable_shouldFail(implicit c: TestContext): Unit = okTest {
+
+    val expectedException = TestCustomException(
+      "com.campudus.tableaux.NotImplementedException: Operation not implemented for table of type union",
+      "error.request.notimplemented",
+      501
+    )
+
+    val col2 = Json.obj(
+      "name" -> "name",
+      "kind" -> "numeric", // wrong kind, should be "text"
+      "ordering" -> 1,
+      "originColumns" -> Json.arr(
+        Json.obj("tableId" -> 2, "columnId" -> 1),
+        Json.obj("tableId" -> 3, "columnId" -> 1),
+        Json.obj("tableId" -> 4, "columnId" -> 4)
+      )
+    )
+
+    val col3 = Json.obj(
+      "name" -> "color",
+      "kind" -> "text",
+      "languageType" -> "neutral", // wrong languageType, should be "language"
+      "originColumns" -> Json.arr(
+        Json.obj("tableId" -> 2, "columnId" -> 2),
+        Json.obj("tableId" -> 3, "columnId" -> 3),
+        Json.obj("tableId" -> 4, "columnId" -> 2)
+      )
+    )
+
+    val col4 = Json.obj(
+      "name" -> "prio",
+      "kind" -> "numeric",
+      "originColumns" -> Json.arr(
+        // wrong tableId, all tableIds from union table originTables must exist, be valid and of type generic
+        Json.obj("tableId" -> 77, "columnId" -> 3),
+        Json.obj("tableId" -> 3, "columnId" -> 4),
+        Json.obj("tableId" -> 4, "columnId" -> 3)
+      )
+    )
+
+    val col5 = Json.obj(
+      "name" -> "glossLevel",
+      "kind" -> "link",
+      // wrong columnId, all columnIds from the origin tables must exist
+      "originColumns" -> Json.arr(
+        Json.obj("tableId" -> 2, "columnId" -> 99), // invalid columnId
+        Json.obj("tableId" -> 3, "columnId" -> 2),
+        Json.obj("tableId" -> 4, "columnId" -> 1)
+      )
+    )
+
+    for {
+      tableId <- createUnionTable(false, false)
+
+      columnsException <- sendRequest(
+        "POST",
+        s"/tables/$tableId/columns",
+        Json.obj("columns" -> Json.arr(col2, col3, col4, col5))
+      ).toException()
+    } yield {
+      assertEquals(expectedException, columnsException)
+    }
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])
