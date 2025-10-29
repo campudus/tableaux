@@ -52,7 +52,7 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     "name" -> "color",
     "kind" -> "text",
     "ordering" -> 2,
-    // TODO: "languageType" -> "language",
+    "languageType" -> "language",
     "displayName" -> Json.obj("de" -> "Name der Farbe", "en" -> "Color Name"),
     "description" -> Json.obj("de" -> "Name der Farbe", "en" -> "Name of the color"),
     "originColumns" -> Json.arr(
@@ -405,9 +405,16 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
   @Test
   def updateUnionTable_addColumnsToUnionTable_shouldFail(implicit c: TestContext): Unit =
-    exceptionTest("error.json.originColumns") {
+    okTest {
+      val expectedException = TestCustomException(
+        "com.campudus.tableaux.InvalidJsonException: "
+          + "CreateColumn 'name_two' has no valid field originColumns",
+        "error.json.unionTable",
+        400
+      )
+
       val unionTableColWithoutOriginColumns = Json.obj(
-        "name" -> "name",
+        "name" -> "name_two",
         "kind" -> "text",
         "ordering" -> 1
         // "originColumns" -> Json.arr(
@@ -418,12 +425,14 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
       )
       for {
         tableId <- createUnionTable()
-        _ <- sendRequest(
+        exception <- sendRequest(
           "POST",
           s"/tables/$tableId/columns",
           Json.obj("columns" -> Json.arr(unionTableColWithoutOriginColumns))
-        )
-      } yield ()
+        ).toException()
+      } yield {
+        assertEquals(expectedException, exception)
+      }
     }
 
   @Test
@@ -431,12 +440,13 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
     val expectedException = TestCustomException(
       "com.campudus.tableaux.InvalidJsonException: "
-        + "Column '1' in table '2' and column to create (name: name) have different kinds: text != numeric, "
-        + "Column '2' in table '2' and column to create (name: color) have different languageTypes: language != neutral, "
-        + "Column '99' not found in table '2', Column '1' in table '3' and column to create (name: name) have different kinds: text != numeric, "
-        + "Column '3' in table '3' and column to create (name: color) have different languageTypes: language != neutral, "
-        + "Column '4' in table '4' and column to create (name: name) have different kinds: text != numeric, "
-        + "Column '2' in table '4' and column to create (name: color) have different languageTypes: language != neutral, "
+        + "Column '1' in table '2' and CreateColumn 'name' have different kinds: text != numeric, "
+        + "Column '2' in table '2' and CreateColumn 'color' have different languageTypes: language != neutral, "
+        + "Column '99' not found in table '2', "
+        + "Column '1' in table '3' and CreateColumn 'name' have different kinds: text != numeric, "
+        + "Column '3' in table '3' and CreateColumn 'color' have different languageTypes: language != neutral, "
+        + "Column '4' in table '4' and CreateColumn 'name' have different kinds: text != numeric, "
+        + "Column '2' in table '4' and CreateColumn 'color' have different languageTypes: language != neutral, "
         + "Table '77' could not be checked, possibly it does not exist",
       "error.json.unionTable",
       400
