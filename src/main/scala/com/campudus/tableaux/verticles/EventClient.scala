@@ -65,7 +65,7 @@ object EventClient {
 class EventClient(val vertx: Vertx) extends VertxAccess {
   import EventClient._
 
-  val options = DeliveryOptions().setSendTimeout(CacheVerticle.TIMEOUT_AFTER_MILLISECONDS)
+  val options = DeliveryOptions().setSendTimeout(CacheVerticle.cacheTimeoutMillis)
 
   val eventBus: EventBus = vertx.eventBus()
 

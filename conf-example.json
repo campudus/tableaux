@@ -34,5 +34,6 @@
     "cacheClearPollingInterval": 21600000,
     "cacheCreateTimeout": 10000
   },
-  "unionTableRowOffset": 1000000
+  "unionTableRowOffset": 1000000,
+  "vertxCacheTimeoutMillis": 400
 }
