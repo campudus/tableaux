@@ -26,6 +26,7 @@ object Starter {
   val DEFAULT_ROLE_PERMISSIONS_PATH = "./role-permissions.json"
   val DEFAULT_IS_PUBLIC_FILE_SERVER_ENABLED = false
   val DEFAULT_IS_ROW_PERMISSION_CHECK_ENABLED = false
+  val DEFAULT_UNION_TABLE_ROW_OFFSET = 1000000
 
   // We increased the default max header size because we hit the limit with large bearer tokens that
   // include many realm roles and the server responded with misleading 400 Bad Request errors.
@@ -62,6 +63,8 @@ class Starter extends ScalaVerticle with LazyLogging {
       val thumbnailsConfig = config.getJsonObject("thumbnails", Json.obj())
       val rolePermissionsPath = getStringDefault(config, "rolePermissionsPath", Starter.DEFAULT_ROLE_PERMISSIONS_PATH)
       val openApiUrl = Option(getStringDefault(config, "openApiUrl", null))
+      val unionTableRowOffset =
+        config.getInteger("unionTableRowOffset", Starter.DEFAULT_UNION_TABLE_ROW_OFFSET)
 
       // feature flags
       val isPublicFileServerEnabled =
@@ -84,6 +87,8 @@ class Starter extends ScalaVerticle with LazyLogging {
         isPublicFileServerEnabled = isPublicFileServerEnabled,
         isRowPermissionCheckEnabled = isRowPermissionCheckEnabled
       )
+
+      com.campudus.tableaux.database.domain.UnionTableRow.setRowOffset(unionTableRowOffset)
 
       connection = SQLConnection(vertxAccessContainer(), databaseConfig)
 
