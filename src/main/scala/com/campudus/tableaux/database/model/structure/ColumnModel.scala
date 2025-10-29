@@ -376,6 +376,15 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[String]] = {
 
+    val initialErrors = createColumns.foldLeft(Seq.empty[String]) {
+      case (errors, createColumn) =>
+        createColumn.originColumns match {
+          case Some(_) => errors
+          case None =>
+            errors :+ s"CreateColumn '${createColumn.name}' has no valid field originColumns"
+        }
+    }
+
     val table2CreateColumn = createColumns.foldLeft(Map.empty[TableId, Map[CreateColumn, Set[ColumnId]]]) {
       case (acc, createColumn) =>
         createColumn.originColumns match {
@@ -398,8 +407,8 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
     }
 
-    Future.sequence(
-      table2CreateColumn.toSeq.map {
+    for {
+      validationErrors <- Future.sequence(table2CreateColumn.toSeq.map({
         case (refTableId, createColumn2OriginColumnIds) =>
           (for {
             refTable <- tableStruc.retrieve(refTableId)
@@ -412,7 +421,7 @@ class ColumnModel(val connection: DatabaseConnection)(
                   matchingColumnOpt match {
                     case Some(matchingColumn) =>
                       val errorPrefix = s"Column '${matchingColumn.id}' in table '$refTableId' and " +
-                        s"column to create (name: ${createColumn.name}) have different"
+                        s"CreateColumn '${createColumn.name}' have different"
                       val errors = Seq.newBuilder[String]
                       if (matchingColumn.kind != createColumn.kind) {
                         errors += s"$errorPrefix kinds: ${matchingColumn.kind} != ${createColumn.kind}"
@@ -429,8 +438,10 @@ class ColumnModel(val connection: DatabaseConnection)(
           }).recover({
             case ex => Seq(s"Table '$refTableId' could not be checked, possibly it does not exist")
           })
-      }
-    ).map(_.flatten)
+      }))
+    } yield {
+      initialErrors ++ validationErrors.flatten
+    }
   }
 
   def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
