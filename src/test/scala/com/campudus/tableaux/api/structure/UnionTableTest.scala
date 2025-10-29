@@ -430,9 +430,16 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
   def updateUnionTable_addInvalidColumnsToUnionTable_shouldFail(implicit c: TestContext): Unit = okTest {
 
     val expectedException = TestCustomException(
-      "com.campudus.tableaux.NotImplementedException: Operation not implemented for table of type union",
-      "error.request.notimplemented",
-      501
+      "com.campudus.tableaux.InvalidJsonException: "
+        + "Column '1' in table '2' and column to create (name: name) have different kinds: text != numeric, "
+        + "Column '2' in table '2' and column to create (name: color) have different languageTypes: language != neutral, "
+        + "Column '99' not found in table '2', Column '1' in table '3' and column to create (name: name) have different kinds: text != numeric, "
+        + "Column '3' in table '3' and column to create (name: color) have different languageTypes: language != neutral, "
+        + "Column '4' in table '4' and column to create (name: name) have different kinds: text != numeric, "
+        + "Column '2' in table '4' and column to create (name: color) have different languageTypes: language != neutral, "
+        + "Table '77' could not be checked, possibly it does not exist",
+      "error.json.unionTable",
+      400
     )
 
     val col2 = Json.obj(
