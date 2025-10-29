@@ -5,6 +5,10 @@ import com.campudus.tableaux.database.model.TableauxModel._
 
 import org.vertx.scala.core.json._
 
+object UnionTableRow {
+  val ROW_OFFSET = 1000000
+}
+
 case class RawRow(
     id: RowId,
     rowLevelAnnotations: RowLevelAnnotations,
@@ -59,14 +63,21 @@ case class UnionTableRow(
     values: Seq[_]
 ) extends RowLike {
 
+  /**
+    * Because the frontend and other API consumers cannot handle composite row IDs (tableId and rowId), we calculate a
+    * unique row ID by adding a table-specific offset to the row ID. This is the easiest way to handle that problem
+    * without changing the frontend and the API. We will encounter problems if we have more than 1,000,000 rows in a
+    * single table, but that is highly unlikely today.
+    */
+  private def calcRowId(rowId: RowId, tableId: TableId): RowId =
+    (tableId * UnionTableRow.ROW_OFFSET) + rowId
+
   override def getJson: JsonObject = {
     val json = buildBaseJson
     json.mergeIn(Json.obj(
       "tableId" -> table.id
     ))
-    // TODO: temporary add multiplier for row id to be able to show rows in FE
-    // json.put("id", id + table.id * 100)
-    json
+    json.put("id", calcRowId(id, table.id))
   }
 }
 
