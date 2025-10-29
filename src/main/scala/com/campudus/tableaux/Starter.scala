@@ -1,6 +1,7 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.database.domain.UnionTableRow
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
 import com.campudus.tableaux.verticles._
@@ -27,6 +28,7 @@ object Starter {
   val DEFAULT_IS_PUBLIC_FILE_SERVER_ENABLED = false
   val DEFAULT_IS_ROW_PERMISSION_CHECK_ENABLED = false
   val DEFAULT_UNION_TABLE_ROW_OFFSET = 1000000
+  val DEFAULT_VERTX_CACHE_TIMEOUT_MILLIS = 400
 
   // We increased the default max header size because we hit the limit with large bearer tokens that
   // include many realm roles and the server responded with misleading 400 Bad Request errors.
@@ -65,6 +67,8 @@ class Starter extends ScalaVerticle with LazyLogging {
       val openApiUrl = Option(getStringDefault(config, "openApiUrl", null))
       val unionTableRowOffset =
         config.getInteger("unionTableRowOffset", Starter.DEFAULT_UNION_TABLE_ROW_OFFSET)
+      val vertxCacheTimeoutMillis =
+        config.getInteger("vertxCacheTimeoutMillis", Starter.DEFAULT_VERTX_CACHE_TIMEOUT_MILLIS)
 
       // feature flags
       val isPublicFileServerEnabled =
@@ -88,7 +92,8 @@ class Starter extends ScalaVerticle with LazyLogging {
         isRowPermissionCheckEnabled = isRowPermissionCheckEnabled
       )
 
-      com.campudus.tableaux.database.domain.UnionTableRow.setRowOffset(unionTableRowOffset)
+      UnionTableRow.rowOffset = unionTableRowOffset
+      CacheVerticle.cacheTimeoutMillis = vertxCacheTimeoutMillis
 
       connection = SQLConnection(vertxAccessContainer(), databaseConfig)
 
