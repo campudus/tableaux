@@ -6,7 +6,13 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json._
 
 object UnionTableRow {
-  val ROW_OFFSET = 1000000
+  private var rowOffset: Int = 1000000
+
+  def setRowOffset(offset: Int): Unit = {
+    rowOffset = offset
+  }
+
+  def getRowOffset: Int = rowOffset
 }
 
 case class RawRow(
@@ -70,7 +76,7 @@ case class UnionTableRow(
     * single table, but that is highly unlikely today.
     */
   private def calcRowId(rowId: RowId, tableId: TableId): RowId =
-    (tableId * UnionTableRow.ROW_OFFSET) + rowId
+    (tableId * UnionTableRow.getRowOffset) + rowId
 
   override def getJson: JsonObject = {
     val json = buildBaseJson
