@@ -100,7 +100,12 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
 
   private def retrieveListeners(): Future[Map[String, Seq[Service]]] = {
     for {
-      services <- serviceModel.retrieveAll()
+      services <- serviceModel.retrieveAll().recover({
+        case _: Throwable =>
+          logger.error("Retrieving services failed. This should only occur if the database is empty " +
+            "and can be resolved by upgrading the database schema.")
+          Seq()
+      })
     } yield {
       val listeners = services.filter(service => {
         val hasRequiredConfigValues = getServiceConfigValues(service) match {
