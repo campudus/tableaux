@@ -120,13 +120,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         asyncGetReply {
           val columnIds = getSeqLongQuery("columnIds", context)
           val columnNames = getSeqStringQuery("columnNames", context)
-          val columnFilter: ColumnType[_] => Boolean = { c =>
-            val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
-            val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
-            idMatches && nameMatches
-          }
 
-          controller.retrieveColumns(tableId, false, columnFilter)
+          controller.retrieveColumns(tableId, false, columnIds, columnNames)
         }
       )
     }

@@ -3,7 +3,7 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import com.campudus.tableaux.OkArg
 import com.campudus.tableaux.controller.TableauxController
-import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination, ColumnType}
+import com.campudus.tableaux.database.domain.{CellAnnotationType, ColumnType, Pagination}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
@@ -151,17 +151,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
           val archivedFlagOpt = getBoolParam("archived", context)
           val columnIds = getSeqLongQuery("columnIds", context)
           val columnNames = getSeqStringQuery("columnNames", context)
-          val columnFilter: ColumnType[_] => Boolean = { c =>
-            val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
-            val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
-            idMatches && nameMatches
-          }
 
           val limit = getLongParam("limit", context)
           val offset = getLongParam("offset", context)
           val pagination = Pagination(offset, limit)
 
-          controller.retrieveRows(tableId, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
+          controller.retrieveRows(tableId, finalFlagOpt, archivedFlagOpt, pagination, columnIds, columnNames)
         }
       )
     }
@@ -256,13 +251,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val columnIds = getSeqLongQuery("columnIds", context)
           val columnNames = getSeqStringQuery("columnNames", context)
-          val columnFilter: ColumnType[_] => Boolean = { c =>
-            val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
-            val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
-            idMatches && nameMatches
-          }
 
-          controller.retrieveRow(tableId, rowId, columnFilter)
+          controller.retrieveRow(tableId, rowId, columnIds, columnNames)
         }
       )
     }

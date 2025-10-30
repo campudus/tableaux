@@ -3,6 +3,7 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.ForbiddenException
+import com.campudus.tableaux.OkArg
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
@@ -379,10 +380,23 @@ class TableauxController(
   def retrieveRow(
       tableId: TableId,
       rowId: RowId,
-      columnFilter: ColumnType[_] => Boolean = _ => true
+      columnIds: Option[Seq[Long]] = None,
+      columnNames: Option[Seq[String]] = None
   )(implicit user: TableauxUser): Future[Row] = {
-    checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"retrieveRow $tableId $rowId")
+    checkArguments(
+      greaterZero(tableId),
+      greaterZero(rowId),
+      sequence(columnIds.getOrElse(Seq.empty).map(greaterThan(_, -1, "columnIds")))
+    )
+
+    logger.info(s"retrieveRow $tableId $rowId, columnIds: $columnIds, columnNames: $columnNames")
+
+    val columnFilter: ColumnType[_] => Boolean = { c =>
+      val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
+      val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
+      idMatches && nameMatches
+    }
+
     for {
       table <- repository.retrieveTable(tableId)
       row <- repository.retrieveRow(table, rowId, columnFilter)
@@ -394,12 +408,24 @@ class TableauxController(
       finalFlagOpt: Option[Boolean] = None,
       archivedFlagOpt: Option[Boolean] = None,
       pagination: Pagination = Pagination(None, None),
-      columnFilter: ColumnType[_] => Boolean = _ => true
+      columnIds: Option[Seq[Long]] = None,
+      columnNames: Option[Seq[String]] = None
   )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
-    checkArguments(greaterZero(tableId), pagination.check)
-    logger.info(s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt")
+    checkArguments(
+      greaterZero(tableId),
+      pagination.check,
+      sequence(columnIds.getOrElse(Seq.empty).map(greaterThan(_, -1, "columnIds")).toList)
+    )
+
+    logger.info(s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt, columnIds: ${columnIds.map(_.mkString(","))}, columnNames: ${columnNames.map(_.mkString(","))}")
+
+    val columnFilter: ColumnType[_] => Boolean = { c =>
+      val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
+      val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
+      idMatches && nameMatches
+    }
 
     for {
       table <- repository.retrieveTable(tableId)
