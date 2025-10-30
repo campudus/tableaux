@@ -1841,43 +1841,51 @@
       "put": {
         "summary": "Replace cell values of row",
         "description": "Replaces the values of cells of the given columns in the row",
-        "tags": [ "data" ],
+        "tags": [
+          "data"
+        ],
         "operationId": "set-row",
-        "parameters": [{
-          "name": "New row values",
-          "in": "body",
-          "required": true,
-          "schema": {
-            "type": "object",
-            "required": [
-              "columns",
-              "values"
-            ],
-            "properties": {
-              "columns": {
-                "type": "array",
-                "description": "Array of column ids",
-                "properties": {
-                  "id": {
-                    "type": "integer",
-                    "format": "int64",
-                    "description": "Column id"
-                  }
+        "parameters": [
+          {
+            "name": "New row values",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "columns",
+                "values"
+              ],
+              "properties": {
+                "columns": {
+                  "type": "array",
+                  "description": "Array of column ids",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "format": "int64",
+                      "description": "Column id"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
                 },
-                "required": [
-                  "id"
-                ]
-              },
-              "values": {
-                "type": "array",
-                "description": "Array of cell values",
-                "items": { "$ref": "#/parameters/value" }
+                "values": {
+                  "type": "array",
+                  "description": "Array of cell values",
+                  "items": {
+                    "$ref": "#/parameters/value"
+                  }
+                }
               }
             }
           }
-        }],
+        ],
         "responses": {
-          "200": { "$ref": "#/definitions/Response: Row" }
+          "200": {
+            "$ref": "#/definitions/Response: Row"
+          }
         }
       }
     },
@@ -2128,6 +2136,73 @@
                   }
                 }
               ]
+            },
+            "default": {
+              "description": "Unexpected error",
+              "schema": {
+                "$ref": "#/responses/unknown-error"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/values": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        }
+      ],
+      "get": {
+        "summary": "Get all unique values of a specific column",
+        "description": "Returns just the unique values of the specified column. Implemented only for column kind `shorttext`. \n\n**Note:** This endpoint always returns a flat list of strings. If the column is of languageType `language` the optional query parameter `languageTag` has to be provided to filter the values for a specific language.",
+        "tags": [
+          "content"
+        ],
+        "operationId": "get-all-unique-values-of-column",
+        "responses": {
+          "200": {
+            "description": "All unique values of the column",
+            "schema": {
+              "$ref": "#/definitions/Response: Unique Column Values"
+            },
+            "default": {
+              "description": "Unexpected error",
+              "schema": {
+                "$ref": "#/responses/unknown-error"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/values/{languageTag}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/languageTagOpt"
+        }
+      ],
+      "get": {
+        "summary": "Get all unique values of a specific column",
+        "description": "Returns just the unique values of the specified column. Implemented only for column kind `shorttext`. \n\n**Note:** This endpoint always returns a flat list of strings. If the column is of languageType `language`, the optional query parameter `languageTag` has to be provided to filter the values for a specific language.",
+        "tags": [
+          "content"
+        ],
+        "operationId": "get-all-unique-values-of-column-language-tag",
+        "responses": {
+          "200": {
+            "description": "All unique values of the column",
+            "schema": {
+              "$ref": "#/definitions/Response: Unique Column Values"
             },
             "default": {
               "description": "Unexpected error",
@@ -3906,6 +3981,31 @@
         }
       },
       "description": "Value of a single cell."
+    },
+    "Response: Unique Column Values": {
+      "type": "object",
+      "required": [
+        "values",
+        "status"
+      ],
+      "properties": {
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": [
+            "ene",
+            "mene",
+            "miste"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "description": "Unique values of a single column as flat string array."
     },
     "Request: Create complete table": {
       "type": "object",
