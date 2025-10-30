@@ -2,7 +2,7 @@ package com.campudus.tableaux.router
 
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
 import com.campudus.tableaux.controller.StructureController
-import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
+import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType, ColumnType}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
@@ -118,7 +118,15 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveColumns(tableId)
+          val columnIds = getSeqLongQuery("columnIds", context)
+          val columnNames = getSeqStringQuery("columnNames", context)
+          val columnFilter: ColumnType[_] => Boolean = { c =>
+            val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
+            val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
+            idMatches && nameMatches
+          }
+
+          controller.retrieveColumns(tableId, false, columnFilter)
         }
       )
     }
