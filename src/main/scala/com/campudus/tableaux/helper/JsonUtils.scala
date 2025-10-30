@@ -113,8 +113,8 @@ object JsonUtils extends LazyLogging {
             // displayName and description; both multi-language objects
             val displayInfos = DisplayInfos.fromJson(json)
 
-            val originColumnsJson = json.getJsonArray(OriginColumns.fieldName, Json.emptyArr())
-            val originColumns = Try(OriginColumns.fromJson(originColumnsJson)).toOption
+            val originColumnsJson = json.getJsonArray(CreateOriginColumns.fieldName, Json.emptyArr())
+            val originColumns = Try(CreateOriginColumns.fromJson(originColumnsJson)).toOption
 
             (tableType, dbType) match {
               case (UnionTable, _) =>

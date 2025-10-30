@@ -388,7 +388,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val table2CreateColumn = createColumns.foldLeft(Map.empty[TableId, Map[CreateColumn, Set[ColumnId]]]) {
       case (acc, createColumn) =>
         createColumn.originColumns match {
-          case Some(OriginColumns(tableToColumnMap)) =>
+          case Some(CreateOriginColumns(tableToColumnMap)) =>
             tableToColumnMap.foldLeft(acc) {
               case (innerAcc, (tableId, columnId)) =>
                 val updatedCreateColumns = innerAcc.get(tableId) match {
@@ -564,7 +564,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val originColumns = createColumn.originColumns
 
     originColumns match {
-      case Some(OriginColumns(tableToColumnMap)) =>
+      case Some(CreateOriginColumns(tableToColumnMap)) =>
         // Create INSERT statement for each origin column mapping
         val insertPlaceholder = tableToColumnMap.map(_ => "(?, ?, ?, ?)").mkString(", ")
         val values = tableToColumnMap.flatMap { case (originTableId, originColumnId) =>
@@ -1384,26 +1384,84 @@ class ColumnModel(val connection: DatabaseConnection)(
     val decimalDigits = Option(row.get[Int](16))
     val originColumns = Option(row.get[String](17))
       .map(str => OriginColumns.fromJson(Json.fromArrayString(str)))
+    // val originColumns = row.get[String](17) match {
+    //   case str => OriginColumns.fromJson(Json.fromArrayString(str))
+    // }
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
 
-      columnInformation = BasicColumnInformation(
-        table,
-        columnId,
-        columnName,
-        ordering,
-        identifier,
-        displayInfoSeq,
-        groupColumnIds,
-        separator,
-        attributes,
-        hidden,
-        maxLength,
-        minLength,
-        decimalDigits,
-        originColumns
-      )
+      // columnInformation = BasicColumnInformation(
+      //   table,
+      //   columnId,
+      //   columnName,
+      //   ordering,
+      //   identifier,
+      //   displayInfoSeq,
+      //   groupColumnIds,
+      //   separator,
+      //   attributes,
+      //   hidden,
+      //   maxLength,
+      //   minLength,
+      //   decimalDigits,
+      //   None
+      //   // originColumns
+      // )
+
+      // columnInformation2 = UnionColumnInformation(
+      //   table,
+      //   columnId,
+      //   columnName,
+      //   ordering,
+      //   identifier,
+      //   displayInfoSeq,
+      //   groupColumnIds,
+      //   separator,
+      //   attributes,
+      //   hidden,
+      //   maxLength,
+      //   minLength,
+      //   decimalDigits,
+      //   originColumns
+      // )
+
+      columnInformation =
+        if (table.tableType == UnionTable) {
+          UnionColumnInformation(
+            table,
+            columnId,
+            columnName,
+            ordering,
+            identifier,
+            displayInfoSeq,
+            groupColumnIds,
+            separator,
+            attributes,
+            hidden,
+            maxLength,
+            minLength,
+            decimalDigits,
+            originColumns
+          )
+        } else {
+          BasicColumnInformation(
+            table,
+            columnId,
+            columnName,
+            ordering,
+            identifier,
+            displayInfoSeq,
+            groupColumnIds,
+            separator,
+            attributes,
+            hidden,
+            maxLength,
+            minLength,
+            decimalDigits,
+            None
+          )
+        }
 
       column <- mapColumn(table, depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
     } yield column
