@@ -1303,7 +1303,8 @@ class TableauxModel(
       table: Table,
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
-      pagination: Pagination
+      pagination: Pagination,
+      columnFilter: ColumnType[_] => Boolean = _ => true
   )(implicit user: TableauxUser): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table)
@@ -1313,7 +1314,7 @@ class TableauxModel(
           columns,
           ComparisonObjects(table),
           isInternalCall = false
-        )
+        ).filter(columnFilter)
       rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
       resultRows <-
         if (config.isRowPermissionCheckEnabled) {

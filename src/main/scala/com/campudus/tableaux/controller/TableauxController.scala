@@ -389,16 +389,17 @@ class TableauxController(
       tableId: TableId,
       finalFlagOpt: Option[Boolean] = None,
       archivedFlagOpt: Option[Boolean] = None,
-      pagination: Pagination = Pagination(None, None)
+      pagination: Pagination = Pagination(None, None),
+      columnFilter: ColumnType[_] => Boolean = _ => true
   )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), pagination.check)
-    logger.info(s"retrieveRows $tableId for all columns, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt")
+    logger.info(s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      rows <- repository.retrieveRows(table, finalFlagOpt, archivedFlagOpt, pagination)
+      rows <- repository.retrieveRows(table, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
     } yield rows
   }
 
