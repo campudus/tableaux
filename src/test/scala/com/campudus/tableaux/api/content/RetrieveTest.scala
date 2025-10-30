@@ -15,6 +15,7 @@ import io.vertx.scala.SQLConnection
 import io.vertx.scala.ext.sql
 import org.vertx.scala.core.json.{Json, JsonObject}
 
+import java.net.URLEncoder
 import org.junit.{Ignore, Test}
 import org.junit.Assert._
 import org.junit.runner.RunWith
@@ -332,6 +333,91 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
+  def retrieveRowWithFilteredColumnsByIds(implicit c: TestContext): Unit = okTest {
+    val expectedJsonOne =
+      Json.obj(
+        "status" -> "ok",
+        "id" -> 1,
+        "values" -> Json.arr("table1row1")
+      )
+    val expectedJsonTwo =
+      Json.obj(
+        "status" -> "ok",
+        "id" -> 1,
+        "values" -> Json.arr(1)
+      )
+    val expectedJsonBoth =
+      Json.obj(
+        "status" -> "ok",
+        "id" -> 1,
+        "values" -> Json.arr("table1row1", 1)
+      )
+
+    for {
+      _ <- createDefaultTable()
+      testOne <- sendRequest("GET", "/tables/1/rows/1?columnIds=1")
+      testTwo <- sendRequest("GET", "/tables/1/rows/1?columnIds=2")
+      testBoth <- sendRequest("GET", "/tables/1/rows/1?columnIds=1,2")
+      testWithNonExisting <- sendRequest("GET", "/tables/1/rows/1?columnIds=1,55,2")
+    } yield {
+      assertEquals(expectedJsonOne, testOne)
+      assertEquals(expectedJsonTwo, testTwo)
+      assertEquals(expectedJsonBoth, testBoth)
+      assertEquals(expectedJsonBoth, testWithNonExisting)
+    }
+  }
+
+  @Test
+  def retrieveRowWithFilteredColumnsByIdsInvalid(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows/1?columnIds=-1")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveRowWithFilteredColumnsByNames(implicit c: TestContext): Unit = okTest {
+    val expectedJsonOne =
+      Json.obj(
+        "status" -> "ok",
+        "id" -> 1,
+        "values" -> Json.arr("table1row1")
+      )
+    val expectedJsonTwo =
+      Json.obj(
+        "status" -> "ok",
+        "id" -> 1,
+        "values" -> Json.arr(1)
+      )
+    val expectedJsonBoth =
+      Json.obj(
+        "status" -> "ok",
+        "id" -> 1,
+        "values" -> Json.arr("table1row1", 1)
+      )
+
+    val columnNamesOne = URLEncoder.encode("Test Column 1", "UTF-8");
+    val columnNamesTwo = URLEncoder.encode("Test Column 2", "UTF-8");
+    val columnNamesBoth = URLEncoder.encode("Test Column 1,Test Column 2", "UTF-8");
+    val columnNamesWithNonExisting = URLEncoder.encode("Test Column 1,name,Test Column 2", "UTF-8");
+
+    for {
+      _ <- createDefaultTable()
+      testOne <- sendRequest("GET", s"/tables/1/rows/1?columnNames=$columnNamesOne")
+      testTwo <- sendRequest("GET", s"/tables/1/rows/1?columnNames=$columnNamesTwo")
+      testBoth <- sendRequest("GET", s"/tables/1/rows/1?columnNames=$columnNamesBoth")
+      testWithNonExisting <- sendRequest("GET", s"/tables/1/rows/1?columnNames=$columnNamesWithNonExisting")
+    } yield {
+      assertEquals(expectedJsonOne, testOne)
+      assertEquals(expectedJsonTwo, testTwo)
+      assertEquals(expectedJsonBoth, testBoth)
+      assertEquals(expectedJsonBoth, testWithNonExisting)
+    }
+  }
+
+  @Test
   def retrieveRows(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
@@ -351,6 +437,133 @@ class RetrieveRowsTest extends TableauxTestBase {
       test <- sendRequest("GET", "/tables/1/rows")
     } yield {
       assertEquals(expectedJson, test)
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredColumnsByIds(implicit c: TestContext): Unit = okTest {
+    val expectedJsonOne =
+      Json.obj(
+        "status" -> "ok",
+        "page" -> Json.obj(
+          "offset" -> null,
+          "limit" -> null,
+          "totalSize" -> 2
+        ),
+        "rows" -> Json.arr(
+          Json.obj("id" -> 1, "values" -> Json.arr("table1row1")),
+          Json.obj("id" -> 2, "values" -> Json.arr("table1row2"))
+        )
+      )
+    val expectedJsonTwo =
+      Json.obj(
+        "status" -> "ok",
+        "page" -> Json.obj(
+          "offset" -> null,
+          "limit" -> null,
+          "totalSize" -> 2
+        ),
+        "rows" -> Json.arr(
+          Json.obj("id" -> 1, "values" -> Json.arr(1)),
+          Json.obj("id" -> 2, "values" -> Json.arr(2))
+        )
+      )
+    val expectedJsonBoth =
+      Json.obj(
+        "status" -> "ok",
+        "page" -> Json.obj(
+          "offset" -> null,
+          "limit" -> null,
+          "totalSize" -> 2
+        ),
+        "rows" -> Json.arr(
+          Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
+          Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
+        )
+      )
+
+    for {
+      _ <- createDefaultTable()
+      testOne <- sendRequest("GET", "/tables/1/rows?columnIds=1")
+      testTwo <- sendRequest("GET", "/tables/1/rows?columnIds=2")
+      testBoth <- sendRequest("GET", "/tables/1/rows?columnIds=1,2")
+      testWithNonExisting <- sendRequest("GET", "/tables/1/rows?columnIds=1,55,2")
+    } yield {
+      assertEquals(expectedJsonOne, testOne)
+      assertEquals(expectedJsonTwo, testTwo)
+      assertEquals(expectedJsonBoth, testBoth)
+      assertEquals(expectedJsonBoth, testWithNonExisting)
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredColumnsByIdsInvalid(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows?columnIds=-1")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredColumnsByNames(implicit c: TestContext): Unit = okTest {
+    val expectedJsonOne =
+      Json.obj(
+        "status" -> "ok",
+        "page" -> Json.obj(
+          "offset" -> null,
+          "limit" -> null,
+          "totalSize" -> 2
+        ),
+        "rows" -> Json.arr(
+          Json.obj("id" -> 1, "values" -> Json.arr("table1row1")),
+          Json.obj("id" -> 2, "values" -> Json.arr("table1row2"))
+        )
+      )
+    val expectedJsonTwo =
+      Json.obj(
+        "status" -> "ok",
+        "page" -> Json.obj(
+          "offset" -> null,
+          "limit" -> null,
+          "totalSize" -> 2
+        ),
+        "rows" -> Json.arr(
+          Json.obj("id" -> 1, "values" -> Json.arr(1)),
+          Json.obj("id" -> 2, "values" -> Json.arr(2))
+        )
+      )
+    val expectedJsonBoth =
+      Json.obj(
+        "status" -> "ok",
+        "page" -> Json.obj(
+          "offset" -> null,
+          "limit" -> null,
+          "totalSize" -> 2
+        ),
+        "rows" -> Json.arr(
+          Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
+          Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
+        )
+      )
+
+    val columnNamesOne = URLEncoder.encode("Test Column 1", "UTF-8");
+    val columnNamesTwo = URLEncoder.encode("Test Column 2", "UTF-8");
+    val columnNamesBoth = URLEncoder.encode("Test Column 1,Test Column 2", "UTF-8");
+    val columnNamesWithNonExisting = URLEncoder.encode("Test Column 1,name,Test Column 2", "UTF-8");
+
+    for {
+      _ <- createDefaultTable()
+      testOne <- sendRequest("GET", s"/tables/1/rows?columnNames=$columnNamesOne")
+      testTwo <- sendRequest("GET", s"/tables/1/rows?columnNames=$columnNamesTwo")
+      testBoth <- sendRequest("GET", s"/tables/1/rows?columnNames=$columnNamesBoth")
+      testWithNonExisting <- sendRequest("GET", s"/tables/1/rows?columnNames=$columnNamesWithNonExisting")
+    } yield {
+      assertEquals(expectedJsonOne, testOne)
+      assertEquals(expectedJsonTwo, testTwo)
+      assertEquals(expectedJsonBoth, testBoth)
+      assertEquals(expectedJsonBoth, testWithNonExisting)
     }
   }
 
