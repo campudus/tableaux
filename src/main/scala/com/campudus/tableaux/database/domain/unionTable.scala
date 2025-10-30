@@ -1,7 +1,6 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 import io.vertx.core.json.JsonObject
 import io.vertx.scala.ext.web.RoutingContext
