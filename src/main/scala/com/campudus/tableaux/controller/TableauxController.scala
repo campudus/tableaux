@@ -376,12 +376,16 @@ class TableauxController(
     } yield duplicated
   }
 
-  def retrieveRow(tableId: TableId, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
+  def retrieveRow(
+      tableId: TableId,
+      rowId: RowId,
+      columnFilter: ColumnType[_] => Boolean = _ => true
+  )(implicit user: TableauxUser): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"retrieveRow $tableId $rowId")
     for {
       table <- repository.retrieveTable(tableId)
-      row <- repository.retrieveRow(table, rowId)
+      row <- repository.retrieveRow(table, rowId, columnFilter)
     } yield row
   }
 

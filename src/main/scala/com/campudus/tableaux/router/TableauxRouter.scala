@@ -254,7 +254,15 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveRow(tableId, rowId)
+          val columnIds = getSeqLongQuery("columnIds", context)
+          val columnNames = getSeqStringQuery("columnNames", context)
+          val columnFilter: ColumnType[_] => Boolean = { c =>
+            val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
+            val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
+            idMatches && nameMatches
+          }
+
+          controller.retrieveRow(tableId, rowId, columnFilter)
         }
       )
     }

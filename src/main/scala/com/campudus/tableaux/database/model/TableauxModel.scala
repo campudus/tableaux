@@ -1207,7 +1207,11 @@ class TableauxModel(
     }
   }
 
-  def retrieveRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
+  def retrieveRow(
+      table: Table,
+      rowId: RowId,
+      columnFilter: ColumnType[_] => Boolean = _ => true
+  )(implicit user: TableauxUser): Future[Row] = {
     for {
       columns <- retrieveColumns(table)
       filteredColumns = roleModel
@@ -1216,7 +1220,7 @@ class TableauxModel(
           columns,
           ComparisonObjects(table),
           isInternalCall = false
-        )
+        ).filter(columnFilter)
       row <- retrieveRow(table, filteredColumns, rowId)
       resultRow <-
         if (config.isRowPermissionCheckEnabled) {
