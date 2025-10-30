@@ -419,7 +419,9 @@ class TableauxController(
       sequence(columnIds.getOrElse(Seq.empty).map(greaterThan(_, -1, "columnIds")).toList)
     )
 
-    logger.info(s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt, columnIds: ${columnIds.map(_.mkString(","))}, columnNames: ${columnNames.map(_.mkString(","))}")
+    logger.info(
+      s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt, columnIds: $columnIds, columnNames: $columnNames"
+    )
 
     val columnFilter: ColumnType[_] => Boolean = { c =>
       val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)

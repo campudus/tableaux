@@ -2,7 +2,7 @@ package com.campudus.tableaux.router
 
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
 import com.campudus.tableaux.controller.StructureController
-import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType, ColumnType}
+import com.campudus.tableaux.database.domain.{ColumnType, DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
