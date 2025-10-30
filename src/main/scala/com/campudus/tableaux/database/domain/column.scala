@@ -68,7 +68,40 @@ object BasicColumnInformation {
       createColumn.maxLength,
       createColumn.minLength,
       createColumn.decimalDigits,
-      createColumn.originColumns
+      None
+    )
+  }
+}
+
+object UnionColumnInformation {
+
+  def apply(
+      table: Table,
+      columnId: ColumnId,
+      ordering: Ordering,
+      displayInfos: Seq[DisplayInfo],
+      originColumns: OriginColumns,
+      createColumn: CreateColumn
+  ): BasicColumnInformation = {
+    val attributes = createColumn.attributes match {
+      case Some(obj) => obj
+      case None => new JsonObject("{}")
+    }
+    BasicColumnInformation(
+      table,
+      columnId,
+      createColumn.name,
+      ordering,
+      createColumn.identifier,
+      displayInfos,
+      Seq.empty,
+      createColumn.separator,
+      attributes,
+      createColumn.hidden,
+      createColumn.maxLength,
+      createColumn.minLength,
+      createColumn.decimalDigits,
+      Some(originColumns)
     )
   }
 }
@@ -101,6 +134,23 @@ object StatusColumnInformation {
     )
   }
 }
+
+case class UnionColumnInformation(
+    override val table: Table,
+    override val id: ColumnId,
+    override val name: String,
+    override val ordering: Ordering,
+    override val identifier: Boolean,
+    override val displayInfos: Seq[DisplayInfo],
+    override val groupColumnIds: Seq[ColumnId],
+    override val separator: Boolean,
+    override val attributes: JsonObject,
+    override val hidden: Boolean,
+    override val maxLength: Option[Int],
+    override val minLength: Option[Int],
+    override val decimalDigits: Option[Int],
+    override val originColumns: Option[OriginColumns]
+) extends ColumnInformation
 
 case class BasicColumnInformation(
     override val table: Table,
@@ -314,7 +364,7 @@ sealed trait ColumnType[+A] extends DomainObject {
       })
     })
 
-    columnInformation.originColumns.foreach(oc => { json.mergeIn(oc.getJson) })
+    // columnInformation.originColumns.foreach(oc => { json.mergeIn(oc.getJson) })
     json
   }
 
@@ -796,6 +846,11 @@ case class UnionColumn(
   //     super.getJson
   // }
   // }
+
+  override def getJson: JsonObject = {
+    val originColumnsJson = columnInformation.originColumns.map(_.getJson).getOrElse(Json.emptyObj())
+    super.getJson.mergeIn(originColumnsJson)
+  }
 }
 
 /**
