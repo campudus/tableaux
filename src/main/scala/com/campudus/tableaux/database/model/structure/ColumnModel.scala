@@ -409,34 +409,34 @@ class ColumnModel(val connection: DatabaseConnection)(
 
     for {
       validationErrors <- Future.sequence(table2CreateColumn.toSeq.map({
-        case (refTableId, createColumn2OriginColumnIds) =>
+        case (originTableId, createColumn2OriginColumnIds) =>
           (for {
-            refTable <- tableStruc.retrieve(refTableId)
-            refTableColumns <- retrieveAll(refTable)
+            originTable <- tableStruc.retrieve(originTableId)
+            originColumns <- retrieveAll(originTable)
           } yield {
             createColumn2OriginColumnIds.flatMap {
               case (createColumn, columnIds) =>
                 columnIds.flatMap { columnId =>
-                  val matchingColumnOpt = refTableColumns.find(_.id == columnId)
-                  matchingColumnOpt match {
-                    case Some(matchingColumn) =>
-                      val errorPrefix = s"Column '${matchingColumn.id}' in table '$refTableId' and " +
+                  val matchingOriginColumnOpt = originColumns.find(_.id == columnId)
+                  matchingOriginColumnOpt match {
+                    case Some(originColumn) =>
+                      val errorPrefix = s"Column '${originColumn.id}' in table '$originTableId' and " +
                         s"CreateColumn '${createColumn.name}' have different"
                       val errors = Seq.newBuilder[String]
-                      if (matchingColumn.kind != createColumn.kind) {
-                        errors += s"$errorPrefix kinds: ${matchingColumn.kind} != ${createColumn.kind}"
+                      if (originColumn.kind != createColumn.kind) {
+                        errors += s"$errorPrefix kinds: ${originColumn.kind} != ${createColumn.kind}"
                       }
-                      if (matchingColumn.languageType != createColumn.languageType) {
-                        errors += s"$errorPrefix languageTypes: ${matchingColumn.languageType} != ${createColumn.languageType}"
+                      if (originColumn.languageType != createColumn.languageType) {
+                        errors += s"$errorPrefix languageTypes: ${originColumn.languageType} != ${createColumn.languageType}"
                       }
                       errors.result()
                     case None =>
-                      Seq(s"Column '${columnId}' not found in table '$refTableId'")
+                      Seq(s"Column '${columnId}' not found in table '$originTableId'")
                   }
                 }
             }
           }).recover({
-            case ex => Seq(s"Table '$refTableId' could not be checked, possibly it does not exist")
+            case ex => Seq(s"Table '$originTableId' could not be checked, possibly it does not exist")
           })
       }))
     } yield {
