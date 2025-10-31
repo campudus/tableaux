@@ -1442,44 +1442,28 @@ class ColumnModel(val connection: DatabaseConnection)(
     val originColumns = Option(row.get[String](17))
       .map(str => OriginColumns.fromJson(Json.fromArrayString(str)))
 
+    val getBasicColumnInfo = BasicColumnInformation(
+      table,
+      columnId,
+      columnName,
+      ordering,
+      identifier,
+      _: Seq[DisplayInfo],
+      groupColumnIds,
+      separator,
+      attributes,
+      hidden,
+      maxLength,
+      minLength,
+      decimalDigits
+    )
+
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
+      columnInfo = getBasicColumnInfo(displayInfoSeq)
       column <- table.tableType match {
-        case UnionTable =>
-          val columnInformation = UnionColumnInformation(
-            table,
-            columnId,
-            columnName,
-            ordering,
-            identifier,
-            displayInfoSeq,
-            groupColumnIds,
-            separator,
-            attributes,
-            hidden,
-            maxLength,
-            minLength,
-            decimalDigits
-            // originColumns // this is only a placeholder here, we have to insert the real origin columns later
-          )
-          mapUnionColumn(kind, languageType, columnInformation, originColumns)
-        case _ =>
-          val columnInformation = BasicColumnInformation(
-            table,
-            columnId,
-            columnName,
-            ordering,
-            identifier,
-            displayInfoSeq,
-            groupColumnIds,
-            separator,
-            attributes,
-            hidden,
-            maxLength,
-            minLength,
-            decimalDigits
-          )
-          mapColumn(table, depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
+        case UnionTable => mapUnionColumn(kind, languageType, columnInfo, originColumns)
+        case _ => mapColumn(table, depth, kind, languageType, columnInfo, formatPattern, rules, showMemberColumns)
       }
     } yield column
 
