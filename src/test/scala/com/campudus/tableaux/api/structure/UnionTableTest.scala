@@ -106,7 +106,12 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
 
   def fetchTable(tableId: TableId) = sendRequest("GET", s"/completetable/$tableId")
 
-  def fetchColumns(tableId: TableId) = sendRequest("GET", s"/tables/$tableId/columns")
+  def fetchColumns(tableId: TableId) =
+    sendRequest("GET", s"/tables/$tableId/columns").map(_.getJsonArray("columns")).map(_.asScala.collect({
+      case obj: JsonObject => obj
+    }).toSeq)
+
+  def fetchColumn(tableId: TableId, columnId: ColumnId) = sendRequest("GET", s"/tables/$tableId/columns/$columnId")
 
   /**
     * Inserts test data into the three tables used for union table testing.
@@ -342,6 +347,8 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
   @Test
   def updateUnionTable_addColumnsToUnionTable_ok(implicit c: TestContext): Unit = okTest {
 
+    def omitFields = omit(Seq("originColumns"), _)
+
     for {
       tableId <- createUnionTable(false, false)
 
@@ -352,9 +359,7 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
       )
 
       unionTable <- fetchTable(tableId)
-      unionColumns <- fetchColumns(tableId).map(_.getJsonArray("columns")).map(_.asScala.collect({
-        case obj: JsonObject => obj
-      }).toSeq)
+      unionColumns <- fetchColumns(tableId)
     } yield {
       val expectedTable = Json.obj(
         "id" -> 5,
@@ -368,11 +373,12 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
       assertJSONEquals(expectedTable, unionTable)
 
       assertEquals(5, unionColumns.size)
-      assertJSONEquals(unionTableCol1, unionColumns(0))
-      assertJSONEquals(unionTableCol2, unionColumns(1))
-      assertJSONEquals(unionTableCol3, unionColumns(2))
-      assertJSONEquals(unionTableCol4, unionColumns(3))
-      assertJSONEquals(unionTableCol5, unionColumns(4))
+
+      assertJSONEquals(omitFields(unionTableCol1), unionColumns(0))
+      assertJSONEquals(omitFields(unionTableCol2), unionColumns(1))
+      assertJSONEquals(omitFields(unionTableCol3), unionColumns(2))
+      assertJSONEquals(omitFields(unionTableCol4), unionColumns(3))
+      assertJSONEquals(omitFields(unionTableCol5), unionColumns(4))
     }
   }
 
@@ -853,6 +859,77 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       val columnsCount = columnsResult.getJsonArray("columns").size()
       assertEquals(1, columnsCount)
       assertEquals(1, rowValueCount)
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveColumnsUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
+
+  @Test
+  def unionTable_retrieveColumns_ok(implicit c: TestContext): Unit = okTest {
+
+    def omitFields = omit(Seq("permission", "status"), _)
+
+    for {
+      tableId <- createUnionTable()
+      columns <- fetchColumns(tableId)
+
+      unionColumn2_1 <- fetchColumn(2, 1)
+      unionColumn3_1 <- fetchColumn(3, 1)
+      unionColumn4_4 <- fetchColumn(4, 4)
+
+      unionColumn2_2 <- fetchColumn(2, 2)
+      unionColumn3_3 <- fetchColumn(3, 3)
+      unionColumn4_2 <- fetchColumn(4, 2)
+
+      unionColumn2_3 <- fetchColumn(2, 3)
+      unionColumn3_4 <- fetchColumn(3, 4)
+      unionColumn4_3 <- fetchColumn(4, 3)
+
+      unionColumn2_4 <- fetchColumn(2, 4)
+      unionColumn3_2 <- fetchColumn(3, 2)
+      unionColumn4_1 <- fetchColumn(4, 1)
+
+    } yield {
+      assertFalse(columns(0).containsKey("originColumns"))
+
+      val unionTableCol2withOriginColumns = unionTableCol2.mergeIn(
+        Json.obj("originColumns" -> Json.arr(
+          Json.obj("tableId" -> 2, "column" -> omitFields(unionColumn2_1)),
+          Json.obj("tableId" -> 3, "column" -> omitFields(unionColumn3_1)),
+          Json.obj("tableId" -> 4, "column" -> omitFields(unionColumn4_4))
+        ))
+      )
+
+      val unionTableCol3withOriginColumns = unionTableCol3.mergeIn(
+        Json.obj("originColumns" -> Json.arr(
+          Json.obj("tableId" -> 2, "column" -> omitFields(unionColumn2_2)),
+          Json.obj("tableId" -> 3, "column" -> omitFields(unionColumn3_3)),
+          Json.obj("tableId" -> 4, "column" -> omitFields(unionColumn4_2))
+        ))
+      )
+
+      val unionTableCol4withOriginColumns = unionTableCol4.mergeIn(
+        Json.obj("originColumns" -> Json.arr(
+          Json.obj("tableId" -> 2, "column" -> omitFields(unionColumn2_3)),
+          Json.obj("tableId" -> 3, "column" -> omitFields(unionColumn3_4)),
+          Json.obj("tableId" -> 4, "column" -> omitFields(unionColumn4_3))
+        ))
+      )
+
+      val unionTableCol5withOriginColumns = unionTableCol5.mergeIn(
+        Json.obj("originColumns" -> Json.arr(
+          Json.obj("tableId" -> 2, "column" -> omitFields(unionColumn2_4)),
+          Json.obj("tableId" -> 3, "column" -> omitFields(unionColumn3_2)),
+          Json.obj("tableId" -> 4, "column" -> omitFields(unionColumn4_1))
+        ))
+      )
+
+      assertJSONEquals(unionTableCol2withOriginColumns, columns(1))
+      assertJSONEquals(unionTableCol3withOriginColumns, columns(2))
+      assertJSONEquals(unionTableCol4withOriginColumns, columns(3))
+      assertJSONEquals(unionTableCol5withOriginColumns, columns(4))
     }
   }
 }

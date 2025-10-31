@@ -12,11 +12,10 @@ case class OriginColumns(
     tableToRealColumn: Map[TableId, ColumnType[_]] = Map() // placeholder in first instances of OriginColumns
 ) {
 
-  def getJson: JsonObject = {
-    val arr = Json.arr(tableToColumn.map { case (tableId, columnId) =>
-      Json.obj("tableId" -> tableId, "columnId" -> columnId)
+  def getJson: JsonArray = {
+    Json.arr(tableToRealColumn.map { case (tableId, column) =>
+      Json.obj("tableId" -> tableId, "column" -> column.getJson)
     }.toSeq: _*)
-    Json.obj(OriginColumns.fieldName -> arr)
   }
 }
 
