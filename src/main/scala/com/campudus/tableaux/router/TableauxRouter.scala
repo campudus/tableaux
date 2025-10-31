@@ -3,7 +3,7 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import com.campudus.tableaux.OkArg
 import com.campudus.tableaux.controller.TableauxController
-import com.campudus.tableaux.database.domain.{CellAnnotationType, ColumnFilter, ColumnType, Pagination}
+import com.campudus.tableaux.database.domain.{CellAnnotationType, ColumnFilter, Pagination}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser

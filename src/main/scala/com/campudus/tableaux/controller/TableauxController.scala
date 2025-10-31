@@ -3,7 +3,6 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.ForbiddenException
-import com.campudus.tableaux.OkArg
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
@@ -411,7 +410,9 @@ class TableauxController(
       columnFilter.check
     )
 
-    logger.info(s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt, columnFilter: $columnFilter")
+    logger.info(
+      s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt, columnFilter: $columnFilter"
+    )
 
     for {
       table <- repository.retrieveTable(tableId)
