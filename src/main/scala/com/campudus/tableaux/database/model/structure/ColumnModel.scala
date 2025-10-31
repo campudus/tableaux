@@ -422,13 +422,13 @@ class ColumnModel(val connection: DatabaseConnection)(
                   matchingOriginColumnOpt match {
                     case Some(originColumn) =>
                       val errorPrefix = s"Column '${originColumn.id}' in table '$originTableId' and " +
-                        s"CreateColumn '${createColumn.name}' have different"
+                        s"CreateColumn '${createColumn.name}' have different values in field"
                       val errors = Seq.newBuilder[String]
                       if (originColumn.kind != createColumn.kind) {
-                        errors += s"$errorPrefix kinds: ${originColumn.kind} != ${createColumn.kind}"
+                        errors += s"$errorPrefix kind: ${originColumn.kind} != ${createColumn.kind}"
                       }
                       if (originColumn.languageType != createColumn.languageType) {
-                        errors += s"$errorPrefix languageTypes: ${originColumn.languageType} != ${createColumn.languageType}"
+                        errors += s"$errorPrefix languageType: ${originColumn.languageType} != ${createColumn.languageType}"
                       }
                       errors.result()
                     case None =>
