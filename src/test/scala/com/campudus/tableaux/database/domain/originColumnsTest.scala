@@ -24,23 +24,23 @@ class CreateOriginColumnsTest extends TestAssertionHelper {
 
     val originColumnsJson = Json.fromObjectString(jString)
     val json = originColumnsJson.getJsonArray("originColumns", Json.emptyArr())
-    val originColumns = CreateOriginColumns.fromJson(json)
+    val originColumns = CreateOriginColumns.parseJson(json)
 
-    assertEquals(Map(1 -> 3, 2 -> 2, 3 -> 1), originColumns.tableToColumn)
+    assertEquals(Map(1 -> 3, 2 -> 2, 3 -> 1), originColumns.tableId2ColumnId)
   }
 
   @Test
   def parseOriginColumns_emptyArray_error(): Unit = {
     val json = Json.emptyArr()
     assertThrows[IllegalArgumentException] {
-      CreateOriginColumns.fromJson(json)
+      CreateOriginColumns.parseJson(json)
     }
   }
 
   @Test
   def parseOriginColumns_missingArray_error(): Unit = {
     assertThrows[IllegalArgumentException] {
-      CreateOriginColumns.fromJson()
+      CreateOriginColumns.parseJson()
     }
   }
 }
