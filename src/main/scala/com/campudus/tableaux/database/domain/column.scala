@@ -850,7 +850,11 @@ case class UnionColumn(
 
   override def getJson: JsonObject = {
     val originColumnsJson = originColumns.getJson
-    super.getJson.mergeIn(originColumnsJson)
+    if (originColumnsJson.isEmpty) {
+      super.getJson
+    } else {
+      super.getJson.mergeIn(Json.obj(OriginColumns.fieldName -> originColumnsJson))
+    }
   }
 }
 
