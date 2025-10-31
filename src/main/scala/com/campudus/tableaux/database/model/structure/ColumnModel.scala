@@ -1142,43 +1142,41 @@ class ColumnModel(val connection: DatabaseConnection)(
             Future.successful(GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns))
 
           case u: UnionColumn => {
+            // TODO: this is not very performant, we issue multiple queries to retrieve origin columns
+            // We should query all origin columns in one go and map them accordingly
+
             // fill UnionColumn with life!
             // For union columns, we need to retrieve the actual columns from their origin tables
+            val resolveOriginColumns: Future[Map[TableId, ColumnType[_]]] = {
+              val futures = u.originColumns.tableToColumn.toSeq.map({
+                case (originTableId, originColumnId) =>
+                  for {
+                    originTable <- tableStruc.retrieve(originTableId)
+                    originColumns <- retrieveAll(originTable)
+                  } yield {
+                    val matchingOriginColumnOpt = originColumns.find(_.id == originColumnId)
+                    matchingOriginColumnOpt match {
+                      case Some(originColumn) =>
+                        (originTableId, originColumn)
+                      case None =>
+                        throw DatabaseException(
+                          s"Origin column '${originColumnId}' not found in table '$originTableId' for UnionColumn",
+                          "missing-origin-column"
+                        )
+                    }
+                  }
+              })
+              Future.sequence(futures).map(_.toMap)
+            }
 
-            // for {
-            //   asdf <- u.columnInformation.originColumns match {
-            //     case Some(col) =>
-            //       val futures = col.tableToColumn.map { case (tableId, columnId) =>
-            //         // Retrieve the origin table and then retrieve the column from it
-            //         for {
-            //           originTable <- tableStruc.retrieve(tableId)
-            //           originColumn <- retrieve(originTable, columnId)
-            //         } yield (tableId, originColumn)
-            //       }
-            //       Future.sequence(futures.toSeq).map { originColumnsSeq =>
-            //         val originColumnsMap = originColumnsSeq.toMap
-            //         originColumnsMap
-            //       // Create a new UnionColumn with resolved origin columns stored in a derived field or model
-            //       // For now, return the union column as is - you may need to extend UnionColumn to store resolved columns
-            //       // u
-            //       }
-            //     case None => Future.successful(Map.empty[TableId, ColumnType[_]])
-            //   }
-
-            // } yield {
-            //   val newOriginColumns = OriginColumns(u.columnInformation.originColumns, asdf)
-            //   val newColInfo = UnionColumnInformation(
-            //     u.columnInformation.table,
-            //     // u.columnInformation.columnId,
-            //     1L,
-            //     u.columnInformation.ordering,
-            //     u.columnInformation.displayInfos,
-            //     u.columnInformation.originColumns
-            //   )
-            //   UnionColumn(u.kind, u.languageType, newColInfo)
-            // }
-
-            Future.successful(u)
+            resolveOriginColumns.map { tableToColumnMap =>
+              UnionColumn(
+                u.kind,
+                u.languageType,
+                u.columnInformation,
+                OriginColumns(u.originColumns.tableToColumn, tableToColumnMap)
+              )
+            }
           }
 
           case c => Future.successful(c)
