@@ -32,6 +32,7 @@ import com.google.common.cache.CacheBuilder
 import com.typesafe.scalalogging.LazyLogging
 import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit
+import org.checkerframework.checker.units.qual
 import scalacache._
 import scalacache.guava._
 import scalacache.modes.scalaFuture._
@@ -1122,67 +1123,112 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
 
+    def fillGroupColumn(mappedColumns: Seq[ColumnType[_]], g: GroupColumn): Future[GroupColumn] = {
+      // fill GroupColumn with life!
+      // ... till now GroupColumn only was a placeholder
+      val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
+      Future.successful(GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns))
+    }
+
+    def fillUnionColumn(
+        originTableCache: Map[TableId, Seq[ColumnType[_]]],
+        u: UnionColumn
+    ): Future[UnionColumn] = {
+      // fill UnionColumn with life!
+      // ... till now GroupColumn only was a placeholder
+      val tableToColumnMap = u.originColumns.tableToColumn.map({
+        case (originTableId, originColumnId) =>
+          val originColumns = originTableCache(originTableId)
+          val matchingOriginColumnOpt = originColumns.find(_.id == originColumnId)
+
+          (
+            originTableId,
+            matchingOriginColumnOpt match {
+              case Some(originColumn) => originColumn
+              case None =>
+                throw DatabaseException(
+                  s"Origin column '${originColumnId}' not found in table '$originTableId' for UnionColumn",
+                  "missing-origin-column"
+                )
+            }
+          )
+      })
+
+      val filledOriginColumns = OriginColumns(u.originColumns.tableToColumn, tableToColumnMap)
+      Future.successful(UnionColumn(u.kind, u.languageType, u.columnInformation, filledOriginColumns))
+    }
+
     for {
       result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
 
       mappedColumns <- {
         val futures = resultObjectToJsonArray(result)
           .map(mapRowResultToColumnType(table, _, depth))
-
         Future.sequence(futures)
       }
 
       // Fill GroupColumns and UnionColumns with their resolved data
       filledColumns <- {
-        val futures = mappedColumns.map({
-          case g: GroupColumn =>
-            // fill GroupColumn with life!
-            // ... till now GroupColumn only was a placeholder
-            val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
-            Future.successful(GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns))
+        // Pre-fetch all required origin tables and their columns for UnionColumns
+        // Build a cache: Map[TableId, Seq[ColumnType[_]]] to avoid fetching the same table multiple times
+        val originTableIds = mappedColumns
+          .collect({ case u: UnionColumn => u.originColumns.tableToColumn.keys })
+          .flatten
+          .toSet
 
-          case u: UnionColumn => {
-            // TODO: this is not very performant, we issue multiple queries to retrieve origin columns
-            // We should query all origin columns in one go and map them accordingly
+        for {
+          // build up cache of origin tables and their columns because
+          // we usually have multiple origin columns from the same table
+          originTableCache <- Future.sequence(
+            originTableIds.map(tableId =>
+              for {
+                originTable <- tableStruc.retrieve(tableId)
+                originColumns <- retrieveAll(originTable)
+              } yield (tableId, originColumns)
+            )
+          ).map(_.toMap)
 
-            // fill UnionColumn with life!
-            // For union columns, we need to retrieve the actual columns from their origin tables
-            val resolveOriginColumns: Future[Map[TableId, ColumnType[_]]] = {
-              val futures = u.originColumns.tableToColumn.toSeq.map({
-                case (originTableId, originColumnId) =>
-                  for {
-                    originTable <- tableStruc.retrieve(originTableId)
-                    originColumns <- retrieveAll(originTable)
-                  } yield {
-                    val matchingOriginColumnOpt = originColumns.find(_.id == originColumnId)
-                    matchingOriginColumnOpt match {
-                      case Some(originColumn) =>
-                        (originTableId, originColumn)
-                      case None =>
-                        throw DatabaseException(
-                          s"Origin column '${originColumnId}' not found in table '$originTableId' for UnionColumn",
-                          "missing-origin-column"
-                        )
-                    }
-                  }
-              })
-              Future.sequence(futures).map(_.toMap)
-            }
+          filledColumns <- {
+            val futures = mappedColumns.map({
+              case g: GroupColumn => fillGroupColumn(mappedColumns, g)
+              case u: UnionColumn => fillUnionColumn(originTableCache, u)
+              // case u: UnionColumn => {
+              //   // fill UnionColumn with life!
+              //   // Use cached origin tables and columns
+              //   val tableToColumnMap = u.originColumns.tableToColumn.map({
+              //     case (originTableId, originColumnId) =>
+              //       val originColumns = originTableCache(originTableId)
+              //       val matchingOriginColumnOpt = originColumns.find(_.id == originColumnId)
 
-            resolveOriginColumns.map { tableToColumnMap =>
-              UnionColumn(
-                u.kind,
-                u.languageType,
-                u.columnInformation,
-                OriginColumns(u.originColumns.tableToColumn, tableToColumnMap)
-              )
-            }
+              //       (
+              //         originTableId,
+              //         matchingOriginColumnOpt match {
+              //           case Some(originColumn) => originColumn
+              //           case None =>
+              //             throw DatabaseException(
+              //               s"Origin column '${originColumnId}' not found in table '$originTableId' for UnionColumn",
+              //               "missing-origin-column"
+              //             )
+              //         }
+              //       )
+              //   })
+
+              // Future.successful(
+              //   UnionColumn(
+              //     u.kind,
+              //     u.languageType,
+              //     u.columnInformation,
+              //     OriginColumns(u.originColumns.tableToColumn, tableToColumnMap)
+              //   )
+              // )
+              // }
+
+              case c => Future.successful(c)
+            })
+
+            Future.sequence(futures)
           }
-
-          case c => Future.successful(c)
-        })
-
-        Future.sequence(futures)
+        } yield filledColumns
       }
 
     } yield {
