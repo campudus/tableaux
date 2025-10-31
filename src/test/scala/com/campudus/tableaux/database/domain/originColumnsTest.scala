@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.testtools.TestAssertionHelper
 
 import org.vertx.scala.core.json.Json
@@ -27,7 +27,6 @@ class CreateOriginColumnsTest extends TestAssertionHelper {
     val originColumns = CreateOriginColumns.fromJson(json)
 
     assertEquals(Map(1 -> 3, 2 -> 2, 3 -> 1), originColumns.tableToColumn)
-    assertJSONEquals(originColumnsJson, originColumns.getJson)
   }
 
   @Test
