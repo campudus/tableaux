@@ -1226,25 +1226,31 @@ class ColumnModel(val connection: DatabaseConnection)(
       rules: JsonArray,
       showMemberColumns: Boolean
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
-    (table.tableType, kind) match {
-      case (UnionTable, _) =>
-        Future(UnionColumn(kind, languageType, columnInformation))
-      case (_, AttachmentType) =>
+    kind match {
+      case (AttachmentType) =>
         Future(AttachmentColumn(columnInformation))
 
-      case (_, StatusType) =>
+      case (StatusType) =>
         mapStatusColumn(columnInformation, rules)
 
-      case (_, LinkType) =>
+      case (LinkType) =>
         mapLinkColumn(depth, columnInformation)
 
-      case (_, GroupType) =>
+      case (GroupType) =>
         // placeholder for now, grouped columns will be filled in later
         Future(GroupColumn(columnInformation, Seq.empty, formatPattern, showMemberColumns))
 
       case _ =>
         Future(SimpleValueColumn(kind, languageType, columnInformation))
     }
+  }
+
+  private def mapUnionColumn(
+      kind: TableauxDbType,
+      languageType: LanguageType,
+      columnInformation: ColumnInformation
+  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
+    Future(UnionColumn(kind, languageType, columnInformation))
   }
 
   private def mapStatusColumn(columnInformation: ColumnInformation, rules: JsonArray)(
@@ -1384,51 +1390,12 @@ class ColumnModel(val connection: DatabaseConnection)(
     val decimalDigits = Option(row.get[Int](16))
     val originColumns = Option(row.get[String](17))
       .map(str => OriginColumns.fromJson(Json.fromArrayString(str)))
-    // val originColumns = row.get[String](17) match {
-    //   case str => OriginColumns.fromJson(Json.fromArrayString(str))
-    // }
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
-
-      // columnInformation = BasicColumnInformation(
-      //   table,
-      //   columnId,
-      //   columnName,
-      //   ordering,
-      //   identifier,
-      //   displayInfoSeq,
-      //   groupColumnIds,
-      //   separator,
-      //   attributes,
-      //   hidden,
-      //   maxLength,
-      //   minLength,
-      //   decimalDigits,
-      //   None
-      //   // originColumns
-      // )
-
-      // columnInformation2 = UnionColumnInformation(
-      //   table,
-      //   columnId,
-      //   columnName,
-      //   ordering,
-      //   identifier,
-      //   displayInfoSeq,
-      //   groupColumnIds,
-      //   separator,
-      //   attributes,
-      //   hidden,
-      //   maxLength,
-      //   minLength,
-      //   decimalDigits,
-      //   originColumns
-      // )
-
-      columnInformation =
-        if (table.tableType == UnionTable) {
-          UnionColumnInformation(
+      column <- table.tableType match {
+        case UnionTable =>
+          val columnInformation = UnionColumnInformation(
             table,
             columnId,
             columnName,
@@ -1442,10 +1409,11 @@ class ColumnModel(val connection: DatabaseConnection)(
             maxLength,
             minLength,
             decimalDigits,
-            originColumns
+            originColumns // this is only a placeholder here, we have to insert the real origin columns later
           )
-        } else {
-          BasicColumnInformation(
+          mapUnionColumn(kind, languageType, columnInformation)
+        case _ =>
+          val columnInformation = BasicColumnInformation(
             table,
             columnId,
             columnName,
@@ -1461,10 +1429,10 @@ class ColumnModel(val connection: DatabaseConnection)(
             decimalDigits,
             None
           )
-        }
-
-      column <- mapColumn(table, depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
+          mapColumn(table, depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
+      }
     } yield column
+
   }
 
   private def retrieveDisplayInfo(table: Table, columnId: ColumnId): Future[Seq[DisplayInfo]] = {
