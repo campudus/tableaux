@@ -443,7 +443,7 @@ class TableauxModel(
               _ <- createHistoryModel.createRow(table, rowId, rowPermissionsOpt)
               _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
 
-              newRow <- retrieveRow(table, columns, rowId)
+              newRow <- retrieveRow(table, columns, rowId, ColumnFilter(None, None))
             } yield {
               rows ++ Seq(newRow)
             }
@@ -867,7 +867,7 @@ class TableauxModel(
   private def checkForDuplicateKey[A](table: Table, keyColumn: ColumnType[_], keyName: Option[Any])(
       implicit user: TableauxUser
   ) = {
-    retrieveRows(table, Seq(keyColumn), None, None, Pagination(None, None))
+    retrieveRows(table, Seq(keyColumn), None, None, Pagination(None, None), ColumnFilter(None, None))
       .map(_.rows.map(_.values.head))
       .flatMap(oldValues => {
         if (keyName.isDefined && oldValues.contains(keyName.get)) {
@@ -1220,8 +1220,8 @@ class TableauxModel(
           columns,
           ComparisonObjects(table),
           isInternalCall = false
-        ).filter(columnFilter.filter)
-      row <- retrieveRow(table, filteredColumns, rowId)
+        )
+      row <- retrieveRow(table, filteredColumns, rowId, columnFilter)
       resultRow <-
         if (config.isRowPermissionCheckEnabled) {
           for {
@@ -1234,12 +1234,17 @@ class TableauxModel(
     } yield resultRow
   }
 
-  private def retrieveRow(table: Table, columns: Seq[ColumnType[_]], rowId: RowId)(
+  private def retrieveRow(
+      table: Table,
+      columns: Seq[ColumnType[_]],
+      rowId: RowId,
+      columnFilter: ColumnFilter
+  )(
       implicit user: TableauxUser
   ): Future[Row] = {
     for {
       rawRow <- retrieveRowModel.retrieve(table.id, rowId, columns)
-      rowSeq <- mapRawRows(table, columns, Seq(rawRow))
+      rowSeq <- mapRawRows(table, columns, Seq(rawRow), columnFilter)
     } yield rowSeq.head
   }
 
@@ -1318,8 +1323,8 @@ class TableauxModel(
           columns,
           ComparisonObjects(table),
           isInternalCall = false
-        ).filter(columnFilter.filter)
-      rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
+        )
+      rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
       resultRows <-
         if (config.isRowPermissionCheckEnabled) {
           removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
@@ -1352,7 +1357,7 @@ class TableauxModel(
         case _ => Seq(column)
       }
 
-      rowsSeq <- retrieveRows(table, columns, finalFlagOpt, archivedFlagOpt, pagination)
+      rowsSeq <- retrieveRows(table, columns, finalFlagOpt, archivedFlagOpt, pagination, ColumnFilter(None, None))
     } yield {
       copyFirstColumnOfRowsSeq(rowsSeq)
     }
@@ -1363,14 +1368,15 @@ class TableauxModel(
       columns: Seq[ColumnType[_]],
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
-      pagination: Pagination
+      pagination: Pagination,
+      columnFilter: ColumnFilter
   )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
       totalSize <- retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt)
       rawRows <- retrieveRowModel.retrieveAll(table.id, columns, finalFlagOpt, archivedFlagOpt, pagination)
-      rowSeq <- mapRawRows(table, columns, rawRows)
+      rowSeq <- mapRawRows(table, columns, rawRows, columnFilter)
     } yield {
       RowSeq(rowSeq, Page(pagination, Some(totalSize)))
     }
@@ -1407,7 +1413,7 @@ class TableauxModel(
       skippedColumns = allColumns.filter(col => !isIn(columnsToDuplicate.map(_.id))(col))
 
       // Retrieve row without skipped columns
-      row <- retrieveRow(table, columnsToDuplicate, rowId)
+      row <- retrieveRow(table, columnsToDuplicate, rowId, ColumnFilter(None, None))
       rowValues = row.values
 
       // First create a empty row
@@ -1453,9 +1459,24 @@ class TableauxModel(
     }
   }
 
-  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[RawRow])(
+  private def mapRawRows(
+      table: Table,
+      columns: Seq[ColumnType[_]],
+      rawRows: Seq[RawRow],
+      columnFilter: ColumnFilter = ColumnFilter(None, None)
+  )(
       implicit user: TableauxUser
   ): Future[Seq[Row]] = {
+    val idsOfFilteredColumnsWithConcats = columns
+      .filter(columnFilter.filter)
+      .flatMap(c =>
+        c match {
+          case c: ConcatenateColumn => c.columns.+:(c)
+          case _ => Seq(c)
+        }
+      )
+      .map(_.id)
+      .distinct
 
     /**
       * Fetches ConcatColumn values for linked rows
@@ -1490,7 +1511,7 @@ class TableauxModel(
     ): Future[Map[ColumnId, (ColumnType[_], Any)]] = {
       val columns = concatenateColumn.columns
       for {
-        row <- retrieveRow(concatenateColumn.table, columns, rowId)
+        row <- retrieveRow(concatenateColumn.table, columns, rowId, ColumnFilter(None, None))
       } yield columns
         .zip(row.values)
         .foldLeft(Map[ColumnId, (ColumnType[_], Any)]())({
@@ -1554,6 +1575,10 @@ class TableauxModel(
             Future.sequence(
               columns
                 .zip(rawValues)
+                .filter({
+                  // Only fetch values for columns which are included in filter (directly or indirectly via concat)
+                  case (column: ColumnType[_], _) => idsOfFilteredColumnsWithConcats.contains(column.id)
+                })
                 .map({
                   case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatenateColumn] =>
                     // Fetch linked values of each linked row
@@ -1578,23 +1603,27 @@ class TableauxModel(
             )
 
           // Generate values for GroupColumn && ConcatColumn
-          columnsWithPostProcessedValues = columnsWithFetchedValues.map({
-            case (c: StatusColumn, value) => value
+          columnsWithPostProcessedValues = columnsWithFetchedValues
+            .filter({
+              // Filter out columns which are only included indirectly
+              case (c: ColumnType[_], _) => columnFilter.filter(c)
+            }).map({
+              case (c: StatusColumn, value) => value
 
-            case (c: ConcatenateColumn, _) =>
-              // Post-process GroupColumn && ConcatColumn, concatenate their values
-              columnsWithFetchedValues
-                .filter({
-                  case (column: ColumnType[_], _) => c.columns.exists(_.id == column.id)
-                })
-                .map({
-                  case (_, value) => value
-                })
+              case (c: ConcatenateColumn, _) =>
+                // Post-process GroupColumn && ConcatColumn, concatenate their values
+                columnsWithFetchedValues
+                  .filter({
+                    case (column: ColumnType[_], _) => c.columns.exists(_.id == column.id)
+                  })
+                  .map({
+                    case (_, value) => value
+                  })
 
-            case (_, value) =>
-              // Post-processing is only needed for ConcatColumn and GroupColumn
-              value
-          })
+              case (_, value) =>
+                // Post-processing is only needed for ConcatColumn and GroupColumn
+                value
+            })
         } yield {
           Row(table, rowId, rowLevelFlags, rowPermissions, cellLevelFlags, columnsWithPostProcessedValues)
         }
