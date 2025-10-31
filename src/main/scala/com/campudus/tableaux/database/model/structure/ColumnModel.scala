@@ -484,11 +484,15 @@ class ColumnModel(val connection: DatabaseConnection)(
       columnCreate <- createUnionColumn(table, createColumn)
         .map({
           case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+            val tableId2ColumnId = createColumn.originColumns match {
+              case Some(CreateOriginColumns(tableToColumnMap)) => tableToColumnMap
+              case None => Map.empty[TableId, ColumnId]
+            }
             UnionColumn(
               createColumn.kind,
               createColumn.languageType,
               applyColumnInformation(id, ordering, displayInfos),
-              OriginColumns(createColumn.originColumns.get.tableToColumn) // TODO this is strange
+              OriginColumns(tableId2ColumnId)
             )
         })
     } yield {
@@ -1133,7 +1137,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     def fillUnionColumn(originTableCache: Map[TableId, Seq[ColumnType[_]]], u: UnionColumn): UnionColumn = {
       // fill UnionColumn with life!
       // ... till now GroupColumn only was a placeholder
-      val tableToColumnMap = u.originColumns.tableToColumn.map({
+      val tableToColumnMap = u.originColumns.tableId2ColumnId.map({
         case (originTableId, originColumnId) =>
           val originColumns = originTableCache(originTableId)
           val matchingOriginColumnOpt = originColumns.find(_.id == originColumnId)
@@ -1148,7 +1152,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           (originTableId, matchingOriginColumn)
       })
 
-      val filledOriginColumns = OriginColumns(u.originColumns.tableToColumn, tableToColumnMap)
+      val filledOriginColumns = OriginColumns(u.originColumns.tableId2ColumnId, tableToColumnMap)
       UnionColumn(u.kind, u.languageType, u.columnInformation, filledOriginColumns)
     }
 
@@ -1156,7 +1160,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       // Pre-fetch all required origin tables and their columns for UnionColumns
       // Build a cache: Map[TableId, Seq[ColumnType[_]]] to avoid fetching the same table multiple times
       val originTableIds = mappedColumns
-        .collect({ case u: UnionColumn => u.originColumns.tableToColumn.keys })
+        .collect({ case u: UnionColumn => u.originColumns.tableId2ColumnId.keys })
         .flatten
         .toSet
 
@@ -1433,7 +1437,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val showMemberColumns = row.get[Boolean](15)
     val decimalDigits = Option(row.get[Int](16))
     val originColumns = Option(row.get[String](17))
-      .map(str => OriginColumns.fromJson(Json.fromArrayString(str)))
+      .map(str => OriginColumns.parseJson(Json.fromArrayString(str)))
 
     val getBasicColumnInfo = BasicColumnInformation(
       table,

@@ -6,67 +6,56 @@ import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
 
-trait OriginColumnsConfig {
-  val fieldName = "originColumns"
+sealed trait OriginColumnsBase {
+  val tableId2ColumnId: Map[TableId, ColumnId]
+}
+
+object OriginColumnsBase {
+
+  def parseJson(json: JsonArray): Map[TableId, ColumnId] = {
+    val tableId2ColumnId = (json.asScala).map(json => {
+      val singleMapping = json.asInstanceOf[JsonObject]
+      val tableId: TableId = singleMapping.getLong("tableId")
+      val columnId: ColumnId = singleMapping.getLong("columnId")
+      (tableId, columnId)
+    }).toMap
+
+    if (tableId2ColumnId.isEmpty) {
+      throw new IllegalArgumentException(s"Origin columns must not be empty in $json")
+    }
+
+    tableId2ColumnId
+  }
 }
 
 case class OriginColumns(
-    tableToColumn: Map[TableId, ColumnId],
-    // TODO: better naming
-    tableToRealColumn: Map[TableId, ColumnType[_]] = Map() // placeholder in first instances of OriginColumns
-) {
+    tableId2ColumnId: Map[TableId, ColumnId],
+    tableId2Column: Map[TableId, ColumnType[_]] = Map() // placeholder
+) extends OriginColumnsBase {
 
   def getJson: JsonArray = {
-    Json.arr(tableToRealColumn.map { case (tableId, column) =>
+    Json.arr(tableId2Column.map { case (tableId, column) =>
       Json.obj("tableId" -> tableId, "column" -> column.getJson)
     }.toSeq: _*)
   }
 }
 
-object OriginColumns extends OriginColumnsConfig {
+object OriginColumns {
+  val fieldName = "originColumns"
 
-  def getFieldNames(json: JsonObject): Seq[String] = {
-    import scala.collection.JavaConverters._
-
-    if (json.fieldNames().size() > 0) {
-      json.fieldNames().asScala.toSeq
-    } else {
-      Seq.empty
-    }
-  }
-
-  def fromJson(json: JsonArray = Json.emptyArr()): OriginColumns = {
-    val tableToColumn: Map[TableId, ColumnId] = (json.asScala).map(json => {
-      val singleMapping = json.asInstanceOf[JsonObject]
-      val tableId: TableId = singleMapping.getLong("tableId")
-      val columnId: ColumnId = singleMapping.getLong("columnId")
-      (tableId, columnId)
-    }).toMap
-
-    if (tableToColumn.isEmpty) {
-      throw new IllegalArgumentException(s"Origin columns must not be empty in $json")
-    }
-
+  def parseJson(json: JsonArray = Json.emptyArr()): OriginColumns = {
+    val tableToColumn = OriginColumnsBase.parseJson(json)
     OriginColumns(tableToColumn)
   }
 }
 
-case class CreateOriginColumns(tableToColumn: Map[TableId, ColumnId]) {}
+case class CreateOriginColumns(tableId2ColumnId: Map[TableId, ColumnId]) extends OriginColumnsBase {}
 
-object CreateOriginColumns extends OriginColumnsConfig {
+object CreateOriginColumns {
+  val fieldName = OriginColumns.fieldName
 
-  def fromJson(json: JsonArray = Json.emptyArr()): CreateOriginColumns = {
-    val tableToColumn: Map[TableId, ColumnId] = (json.asScala).map(json => {
-      val singleMapping = json.asInstanceOf[JsonObject]
-      val tableId: TableId = singleMapping.getLong("tableId")
-      val columnId: ColumnId = singleMapping.getLong("columnId")
-      (tableId, columnId)
-    }).toMap
-
-    if (tableToColumn.isEmpty) {
-      throw new IllegalArgumentException(s"Origin columns must not be empty in $json")
-    }
-
+  def parseJson(json: JsonArray = Json.emptyArr()): CreateOriginColumns = {
+    val tableToColumn = OriginColumnsBase.parseJson(json)
     CreateOriginColumns(tableToColumn)
   }
 }

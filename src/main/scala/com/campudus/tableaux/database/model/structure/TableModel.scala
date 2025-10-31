@@ -627,7 +627,7 @@ class TableModel(val connection: DatabaseConnection)(
           val columnId = arr.get[ColumnId](1)
           val jsonArrayString = arr.getString(2)
           val jsonArray = Json.fromArrayString(jsonArrayString)
-          val originColumns = OriginColumns.fromJson(jsonArray)
+          val originColumns = OriginColumns.parseJson(jsonArray)
           UnionTableModel(tableId, columnId, originColumns)
         })
     }
