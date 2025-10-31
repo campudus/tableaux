@@ -368,11 +368,41 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveRowWithFilteredColumnsByIdsInvalid(implicit c: TestContext): Unit = {
+  def retrieveRowWithFilteredColumnsByIdsInvalidNoNegative(implicit c: TestContext): Unit = {
     exceptionTest("error.arguments") {
       for {
         _ <- createDefaultTable()
         _ <- sendRequest("GET", "/tables/1/rows/1?columnIds=-1")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveRowWithFilteredColumnsByIdsInvalidNoConcat(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows/1?columnIds=0")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveRowWithFilteredColumnsByNamesInvalidNoConcat(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows/1?columnNames=ID")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveRowWithFilteredColumnsInvalidNoCombination(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows/1?columnIds=1&columnNames=name")
       } yield ()
     }
   }
@@ -497,11 +527,41 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveRowsWithFilteredColumnsByIdsInvalid(implicit c: TestContext): Unit = {
+  def retrieveRowsWithFilteredColumnsByIdsInvalidNoNegative(implicit c: TestContext): Unit = {
     exceptionTest("error.arguments") {
       for {
         _ <- createDefaultTable()
         _ <- sendRequest("GET", "/tables/1/rows?columnIds=-1")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredColumnsByIdsInvalidNoConcat(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows?columnIds=0")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredColumnsInvalidNoCombination(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows?columnIds=1&columnNames=name")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredColumnsByNamesInvalidNoConcat(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows?columnNames=ID")
       } yield ()
     }
   }

@@ -1210,7 +1210,7 @@ class TableauxModel(
   def retrieveRow(
       table: Table,
       rowId: RowId,
-      columnFilter: ColumnType[_] => Boolean = _ => true
+      columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(implicit user: TableauxUser): Future[Row] = {
     for {
       columns <- retrieveColumns(table)
@@ -1220,7 +1220,7 @@ class TableauxModel(
           columns,
           ComparisonObjects(table),
           isInternalCall = false
-        ).filter(columnFilter)
+        ).filter(columnFilter.filter)
       row <- retrieveRow(table, filteredColumns, rowId)
       resultRow <-
         if (config.isRowPermissionCheckEnabled) {
@@ -1308,7 +1308,7 @@ class TableauxModel(
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination,
-      columnFilter: ColumnType[_] => Boolean = _ => true
+      columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(implicit user: TableauxUser): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table)
@@ -1318,7 +1318,7 @@ class TableauxModel(
           columns,
           ComparisonObjects(table),
           isInternalCall = false
-        ).filter(columnFilter)
+        ).filter(columnFilter.filter)
       rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
       resultRows <-
         if (config.isRowPermissionCheckEnabled) {

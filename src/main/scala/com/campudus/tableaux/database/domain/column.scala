@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException, OkArg}
+import com.campudus.tableaux.{ArgumentCheck, ArgumentChecker, FailArg, InvalidJsonException, OkArg}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database.{LanguageNeutral, _}
 import com.campudus.tableaux.database.model.AttachmentFile
@@ -767,5 +767,52 @@ case class ColumnSeq(columns: Seq[ColumnType[_]])(implicit roleModel: RoleModel,
 
   override def getJson: JsonObject = {
     Json.obj("columns" -> columns.map(_.getJson))
+  }
+}
+
+case class ColumnFilter(
+    columnIds: Option[Seq[Long]] = None,
+    columnNames: Option[Seq[String]] = None
+) extends DomainObject {
+
+  override def toString: String = {
+    val a = columnIds match {
+      case Some(ids) => s"columnIds $ids"
+      case None => ""
+    }
+
+    val b = columnNames match {
+      case Some(names) => s"columnNames $names"
+      case None => ""
+    }
+
+    s"$a $b"
+  }
+
+  override def getJson: JsonObject = Json.obj("columnIds" -> columnIds.orNull, "columnNames" -> columnNames.orNull)
+
+  private def notConcatName(name: String): ArgumentCheck[String] = {
+    name match {
+      case "ID" => FailArg(InvalidJsonException(s"Parameter columnNames should not contain ID column", "invalid"))
+      case value => OkArg(value)
+    }
+  }
+
+  def check: ArgumentCheck[_] = {
+    (columnIds, columnNames) match {
+      case (Some(ids), Some(names)) =>
+        FailArg(InvalidJsonException(s"Parameter columnIds can not be used in combination with columnNames", "invalid"))
+      case (Some(ids), None) => sequence(ids.map(greaterZero(_)))
+      case (None, Some(names)) => sequence(names.map(notConcatName(_)))
+      case (None, None) => OkArg(None)
+    }
+  }
+
+  def filter: ColumnType[_] => Boolean = { c =>
+    (columnIds, columnNames) match {
+      case (Some(ids), None) => ids.contains(c.id)
+      case (None, Some(names)) => names.contains(c.name)
+      case _ => true
+    }
   }
 }

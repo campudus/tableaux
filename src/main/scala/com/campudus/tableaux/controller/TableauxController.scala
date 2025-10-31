@@ -380,22 +380,15 @@ class TableauxController(
   def retrieveRow(
       tableId: TableId,
       rowId: RowId,
-      columnIds: Option[Seq[Long]] = None,
-      columnNames: Option[Seq[String]] = None
+      columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(implicit user: TableauxUser): Future[Row] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(rowId),
-      sequence(columnIds.getOrElse(Seq.empty).map(greaterThan(_, -1, "columnIds")))
+      columnFilter.check
     )
 
-    logger.info(s"retrieveRow $tableId $rowId, columnIds: $columnIds, columnNames: $columnNames")
-
-    val columnFilter: ColumnType[_] => Boolean = { c =>
-      val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
-      val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
-      idMatches && nameMatches
-    }
+    logger.info(s"retrieveRow $tableId $rowId, columnFilter: $columnFilter")
 
     for {
       table <- repository.retrieveTable(tableId)
@@ -408,26 +401,17 @@ class TableauxController(
       finalFlagOpt: Option[Boolean] = None,
       archivedFlagOpt: Option[Boolean] = None,
       pagination: Pagination = Pagination(None, None),
-      columnIds: Option[Seq[Long]] = None,
-      columnNames: Option[Seq[String]] = None
+      columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     checkArguments(
       greaterZero(tableId),
       pagination.check,
-      sequence(columnIds.getOrElse(Seq.empty).map(greaterThan(_, -1, "columnIds")).toList)
+      columnFilter.check
     )
 
-    logger.info(
-      s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt, columnIds: $columnIds, columnNames: $columnNames"
-    )
-
-    val columnFilter: ColumnType[_] => Boolean = { c =>
-      val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
-      val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
-      idMatches && nameMatches
-    }
+    logger.info(s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt, columnFilter: $columnFilter")
 
     for {
       table <- repository.retrieveTable(tableId)

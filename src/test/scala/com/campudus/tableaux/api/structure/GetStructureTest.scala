@@ -143,11 +143,31 @@ class GetStructureTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveColumnsFilteredByIdsInvalid(implicit c: TestContext): Unit = {
+  def retrieveColumnsFilteredByIdsInvalidNoNegative(implicit c: TestContext): Unit = {
     exceptionTest("error.arguments") {
       for {
         _ <- createDefaultTable()
         test <- sendRequest("GET", "/tables/1/columns?columnIds=-1")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveColumnsFilteredByIdsInvalidNoConcat(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        test <- sendRequest("GET", "/tables/1/columns?columnIds=0")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveColumnsFilteredInvalidNoCombination(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        test <- sendRequest("GET", "/tables/1/columns?columnIds=1&columnNames=name")
       } yield ()
     }
   }
@@ -191,6 +211,16 @@ class GetStructureTest extends TableauxTestBase {
         // skips non existing names
         assertJSONEquals(expectedJsonFiltered, testFilteredWithNonExisting)
       }
+    }
+  }
+
+  @Test
+  def retrieveColumnsFilteredByNamesInvalidNoConcat(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        test <- sendRequest("GET", "/tables/1/columns?columnNames=ID")
+      } yield ()
     }
   }
 

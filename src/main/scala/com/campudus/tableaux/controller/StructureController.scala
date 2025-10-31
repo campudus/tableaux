@@ -91,23 +91,16 @@ class StructureController(
   def retrieveColumns(
       tableId: TableId,
       isInternalCall: Boolean = false,
-      columnIds: Option[Seq[Long]] = None,
-      columnNames: Option[Seq[String]] = None
+      columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(
       implicit user: TableauxUser
   ): Future[ColumnSeq] = {
     checkArguments(
       greaterZero(tableId),
-      sequence(columnIds.getOrElse(Seq.empty).map(greaterThan(_, -1, "columnIds")))
+      columnFilter.check
     )
 
-    logger.info(s"retrieveColumns $tableId, columnIds: $columnIds, columnNames: $columnNames")
-
-    val columnFilter: ColumnType[_] => Boolean = { c =>
-      val idMatches = columnIds.map(_.contains(c.id)).getOrElse(true)
-      val nameMatches = columnNames.map(_.contains(c.name)).getOrElse(true)
-      idMatches && nameMatches
-    }
+    logger.info(s"retrieveColumns $tableId, columnFilter: $columnFilter")
 
     for {
       table <- tableStruc.retrieve(tableId)
@@ -119,7 +112,7 @@ class StructureController(
           columns,
           ComparisonObjects(table),
           isInternalCall
-        ).filter(columnFilter)
+        ).filter(columnFilter.filter)
       ColumnSeq(filteredColumns)
     }
   }
