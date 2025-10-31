@@ -6,6 +6,10 @@ import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
 
+trait OriginColumnsConfig {
+  val fieldName = "originColumns"
+}
+
 case class OriginColumns(
     tableToColumn: Map[TableId, ColumnId],
     // TODO: better naming
@@ -19,8 +23,7 @@ case class OriginColumns(
   }
 }
 
-object OriginColumns {
-  val fieldName = "originColumns"
+object OriginColumns extends OriginColumnsConfig {
 
   def getFieldNames(json: JsonObject): Seq[String] = {
     import scala.collection.JavaConverters._
@@ -48,28 +51,9 @@ object OriginColumns {
   }
 }
 
-case class CreateOriginColumns(tableToColumn: Map[TableId, ColumnId]) {
+case class CreateOriginColumns(tableToColumn: Map[TableId, ColumnId]) {}
 
-  def getJson: JsonObject = {
-    val arr = Json.arr(tableToColumn.map { case (tableId, columnId) =>
-      Json.obj("tableId" -> tableId, "columnId" -> columnId)
-    }.toSeq: _*)
-    Json.obj(OriginColumns.fieldName -> arr)
-  }
-}
-
-object CreateOriginColumns {
-  val fieldName = "originColumns"
-
-  def getFieldNames(json: JsonObject): Seq[String] = {
-    import scala.collection.JavaConverters._
-
-    if (json.fieldNames().size() > 0) {
-      json.fieldNames().asScala.toSeq
-    } else {
-      Seq.empty
-    }
-  }
+object CreateOriginColumns extends OriginColumnsConfig {
 
   def fromJson(json: JsonArray = Json.emptyArr()): CreateOriginColumns = {
     val tableToColumn: Map[TableId, ColumnId] = (json.asScala).map(json => {
