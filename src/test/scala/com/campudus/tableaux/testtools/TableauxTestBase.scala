@@ -719,4 +719,10 @@ trait TableauxTestBase
       rowIds = rowPost.getJsonArray("rows").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
     } yield (tableId, columnIds, rowIds)
   }
+
+  def omit(keys: Seq[String], json: JsonObject): JsonObject = {
+    val copy = json.copy()
+    keys.foreach(key => copy.remove(key))
+    copy
+  }
 }
