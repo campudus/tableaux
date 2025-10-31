@@ -306,7 +306,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         } else {
           Future { Unit }
         }
-      columnCreate <- createColumn match {
+      columnCreated <- createColumn match {
         case simpleColumnInfo: CreateSimpleColumn =>
           createValueColumn(table, simpleColumnInfo)
             .map({
@@ -368,7 +368,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           }
       }
     } yield {
-      columnCreate
+      columnCreated
     }
   }
 
@@ -486,7 +486,8 @@ class ColumnModel(val connection: DatabaseConnection)(
             UnionColumn(
               createColumn.kind,
               createColumn.languageType,
-              applyColumnInformation(id, ordering, displayInfos)
+              applyColumnInformation(id, ordering, displayInfos),
+              OriginColumns(createColumn.originColumns.get.tableToColumn) // TODO this is strange
             )
         })
     } yield {
@@ -1104,6 +1105,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         case g: GroupColumn =>
           // if requested column is a GroupColumn we need to get all columns
           // ... because only retrieveColumns can handle GroupColumns
+          // TODO: performance: optimize this query if we have multiple GroupColumns
           retrieveAll(table)
             .map(_.find(_.id == g.id).get)
 
@@ -1130,19 +1132,63 @@ class ColumnModel(val connection: DatabaseConnection)(
         Future.sequence(futures)
       }
 
-    } yield {
-      val columns = mappedColumns
-        .map({
+      // Fill GroupColumns and UnionColumns with their resolved data
+      filledColumns <- {
+        val futures = mappedColumns.map({
           case g: GroupColumn =>
             // fill GroupColumn with life!
             // ... till now GroupColumn only was a placeholder
             val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
-            GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns)
+            Future.successful(GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns))
 
-          case c => c
+          case u: UnionColumn => {
+            // fill UnionColumn with life!
+            // For union columns, we need to retrieve the actual columns from their origin tables
+
+            // for {
+            //   asdf <- u.columnInformation.originColumns match {
+            //     case Some(col) =>
+            //       val futures = col.tableToColumn.map { case (tableId, columnId) =>
+            //         // Retrieve the origin table and then retrieve the column from it
+            //         for {
+            //           originTable <- tableStruc.retrieve(tableId)
+            //           originColumn <- retrieve(originTable, columnId)
+            //         } yield (tableId, originColumn)
+            //       }
+            //       Future.sequence(futures.toSeq).map { originColumnsSeq =>
+            //         val originColumnsMap = originColumnsSeq.toMap
+            //         originColumnsMap
+            //       // Create a new UnionColumn with resolved origin columns stored in a derived field or model
+            //       // For now, return the union column as is - you may need to extend UnionColumn to store resolved columns
+            //       // u
+            //       }
+            //     case None => Future.successful(Map.empty[TableId, ColumnType[_]])
+            //   }
+
+            // } yield {
+            //   val newOriginColumns = OriginColumns(u.columnInformation.originColumns, asdf)
+            //   val newColInfo = UnionColumnInformation(
+            //     u.columnInformation.table,
+            //     // u.columnInformation.columnId,
+            //     1L,
+            //     u.columnInformation.ordering,
+            //     u.columnInformation.displayInfos,
+            //     u.columnInformation.originColumns
+            //   )
+            //   UnionColumn(u.kind, u.languageType, newColInfo)
+            // }
+
+            Future.successful(u)
+          }
+
+          case c => Future.successful(c)
         })
 
-      prependConcatColumnIfNecessary(table, columns)
+        Future.sequence(futures)
+      }
+
+    } yield {
+      prependConcatColumnIfNecessary(table, filledColumns)
     }
   }
 
@@ -1248,9 +1294,16 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def mapUnionColumn(
       kind: TableauxDbType,
       languageType: LanguageType,
-      columnInformation: ColumnInformation
+      columnInformation: ColumnInformation,
+      originColumns: Option[OriginColumns]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
-    Future(UnionColumn(kind, languageType, columnInformation))
+    Future(UnionColumn(
+      kind,
+      languageType,
+      columnInformation,
+      // we have no origin columns in the first union table column (OriginTableColumn)
+      originColumns.getOrElse(OriginColumns(Map()))
+    ))
   }
 
   private def mapStatusColumn(columnInformation: ColumnInformation, rules: JsonArray)(
@@ -1408,10 +1461,10 @@ class ColumnModel(val connection: DatabaseConnection)(
             hidden,
             maxLength,
             minLength,
-            decimalDigits,
-            originColumns // this is only a placeholder here, we have to insert the real origin columns later
+            decimalDigits
+            // originColumns // this is only a placeholder here, we have to insert the real origin columns later
           )
-          mapUnionColumn(kind, languageType, columnInformation)
+          mapUnionColumn(kind, languageType, columnInformation, originColumns)
         case _ =>
           val columnInformation = BasicColumnInformation(
             table,
@@ -1426,8 +1479,7 @@ class ColumnModel(val connection: DatabaseConnection)(
             hidden,
             maxLength,
             minLength,
-            decimalDigits,
-            None
+            decimalDigits
           )
           mapColumn(table, depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
       }

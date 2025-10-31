@@ -27,6 +27,7 @@ object TableauxModel {
   type TableGroupId = Long
   type TableId = Long
   type ColumnId = Long
+  type OriginColumnId = Long
   type RowId = Long
 
   type Ordering = Long
@@ -1345,7 +1346,8 @@ class TableauxModel(
 
   def retrieveAndProcessTableRows(
       tableId: TableId,
-      unionTableColumns: Seq[ColumnType[_]],
+      // unionTableColumns: Seq[ColumnType[_]],
+      unionTableColumns: Seq[UnionColumn],
       acc: RowSeq,
       totalSize: Long,
       tablePagination: Pagination,
@@ -1353,15 +1355,15 @@ class TableauxModel(
       archivedFlagOpt: Option[Boolean]
   )(implicit user: TableauxUser): Future[(RowSeq, Long)] = {
 
-    def getColumnMapping(originTable: Table, unionTableColumns: Seq[ColumnType[_]]): Map[Long, Long] = {
+    def getColumnMapping(originTable: Table, unionTableColumns: Seq[UnionColumn]): Map[OriginColumnId, ColumnId] = {
       unionTableColumns
-        .flatMap(utc =>
-          utc.originColumns.filter(otc =>
-            otc.tableToColumn.contains(originTable.id)
-          ).map(otc =>
-            (otc.tableToColumn(originTable.id), utc.id)
-          )
-        ).toMap
+        .flatMap { utc =>
+          if (utc.originColumns.tableToColumn.contains(originTable.id)) {
+            Seq((utc.originColumns.tableToColumn(originTable.id), utc.id))
+          } else {
+            Seq.empty
+          }
+        }.toMap
     }
 
     for {
@@ -1371,7 +1373,7 @@ class TableauxModel(
 
       originColumnOrdering = filteredColumns.map(c => c.id)
       unionColumnOrdering = unionTableColumns.map(c => c.id)
-      originColumn2UnionColumnMapping: Map[Long, Long] = getColumnMapping(originTable, unionTableColumns)
+      originColumn2UnionColumnMapping: Map[OriginColumnId, ColumnId] = getColumnMapping(originTable, unionTableColumns)
 
       // retrieve only relevant columns that we need to return for the union table
       relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
@@ -1397,7 +1399,8 @@ class TableauxModel(
 
   def retrieveUnionTableRows(
       unionTable: Table,
-      unionTableColumns: Seq[ColumnType[_]],
+      // unionTableColumns: Seq[ColumnType[_]],
+      unionTableColumns: Seq[UnionColumn],
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination
@@ -1454,7 +1457,7 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[RowSeq] = {
     if (table.tableType == UnionTable) {
       for {
-        unionTableColumns <- retrieveColumns(table)
+        unionTableColumns <- retrieveColumns(table).map(_.asInstanceOf[Seq[UnionColumn]])
         rowSeq <- retrieveUnionTableRows(table, unionTableColumns, finalFlagOpt, archivedFlagOpt, pagination)
       } yield rowSeq
     } else {
