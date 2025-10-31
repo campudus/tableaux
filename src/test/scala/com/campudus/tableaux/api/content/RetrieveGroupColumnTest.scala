@@ -132,7 +132,7 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
       rowsOnlyGroupColumnValue <- sendRequest("GET", s"/tables/$tableId/rows?columnIds=$groupColumnId")
         .map(_.getJsonArray("rows"))
 
-      groupColumnIdWithOthers = s"$groupColumnId,6,7";
+      groupColumnIdWithOthers = s"$groupColumnId,6,7"
 
       rowsGroupColumnWithOthers <- sendRequest("GET", s"/tables/$tableId/rows?columnIds=$groupColumnIdWithOthers")
         .map(_.getJsonArray("rows"))
@@ -220,7 +220,7 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
       rowsOnlyGroupColumnValue <- sendRequest("GET", s"/tables/$tableId/rows?columnNames=$groupColumnName")
         .map(_.getJsonArray("rows"))
 
-      groupColumnNameWithOthers = URLEncoder.encode(s"$groupColumnName,Test Column 6,Test Column 7", "UTF-8");
+      groupColumnNameWithOthers = URLEncoder.encode(s"$groupColumnName,Test Column 6,Test Column 7", "UTF-8")
 
       rowsGroupColumnWithOther <- sendRequest("GET", s"/tables/$tableId/rows?columnNames=$groupColumnNameWithOthers")
         .map(_.getJsonArray("rows"))
