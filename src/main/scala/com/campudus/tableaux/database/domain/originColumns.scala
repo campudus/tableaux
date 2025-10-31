@@ -6,7 +6,11 @@ import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
 
-case class OriginColumns(tableToColumn: Map[TableId, ColumnId]) {
+case class OriginColumns(
+    tableToColumn: Map[TableId, ColumnId],
+    // TODO: better naming
+    tableToRealColumn: Map[TableId, ColumnType[_]] = Map() // placeholder in first instances of OriginColumns
+) {
 
   def getJson: JsonObject = {
     val arr = Json.arr(tableToColumn.map { case (tableId, columnId) =>

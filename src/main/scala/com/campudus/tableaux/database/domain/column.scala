@@ -38,7 +38,7 @@ sealed trait ColumnInformation {
   val maxLength: Option[Int]
   val minLength: Option[Int]
   val decimalDigits: Option[Int]
-  val originColumns: Option[OriginColumns]
+  // val originColumns: Option[OriginColumns]
 }
 
 object BasicColumnInformation {
@@ -67,8 +67,8 @@ object BasicColumnInformation {
       createColumn.hidden,
       createColumn.maxLength,
       createColumn.minLength,
-      createColumn.decimalDigits,
-      None
+      createColumn.decimalDigits
+      // None
     )
   }
 }
@@ -100,8 +100,8 @@ object UnionColumnInformation {
       createColumn.hidden,
       createColumn.maxLength,
       createColumn.minLength,
-      createColumn.decimalDigits,
-      Some(originColumns)
+      createColumn.decimalDigits
+      // Some(originColumns)
     )
   }
 }
@@ -148,8 +148,8 @@ case class UnionColumnInformation(
     override val hidden: Boolean,
     override val maxLength: Option[Int],
     override val minLength: Option[Int],
-    override val decimalDigits: Option[Int],
-    override val originColumns: Option[OriginColumns]
+    override val decimalDigits: Option[Int]
+    // override val originColumns: Option[OriginColumns]
 ) extends ColumnInformation
 
 case class BasicColumnInformation(
@@ -165,8 +165,8 @@ case class BasicColumnInformation(
     override val hidden: Boolean,
     override val maxLength: Option[Int],
     override val minLength: Option[Int],
-    override val decimalDigits: Option[Int],
-    override val originColumns: Option[OriginColumns]
+    override val decimalDigits: Option[Int]
+    // override val originColumns: Option[OriginColumns]
 ) extends ColumnInformation
 
 case class StatusColumnInformation(
@@ -183,8 +183,8 @@ case class StatusColumnInformation(
     override val hidden: Boolean,
     override val maxLength: Option[Int] = None,
     override val minLength: Option[Int] = None,
-    override val decimalDigits: Option[Int] = None,
-    override val originColumns: Option[OriginColumns] = None
+    override val decimalDigits: Option[Int] = None
+    // override val originColumns: Option[OriginColumns] = None
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -206,7 +206,7 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
   override val maxLength: Option[Int] = None
   override val minLength: Option[Int] = None
   override val decimalDigits: Option[Int] = None
-  override val originColumns: Option[OriginColumns] = None
+  // override val originColumns: Option[OriginColumns] = None
 }
 
 object ColumnType {
@@ -311,7 +311,7 @@ sealed trait ColumnType[+A] extends DomainObject {
   val separator: Boolean = columnInformation.separator
   val attributes: JsonObject = columnInformation.attributes
   val hidden: Boolean = columnInformation.hidden
-  val originColumns: Option[OriginColumns] = columnInformation.originColumns
+  // val originColumns: Option[OriginColumns] = columnInformation.originColumns
 
   protected[this] implicit def roleModel: RoleModel
 
@@ -825,7 +825,8 @@ case class OriginTableColumn(override val languageType: LanguageType)(
 case class UnionColumn(
     override val kind: TableauxDbType,
     override val languageType: LanguageType,
-    override val columnInformation: ColumnInformation
+    override val columnInformation: ColumnInformation,
+    originColumns: OriginColumns
 )(
     implicit override val roleModel: RoleModel,
     val user: TableauxUser
@@ -848,7 +849,7 @@ case class UnionColumn(
   // }
 
   override def getJson: JsonObject = {
-    val originColumnsJson = columnInformation.originColumns.map(_.getJson).getOrElse(Json.emptyObj())
+    val originColumnsJson = originColumns.getJson
     super.getJson.mergeIn(originColumnsJson)
   }
 }
