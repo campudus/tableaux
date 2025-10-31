@@ -5224,14 +5224,14 @@
     },
     "columnIds": {
       "name": "columnIds",
-      "description": "Comma separated list of column ids",
+      "description": "Filter for columns.\nComma separated list of column ids (Unknown ids are skipped).\nCan not be used in combination with columnNames.",
       "in": "query",
       "type": "string",
       "example": "1,2,3"
     },
     "columnNames": {
       "name": "columnNames",
-      "description": "Comma separated list of column names",
+      "description": "Filter for columns.\nComma separated list of column names (Unknown names are skipped).\nCan not be used in combination with columnIds.",
       "in": "query",
       "type": "string",
       "example": "name,identifier,description"
