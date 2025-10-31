@@ -82,12 +82,12 @@ object UnionColumnInformation {
       displayInfos: Seq[DisplayInfo],
       originColumns: OriginColumns,
       createColumn: CreateColumn
-  ): BasicColumnInformation = {
+  ): UnionColumnInformation = {
     val attributes = createColumn.attributes match {
       case Some(obj) => obj
       case None => new JsonObject("{}")
     }
-    BasicColumnInformation(
+    UnionColumnInformation(
       table,
       columnId,
       createColumn.name,
