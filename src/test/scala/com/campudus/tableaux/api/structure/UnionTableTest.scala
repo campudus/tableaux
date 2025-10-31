@@ -446,13 +446,13 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
     val expectedException = TestCustomException(
       "com.campudus.tableaux.InvalidJsonException: "
-        + "Column '1' in table '2' and CreateColumn 'name' have different kinds: text != numeric, "
-        + "Column '2' in table '2' and CreateColumn 'color' have different languageTypes: language != neutral, "
+        + "Column '1' in table '2' and CreateColumn 'name' have different values in field kind: text != numeric, "
+        + "Column '2' in table '2' and CreateColumn 'color' have different values in field languageType: language != neutral, "
         + "Column '99' not found in table '2', "
-        + "Column '1' in table '3' and CreateColumn 'name' have different kinds: text != numeric, "
-        + "Column '3' in table '3' and CreateColumn 'color' have different languageTypes: language != neutral, "
-        + "Column '4' in table '4' and CreateColumn 'name' have different kinds: text != numeric, "
-        + "Column '2' in table '4' and CreateColumn 'color' have different languageTypes: language != neutral, "
+        + "Column '1' in table '3' and CreateColumn 'name' have different values in field kind: text != numeric, "
+        + "Column '3' in table '3' and CreateColumn 'color' have different values in field languageType: language != neutral, "
+        + "Column '4' in table '4' and CreateColumn 'name' have different values in field kind: text != numeric, "
+        + "Column '2' in table '4' and CreateColumn 'color' have different values in field languageType: language != neutral, "
         + "Table '77' could not be checked, possibly it does not exist",
       "error.json.unionTable",
       400
