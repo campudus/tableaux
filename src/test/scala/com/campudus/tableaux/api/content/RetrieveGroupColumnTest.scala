@@ -11,6 +11,7 @@ import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 
+import java.net.URLEncoder
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,15 +41,17 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
       groupColumn <- sendRequest("POST", "/tables/1/columns", createGroupColumnJson("groupcolumn", columnIds))
         .map(_.getJsonArray("columns").getJsonObject(0))
 
+      groupColumnId = groupColumn.getLong("id")
+
       rows <- sendRequest("GET", s"/tables/$tableId/rows")
         .map(_.getJsonArray("rows"))
 
-      rowsOnlyGroupColumn <- sendRequest("GET", s"/tables/$tableId/columns/${groupColumn.getLong("id")}/rows")
+      rowsOnlyGroupColumn <- sendRequest("GET", s"/tables/$tableId/columns/$groupColumnId/rows")
         .map(_.getJsonArray("rows"))
     } yield {
       import scala.collection.JavaConverters._
 
-      val excepted = Json.arr(
+      val expected = Json.arr(
         Json.obj(
           "values" ->
             Json.arr(
@@ -105,13 +108,189 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
         )
       )
 
-      val exceptedOnlyGroupColumn = excepted.asScala
+      val expectedOnlyGroupColumn = expected.asScala
         .map(_.asInstanceOf[JsonObject].getJsonArray("values").asScala.last.asInstanceOf[JsonArray])
         .map(groupCell => Json.obj("values" -> Json.arr(groupCell)))
         .toSeq
 
-      assertJSONEquals(excepted, rows)
-      assertJSONEquals(Json.arr(exceptedOnlyGroupColumn: _*), rowsOnlyGroupColumn)
+      assertJSONEquals(expected, rows)
+      assertJSONEquals(Json.arr(expectedOnlyGroupColumn: _*), rowsOnlyGroupColumn)
+    }
+  }
+
+  @Test
+  def retrieveComplexTableWithOneGroupColumnFilteredByIds(implicit c: TestContext): Unit = okTest {
+    val tableName = "test"
+    for {
+      (tableId, columnIds, _) <- createFullTableWithMultilanguageColumns(tableName)
+
+      groupColumn <- sendRequest("POST", "/tables/1/columns", createGroupColumnJson("groupcolumn", Seq(1, 2, 3)))
+        .map(_.getJsonArray("columns").getJsonObject(0))
+
+      groupColumnId = groupColumn.getLong("id")
+
+      rowsOnlyGroupColumnValue <- sendRequest("GET", s"/tables/$tableId/rows?columnIds=$groupColumnId")
+        .map(_.getJsonArray("rows"))
+
+      groupColumnIdWithOthers = s"$groupColumnId,6,7";
+
+      rowsGroupColumnWithOthers <- sendRequest("GET", s"/tables/$tableId/rows?columnIds=$groupColumnIdWithOthers")
+        .map(_.getJsonArray("rows"))
+
+    } yield {
+      import scala.collection.JavaConverters._
+
+      val expectedOnlyGroupColumnValue = Json.arr(
+        Json.obj(
+          "values" ->
+            Json.arr(
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> s"Hallo, $tableName Welt!",
+                  "en-GB" -> s"Hello, $tableName World!"
+                ),
+                Json.obj("de-DE" -> true),
+                Json.obj("de-DE" -> 3.1415926)
+              )
+            )
+        ),
+        Json.obj(
+          "values" ->
+            Json.arr(
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> s"Hallo, $tableName Welt2!",
+                  "en-GB" -> s"Hello, $tableName World2!"
+                ),
+                Json.obj("de-DE" -> false),
+                Json.obj("de-DE" -> 2.1415926)
+              )
+            )
+        )
+      )
+      val expectedGroupColumnWithOthers = Json.arr(
+        Json.obj(
+          "values" ->
+            Json.arr(
+              Json.obj("de-DE" -> "2015-01-01"),
+              Json.obj("de-DE" -> "2015-01-01T13:37:47.110Z"),
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> s"Hallo, $tableName Welt!",
+                  "en-GB" -> s"Hello, $tableName World!"
+                ),
+                Json.obj("de-DE" -> true),
+                Json.obj("de-DE" -> 3.1415926)
+              )
+            )
+        ),
+        Json.obj(
+          "values" ->
+            Json.arr(
+              Json.obj("de-DE" -> "2015-01-02"),
+              Json.obj("de-DE" -> "2015-01-02T13:37:47.110Z"),
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> s"Hallo, $tableName Welt2!",
+                  "en-GB" -> s"Hello, $tableName World2!"
+                ),
+                Json.obj("de-DE" -> false),
+                Json.obj("de-DE" -> 2.1415926)
+              )
+            )
+        )
+      )
+
+      assertJSONEquals(expectedOnlyGroupColumnValue, rowsOnlyGroupColumnValue)
+      assertJSONEquals(expectedGroupColumnWithOthers, rowsGroupColumnWithOthers)
+    }
+  }
+
+  @Test
+  def retrieveComplexTableWithOneGroupColumnFilteredByNames(implicit c: TestContext): Unit = okTest {
+    val tableName = "test"
+    for {
+      (tableId, columnIds, _) <- createFullTableWithMultilanguageColumns(tableName)
+
+      groupColumn <- sendRequest("POST", "/tables/1/columns", createGroupColumnJson("groupcolumn", Seq(1, 2, 3)))
+        .map(_.getJsonArray("columns").getJsonObject(0))
+
+      groupColumnName = groupColumn.getString("name")
+
+      rowsOnlyGroupColumnValue <- sendRequest("GET", s"/tables/$tableId/rows?columnNames=$groupColumnName")
+        .map(_.getJsonArray("rows"))
+
+      groupColumnNameWithOthers = URLEncoder.encode(s"$groupColumnName,Test Column 6,Test Column 7", "UTF-8");
+
+      rowsGroupColumnWithOther <- sendRequest("GET", s"/tables/$tableId/rows?columnNames=$groupColumnNameWithOthers")
+        .map(_.getJsonArray("rows"))
+
+    } yield {
+      import scala.collection.JavaConverters._
+
+      val expectedOnlyGroupColumnValue = Json.arr(
+        Json.obj(
+          "values" ->
+            Json.arr(
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> s"Hallo, $tableName Welt!",
+                  "en-GB" -> s"Hello, $tableName World!"
+                ),
+                Json.obj("de-DE" -> true),
+                Json.obj("de-DE" -> 3.1415926)
+              )
+            )
+        ),
+        Json.obj(
+          "values" ->
+            Json.arr(
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> s"Hallo, $tableName Welt2!",
+                  "en-GB" -> s"Hello, $tableName World2!"
+                ),
+                Json.obj("de-DE" -> false),
+                Json.obj("de-DE" -> 2.1415926)
+              )
+            )
+        )
+      )
+      val expectedGroupColumnWithOther = Json.arr(
+        Json.obj(
+          "values" ->
+            Json.arr(
+              Json.obj("de-DE" -> "2015-01-01"),
+              Json.obj("de-DE" -> "2015-01-01T13:37:47.110Z"),
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> s"Hallo, $tableName Welt!",
+                  "en-GB" -> s"Hello, $tableName World!"
+                ),
+                Json.obj("de-DE" -> true),
+                Json.obj("de-DE" -> 3.1415926)
+              )
+            )
+        ),
+        Json.obj(
+          "values" ->
+            Json.arr(
+              Json.obj("de-DE" -> "2015-01-02"),
+              Json.obj("de-DE" -> "2015-01-02T13:37:47.110Z"),
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> s"Hallo, $tableName Welt2!",
+                  "en-GB" -> s"Hello, $tableName World2!"
+                ),
+                Json.obj("de-DE" -> false),
+                Json.obj("de-DE" -> 2.1415926)
+              )
+            )
+        )
+      )
+
+      assertJSONEquals(expectedOnlyGroupColumnValue, rowsOnlyGroupColumnValue)
+      assertJSONEquals(expectedGroupColumnWithOther, rowsGroupColumnWithOther)
     }
   }
 
