@@ -1355,7 +1355,6 @@ class TableauxModel(
 
   def retrieveAndProcessTableRows(
       tableId: TableId,
-      // unionTableColumns: Seq[ColumnType[_]],
       unionTableColumns: Seq[UnionColumn],
       acc: RowSeq,
       totalSize: Long,
@@ -1367,8 +1366,8 @@ class TableauxModel(
     def getColumnMapping(originTable: Table, unionTableColumns: Seq[UnionColumn]): Map[OriginColumnId, ColumnId] = {
       unionTableColumns
         .flatMap { utc =>
-          if (utc.originColumns.tableToColumn.contains(originTable.id)) {
-            Seq((utc.originColumns.tableToColumn(originTable.id), utc.id))
+          if (utc.originColumns.tableId2ColumnId.contains(originTable.id)) {
+            Seq((utc.originColumns.tableId2ColumnId(originTable.id), utc.id))
           } else {
             Seq.empty
           }
@@ -1408,7 +1407,6 @@ class TableauxModel(
 
   def retrieveUnionTableRows(
       unionTable: Table,
-      // unionTableColumns: Seq[ColumnType[_]],
       unionTableColumns: Seq[UnionColumn],
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
