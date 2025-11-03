@@ -376,12 +376,22 @@ class TableauxController(
     } yield duplicated
   }
 
-  def retrieveRow(tableId: TableId, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
-    checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"retrieveRow $tableId $rowId")
+  def retrieveRow(
+      tableId: TableId,
+      rowId: RowId,
+      columnFilter: ColumnFilter = ColumnFilter(None, None)
+  )(implicit user: TableauxUser): Future[Row] = {
+    checkArguments(
+      greaterZero(tableId),
+      greaterZero(rowId),
+      columnFilter.check
+    )
+
+    logger.info(s"retrieveRow $tableId $rowId, columnFilter: $columnFilter")
+
     for {
       table <- repository.retrieveTable(tableId)
-      row <- repository.retrieveRow(table, rowId)
+      row <- repository.retrieveRow(table, rowId, columnFilter)
     } yield row
   }
 
@@ -389,16 +399,24 @@ class TableauxController(
       tableId: TableId,
       finalFlagOpt: Option[Boolean] = None,
       archivedFlagOpt: Option[Boolean] = None,
-      pagination: Pagination = Pagination(None, None)
+      pagination: Pagination = Pagination(None, None),
+      columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
-    checkArguments(greaterZero(tableId), pagination.check)
-    logger.info(s"retrieveRows $tableId for all columns, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt")
+    checkArguments(
+      greaterZero(tableId),
+      pagination.check,
+      columnFilter.check
+    )
+
+    logger.info(
+      s"retrieveRows $tableId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt, columnFilter: $columnFilter"
+    )
 
     for {
       table <- repository.retrieveTable(tableId)
-      rows <- repository.retrieveRows(table, finalFlagOpt, archivedFlagOpt, pagination)
+      rows <- repository.retrieveRows(table, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
     } yield rows
   }
 

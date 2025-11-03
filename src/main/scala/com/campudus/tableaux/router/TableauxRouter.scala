@@ -3,7 +3,7 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import com.campudus.tableaux.OkArg
 import com.campudus.tableaux.controller.TableauxController
-import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
+import com.campudus.tableaux.database.domain.{CellAnnotationType, ColumnFilter, Pagination}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
@@ -149,12 +149,15 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val finalFlagOpt = getBoolParam("final", context)
           val archivedFlagOpt = getBoolParam("archived", context)
+          val columnIds = getSeqLongQuery("columnIds", context)
+          val columnNames = getSeqStringQuery("columnNames", context)
+          val columnFilter = ColumnFilter(columnIds, columnNames)
 
           val limit = getLongParam("limit", context)
           val offset = getLongParam("offset", context)
           val pagination = Pagination(offset, limit)
 
-          controller.retrieveRows(tableId, finalFlagOpt, archivedFlagOpt, pagination)
+          controller.retrieveRows(tableId, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
         }
       )
     }
@@ -247,7 +250,11 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveRow(tableId, rowId)
+          val columnIds = getSeqLongQuery("columnIds", context)
+          val columnNames = getSeqStringQuery("columnNames", context)
+          val columnFilter = ColumnFilter(columnIds, columnNames)
+
+          controller.retrieveRow(tableId, rowId, columnFilter)
         }
       )
     }

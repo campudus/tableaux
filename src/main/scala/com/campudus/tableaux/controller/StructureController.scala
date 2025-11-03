@@ -88,18 +88,31 @@ class StructureController(
     } yield column
   }
 
-  def retrieveColumns(tableId: TableId, isInternalCall: Boolean = false)(
+  def retrieveColumns(
+      tableId: TableId,
+      isInternalCall: Boolean = false,
+      columnFilter: ColumnFilter = ColumnFilter(None, None)
+  )(
       implicit user: TableauxUser
   ): Future[ColumnSeq] = {
-    checkArguments(greaterZero(tableId))
-    logger.info(s"retrieveColumns $tableId")
+    checkArguments(
+      greaterZero(tableId),
+      columnFilter.check
+    )
+
+    logger.info(s"retrieveColumns $tableId, columnFilter: $columnFilter")
 
     for {
       table <- tableStruc.retrieve(tableId)
       columns <- columnStruc.retrieveAll(table)
     } yield {
       val filteredColumns: Seq[ColumnType[_]] =
-        roleModel.filterDomainObjects[ColumnType[_]](ViewColumn, columns, ComparisonObjects(table), isInternalCall)
+        roleModel.filterDomainObjects[ColumnType[_]](
+          ViewColumn,
+          columns,
+          ComparisonObjects(table),
+          isInternalCall
+        ).filter(columnFilter.filter)
       ColumnSeq(filteredColumns)
     }
   }

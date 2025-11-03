@@ -1003,6 +1003,12 @@
       "parameters": [
         {
           "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnIds"
+        },
+        {
+          "$ref": "#/parameters/columnNames"
         }
       ],
       "get": {
@@ -1621,6 +1627,12 @@
       "parameters": [
         {
           "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnIds"
+        },
+        {
+          "$ref": "#/parameters/columnNames"
         }
       ],
       "get": {
@@ -1752,6 +1764,12 @@
         },
         {
           "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/columnIds"
+        },
+        {
+          "$ref": "#/parameters/columnNames"
         }
       ],
       "get": {
@@ -5203,6 +5221,20 @@
       "required": true,
       "type": "integer",
       "format": "int64"
+    },
+    "columnIds": {
+      "name": "columnIds",
+      "description": "Filter for columns.\nComma separated list of column ids (Unknown ids are skipped).\nCan not be used in combination with columnNames.",
+      "in": "query",
+      "type": "string",
+      "example": "1,2,3"
+    },
+    "columnNames": {
+      "name": "columnNames",
+      "description": "Filter for columns.\nComma separated list of column names (Unknown names are skipped).\nCan not be used in combination with columnIds.",
+      "in": "query",
+      "type": "string",
+      "example": "name,identifier,description"
     },
     "rowId": {
       "name": "rowId",

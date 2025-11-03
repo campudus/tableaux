@@ -162,6 +162,14 @@ trait BaseRouter extends VertxAccess {
     context.queryParams().get(name)
   }
 
+  def getSeqStringQuery(name: String, context: RoutingContext, separator: String = ","): Option[Seq[String]] = {
+    for {
+      str <- context.queryParams().get(name)
+      seq = str.split(separator).toList.map(_.trim).filter(_.nonEmpty)
+      if seq.nonEmpty
+    } yield seq
+  }
+
   def getBoolQuery(name: String, context: RoutingContext): Option[Boolean] = {
     context.queryParams().get(name).map(_.toBoolean)
   }
@@ -172,6 +180,14 @@ trait BaseRouter extends VertxAccess {
 
   def getLongQuery(name: String, context: RoutingContext): Option[Long] = {
     context.queryParams().get(name).map(_.toLong)
+  }
+
+  def getSeqLongQuery(name: String, context: RoutingContext, separator: String = ","): Option[Seq[Long]] = {
+    for {
+      str <- context.queryParams().get(name)
+      seq = str.split(separator).toList.map(_.trim).filter(_.nonEmpty).map(_.toLong)
+      if seq.nonEmpty
+    } yield seq
   }
 
   def getStringParam(name: String, context: RoutingContext): Option[String] = {

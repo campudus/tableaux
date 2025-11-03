@@ -7,6 +7,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.vertx.scala.core.json.Json
 
+import java.net.URLEncoder
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -99,6 +100,127 @@ class GetStructureTest extends TableauxTestBase {
       } yield {
         assertJSONEquals(expectedJson, test)
       }
+    }
+  }
+
+  @Test
+  def retrieveColumnsFilteredByIds(implicit c: TestContext): Unit = {
+    okTest {
+      val expectedJsonAll = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json.obj("id" -> 1, "name" -> "Test Column 1"),
+          Json.obj("id" -> 2, "name" -> "Test Column 2"),
+          Json.obj("id" -> 3, "name" -> "Test Column 3"),
+          Json.obj("id" -> 4, "name" -> "Test Column 4"),
+          Json.obj("id" -> 5, "name" -> "Test Column 5"),
+          Json.obj("id" -> 6, "name" -> "Test Column 6"),
+          Json.obj("id" -> 7, "name" -> "Test Column 7")
+        )
+      )
+      val expectedJsonFiltered = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json.obj("id" -> 2, "name" -> "Test Column 2"),
+          Json.obj("id" -> 4, "name" -> "Test Column 4"),
+          Json.obj("id" -> 7, "name" -> "Test Column 7")
+        )
+      )
+
+      for {
+        _ <- createFullTableWithMultilanguageColumns("Test Table")
+        testAll <- sendRequest("GET", "/tables/1/columns")
+        testFiltered <- sendRequest("GET", "/tables/1/columns?columnIds=2,4,7")
+        // skips non existing ids
+        testFilteredWithNonExisting <- sendRequest("GET", "/tables/1/columns?columnIds=2,33,4,55,7")
+      } yield {
+        assertJSONEquals(expectedJsonAll, testAll)
+        assertJSONEquals(expectedJsonFiltered, testFiltered)
+        assertJSONEquals(expectedJsonFiltered, testFiltered)
+        assertJSONEquals(expectedJsonFiltered, testFilteredWithNonExisting)
+      }
+    }
+  }
+
+  @Test
+  def retrieveColumnsFilteredByIdsInvalidNoNegative(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        test <- sendRequest("GET", "/tables/1/columns?columnIds=-1")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveColumnsFilteredByIdsInvalidNoConcat(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        test <- sendRequest("GET", "/tables/1/columns?columnIds=0")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveColumnsFilteredInvalidNoCombination(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        test <- sendRequest("GET", "/tables/1/columns?columnIds=1&columnNames=name")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveColumnsFilteredByNames(implicit c: TestContext): Unit = {
+    okTest {
+      val expectedJsonAll = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json.obj("id" -> 1, "name" -> "Test Column 1"),
+          Json.obj("id" -> 2, "name" -> "Test Column 2"),
+          Json.obj("id" -> 3, "name" -> "Test Column 3"),
+          Json.obj("id" -> 4, "name" -> "Test Column 4"),
+          Json.obj("id" -> 5, "name" -> "Test Column 5"),
+          Json.obj("id" -> 6, "name" -> "Test Column 6"),
+          Json.obj("id" -> 7, "name" -> "Test Column 7")
+        )
+      )
+      val expectedJsonFiltered = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json.obj("id" -> 2, "name" -> "Test Column 2"),
+          Json.obj("id" -> 4, "name" -> "Test Column 4"),
+          Json.obj("id" -> 7, "name" -> "Test Column 7")
+        )
+      )
+      val columnNamesQuery = URLEncoder.encode("Test Column 2,Test Column 4,Test Column 7", "UTF-8");
+      val columnNamesWithNonExistingQuery =
+        URLEncoder.encode("Test Column 2,name,Test Column 4,image,Test Column 7", "UTF-8");
+
+      for {
+        _ <- createFullTableWithMultilanguageColumns("Test Table")
+        testAll <- sendRequest("GET", "/tables/1/columns")
+        testFiltered <- sendRequest("GET", s"/tables/1/columns?columnNames=$columnNamesQuery")
+        testFilteredWithNonExisting <-
+          sendRequest("GET", s"/tables/1/columns?columnNames=$columnNamesWithNonExistingQuery")
+      } yield {
+        assertJSONEquals(expectedJsonAll, testAll)
+        assertJSONEquals(expectedJsonFiltered, testFiltered)
+        // skips non existing names
+        assertJSONEquals(expectedJsonFiltered, testFilteredWithNonExisting)
+      }
+    }
+  }
+
+  @Test
+  def retrieveColumnsFilteredByNamesInvalidNoConcat(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        test <- sendRequest("GET", "/tables/1/columns?columnNames=ID")
+      } yield ()
     }
   }
 
