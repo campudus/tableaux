@@ -374,12 +374,20 @@ class StructureController(
 
   private def checkOriginTables(originTables: Option[Seq[TableId]])(implicit user: TableauxUser): Future[Unit] = {
     originTables match {
-      case Some(tables) if tables.nonEmpty =>
-        tables.foreach(tableId => checkArguments(greaterZero(tableId)))
+      case Some(tableIds) if tableIds.nonEmpty =>
+        tableIds.foreach(tableId => checkArguments(greaterZero(tableId)))
 
-        Future.sequence(tables.map(id => tableStruc.retrieve(id))).map(_ => ())
-
-        Future.successful(())
+        Future.sequence(tableIds.map(id => tableStruc.retrieve(id))).flatMap { tables =>
+          tables.find(_.tableType == UnionTable) match {
+            case Some(unionTable) =>
+              Future.failed(
+                UnprocessableEntityException(
+                  s"Can not create a union table with origin table '${unionTable.id}' because UnionTable of UnionTable is not allowed"
+                )
+              )
+            case None => Future.successful(())
+          }
+        }
       case _ => Future.failed(
           UnprocessableEntityException(
             s"originTables must be a non-empty sequence of valid table IDs, was: $originTables"
