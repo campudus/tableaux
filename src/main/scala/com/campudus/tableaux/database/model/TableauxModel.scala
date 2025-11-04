@@ -1324,20 +1324,15 @@ class TableauxModel(
       unionColumnOrdering: Seq[Long]
   )(rows: Seq[RowLike]): Seq[RowLike] = {
     rows.map({ row =>
-      println(s"###LOG###: unionColumnOrdering: ${unionColumnOrdering.toList}")
-      println(s"###LOG###: originColumnOrdering: ${originColumnOrdering.toList}")
-
-      println(s"###LOG###: originColumn2UnionColumnMapping: ${originColumn2UnionColumnMapping}")
+      // column with id 0 is always the identifier concat column
+      // if we have a concat column in the union table, we need to insert the "magic" origin column
+      // value at index 1 not at 0. Otherwise we would overwrite the concat column value.
+      val indexOfOriginColumnInUnionTable = if (unionColumnOrdering.contains(0L)) 1 else 0
       val reorderedValues = originColumn2UnionColumnMapping.foldLeft(
-        Vector.fill(unionColumnOrdering.size + 1)(null: Any).updated(0, originColumnValue)
+        Vector.fill(unionColumnOrdering.size)(null: Any).updated(indexOfOriginColumnInUnionTable, originColumnValue)
       ) { case (acc, (originColumnId, unionColumnId)) =>
-        println(s"###LOG###: originColumnId: $originColumnId")
-        println(s"###LOG###: unionColumnId: $unionColumnId")
         val originColumnIndex = originColumnOrdering.indexOf(originColumnId)
-        println(s"###LOG###: originColumnIndex: $originColumnIndex")
         val unionColumnIndex = unionColumnOrdering.indexOf(unionColumnId)
-        println(s"###LOG###: unionColumnIndex: $unionColumnIndex")
-        println(s"###LOG###: row.values: ${row.values.toList}")
 
         val theValue = row.values(originColumnIndex.toInt)
         acc.updated(unionColumnIndex.toInt, theValue)
@@ -1356,7 +1351,7 @@ class TableauxModel(
 
   def retrieveAndProcessTableRows(
       tableId: TableId,
-      unionTableColumns: Seq[UnionColumn],
+      unionTableColumns: Seq[ColumnType[_]],
       acc: RowSeq,
       totalSize: Long,
       tablePagination: Pagination,
@@ -1364,8 +1359,8 @@ class TableauxModel(
       archivedFlagOpt: Option[Boolean]
   )(implicit user: TableauxUser): Future[(RowSeq, Long)] = {
 
-    def getColumnMapping(originTable: Table, unionTableColumns: Seq[UnionColumn]): Map[OriginColumnId, ColumnId] = {
-      unionTableColumns
+    def getColumnMapping(originTable: Table, unionTableColumns: Seq[ColumnType[_]]): Map[OriginColumnId, ColumnId] = {
+      unionTableColumns.collect { case utc: UnionColumn => utc }
         .flatMap { utc =>
           if (utc.originColumns.tableId2ColumnId.contains(originTable.id)) {
             Seq((utc.originColumns.tableId2ColumnId(originTable.id), utc.id))
@@ -1408,7 +1403,7 @@ class TableauxModel(
 
   def retrieveUnionTableRows(
       unionTable: Table,
-      unionTableColumns: Seq[UnionColumn],
+      unionTableColumns: Seq[ColumnType[_]],
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination
@@ -1465,7 +1460,8 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[RowSeq] = {
     if (table.tableType == UnionTable) {
       for {
-        unionTableColumns <- retrieveColumns(table).map(_.asInstanceOf[Seq[UnionColumn]])
+        unionTableColumns <- retrieveColumns(table)
+        // _ = println(s"###LOG###: ")
         rowSeq <- retrieveUnionTableRows(table, unionTableColumns, finalFlagOpt, archivedFlagOpt, pagination)
       } yield rowSeq
     } else {
