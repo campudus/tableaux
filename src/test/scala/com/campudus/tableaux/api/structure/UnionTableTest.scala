@@ -339,6 +339,24 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
         )
       } yield ()
     }
+
+  @Test
+  def createUnionTable_onAnotherUnionTables_shouldFail(implicit c: TestContext): Unit =
+    exceptionTest("unprocessable.entity") {
+      for {
+        tableId <- createUnionTable(false, false)
+
+        _ <- sendRequest(
+          "POST",
+          "/tables",
+          Json.obj(
+            "name" -> "second_union_table",
+            "type" -> "union",
+            "originTables" -> Json.arr(tableId)
+          )
+        )
+      } yield ()
+    }
 }
 
 @RunWith(classOf[VertxUnitRunner])
