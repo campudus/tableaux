@@ -1333,11 +1333,21 @@ class TableauxModel(
       unionColumnOrdering: Seq[Long]
   )(rows: Seq[RowLike]): Seq[RowLike] = {
     rows.map({ row =>
+      println(s"###LOG###: unionColumnOrdering: ${unionColumnOrdering.toList}")
+      println(s"###LOG###: originColumnOrdering: ${originColumnOrdering.toList}")
+
+      println(s"###LOG###: originColumn2UnionColumnMapping: ${originColumn2UnionColumnMapping}")
       val reorderedValues = originColumn2UnionColumnMapping.foldLeft(
-        Vector.fill(unionColumnOrdering.size)(null: Any).updated(0, originColumnValue)
+        Vector.fill(unionColumnOrdering.size + 1)(null: Any).updated(0, originColumnValue)
       ) { case (acc, (originColumnId, unionColumnId)) =>
+        println(s"###LOG###: originColumnId: $originColumnId")
+        println(s"###LOG###: unionColumnId: $unionColumnId")
         val originColumnIndex = originColumnOrdering.indexOf(originColumnId)
+        println(s"###LOG###: originColumnIndex: $originColumnIndex")
         val unionColumnIndex = unionColumnOrdering.indexOf(unionColumnId)
+        println(s"###LOG###: unionColumnIndex: $unionColumnIndex")
+        println(s"###LOG###: row.values: ${row.values.toList}")
+
         val theValue = row.values(originColumnIndex.toInt)
         acc.updated(unionColumnIndex.toInt, theValue)
       }
@@ -1379,12 +1389,12 @@ class TableauxModel(
       columns <- retrieveColumns(originTable)
       filteredColumns = filterColumns(originTable, columns)
 
-      originColumnOrdering = filteredColumns.map(c => c.id)
       unionColumnOrdering = unionTableColumns.map(c => c.id)
       originColumn2UnionColumnMapping: Map[OriginColumnId, ColumnId] = getColumnMapping(originTable, unionTableColumns)
 
       // retrieve only relevant columns that we need to return for the union table
       relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
+      originColumnOrdering = relevantFilteredColumns.map(c => c.id)
 
       rowSeq <- retrieveRows(originTable, relevantFilteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination, true)
       resultRows <- filterRows(filteredColumns, rowSeq.rows)
