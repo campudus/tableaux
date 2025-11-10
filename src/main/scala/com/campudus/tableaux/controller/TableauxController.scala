@@ -447,6 +447,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       columns <- repository.retrieveColumns(table)
       rows <- repository.retrieveRows(table, columns.head.id, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
@@ -466,6 +467,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       rows <- repository.retrieveRows(table, columnId, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
   }
