@@ -1,6 +1,12 @@
 package com.campudus.tableaux.controller
 
-import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig, UnprocessableEntityException}
+import com.campudus.tableaux.{
+  ForbiddenException,
+  InvalidJsonException,
+  NotFoundInDatabaseException,
+  TableauxConfig,
+  UnprocessableEntityException
+}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{CreateColumn, _}
@@ -377,17 +383,30 @@ class StructureController(
       case Some(tableIds) if tableIds.nonEmpty =>
         tableIds.foreach(tableId => checkArguments(greaterZero(tableId)))
 
-        Future.sequence(tableIds.map(id => tableStruc.retrieve(id))).flatMap { tables =>
-          tables.find(_.tableType == UnionTable) match {
-            case Some(unionTable) =>
+        Future
+          .sequence(tableIds.map(id =>
+            tableStruc.retrieve(id).map(Option(_)).recover { case _ => None }
+          ))
+          .flatMap { results =>
+            val missingIds = tableIds.zip(results).collect { case (id, None) => id }
+
+            if (missingIds.nonEmpty) {
               Future.failed(
-                UnprocessableEntityException(
-                  s"Can not create a union table with origin table '${unionTable.id}' because UnionTable of UnionTable is not allowed"
-                )
+                NotFoundInDatabaseException(s"originTables with ids [${missingIds.mkString(", ")}] not found", "table")
               )
-            case None => Future.successful(())
+            } else {
+              val tables = results.flatten
+              tables.find(_.tableType == UnionTable) match {
+                case Some(unionTable) =>
+                  Future.failed(
+                    UnprocessableEntityException(
+                      s"Can not create a union table with origin table '${unionTable.id}' because UnionTable of UnionTable is not allowed"
+                    )
+                  )
+                case None => Future.successful(())
+              }
+            }
           }
-        }
       case _ => Future.failed(
           UnprocessableEntityException(
             s"originTables must be a non-empty sequence of valid table IDs, was: $originTables"

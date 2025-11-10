@@ -6,6 +6,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.helper.UnionTableHelper
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
@@ -415,42 +416,43 @@ class TableauxModel(
     for {
       allColumns <- retrieveColumns(table)
       columns = roleModel.filterDomainObjects(ViewColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
-      rows <- rows.foldLeft(Future.successful(Vector[Row]())) { (futureRows, row) => // replace ColumnId with ColumnType
-        // TODO fail nice if columnid doesn't exist
-        {
-          val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
+      rows <-
+        rows.foldLeft(Future.successful(Vector[RowLike]())) { (futureRows, row) => // replace ColumnId with ColumnType
+          // TODO fail nice if columnid doesn't exist
+          {
+            val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
 
-          futureRows.flatMap { rows =>
-            for {
+            futureRows.flatMap { rows =>
+              for {
 
-              // TODO add more checks like unique etc. for all tables depending on column configuration
-              _ <- table.tableType match {
-                case SettingsTable => {
+                // TODO add more checks like unique etc. for all tables depending on column configuration
+                _ <- table.tableType match {
+                  case SettingsTable => {
 
-                  val keyColumn = columns.find(_.id == 1).orNull
-                  val keyName = row
-                    .find({ case (id, _) => id == 1 })
-                    .flatMap({ case (_, colName) => Option(colName) })
+                    val keyColumn = columns.find(_.id == 1).orNull
+                    val keyName = row
+                      .find({ case (id, _) => id == 1 })
+                      .flatMap({ case (_, colName) => Option(colName) })
 
-                  for {
-                    _ <- checkForEmptyKey(table, keyName)
-                    _ <- checkForDuplicateKey(table, keyColumn, keyName)
-                  } yield ()
+                    for {
+                      _ <- checkForEmptyKey(table, keyName)
+                      _ <- checkForDuplicateKey(table, keyColumn, keyName)
+                    } yield ()
+                  }
+                  case _ => Future.successful(())
                 }
-                case _ => Future.successful(())
+
+                rowId <- createRowModel.createRow(table, columnValuePairs, rowPermissionsOpt)
+                _ <- createHistoryModel.createRow(table, rowId, rowPermissionsOpt)
+                _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
+
+                newRow <- retrieveRow(table, columns, rowId)
+              } yield {
+                rows ++ Seq(newRow)
               }
-
-              rowId <- createRowModel.createRow(table, columnValuePairs, rowPermissionsOpt)
-              _ <- createHistoryModel.createRow(table, rowId, rowPermissionsOpt)
-              _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
-
-              newRow <- retrieveRow(table, columns, rowId)
-            } yield {
-              rows ++ Seq(newRow)
             }
           }
         }
-      }
     } yield RowSeq(rows)
   }
 
@@ -1233,7 +1235,7 @@ class TableauxModel(
 
   private def retrieveRow(table: Table, columns: Seq[ColumnType[_]], rowId: RowId)(
       implicit user: TableauxUser
-  ): Future[Row] = {
+  ): Future[RowLike] = {
     if (table.tableType == UnionTable) {
       for {
         unionTableColumns <- retrieveColumns(table)
@@ -1324,6 +1326,20 @@ class TableauxModel(
     }
   }
 
+  private def getColumnMapping(
+      originTable: Table,
+      unionTableColumns: Seq[ColumnType[_]]
+  ): Map[OriginColumnId, ColumnId] = {
+    unionTableColumns.collect { case utc: UnionColumn => utc }
+      .flatMap { utc =>
+        if (utc.originColumns.tableId2ColumnId.contains(originTable.id)) {
+          Seq((utc.originColumns.tableId2ColumnId(originTable.id), utc.id))
+        } else {
+          Seq.empty
+        }
+      }.toMap
+  }
+
   private def addAndReorderOriginColumnValues(
       originColumnValue: JsonObject,
       originColumn2UnionColumnMapping: Map[Long, Long],
@@ -1366,17 +1382,6 @@ class TableauxModel(
       archivedFlagOpt: Option[Boolean]
   )(implicit user: TableauxUser): Future[(RowSeq, Long)] = {
 
-    def getColumnMapping(originTable: Table, unionTableColumns: Seq[ColumnType[_]]): Map[OriginColumnId, ColumnId] = {
-      unionTableColumns.collect { case utc: UnionColumn => utc }
-        .flatMap { utc =>
-          if (utc.originColumns.tableId2ColumnId.contains(originTable.id)) {
-            Seq((utc.originColumns.tableId2ColumnId(originTable.id), utc.id))
-          } else {
-            Seq.empty
-          }
-        }.toMap
-    }
-
     for {
       originTable <- retrieveTable(tableId)
       columns <- retrieveColumns(originTable)
@@ -1408,48 +1413,44 @@ class TableauxModel(
     }
   }
 
-  def retrieveUnionTableRow(unionTable: Table, unionTableColumns: Seq[ColumnType[_]], rowId: RowId)(
+  def retrieveUnionTableRow(unionTable: Table, unionTableColumns: Seq[ColumnType[_]], compositeId: RowId)(
       implicit user: TableauxUser
-  ): Future[Row] = {
-    ???
+  ): Future[RowLike] = {
+    val (tableId, rowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
 
-    // unionTable.originTables match {
-    //   case None => Future.failed(InvalidRequestException("Union table has no origin tables defined"))
+    unionTable.originTables match {
+      case None => Future.failed(InvalidRequestException("Union table has no origin tables defined"))
 
-    //   case Some(originTables) =>
-    //     val originTableId =
-    //     for {
-    //       originTable <- retrieveTable(tableId)
-    //       columns <- retrieveColumns(originTable)
-    //       filteredColumns = filterColumns(originTable, columns)
+      case Some(originTables) =>
+        logger.info(s"retrieveRow from originTable $tableId $rowId")
+        for {
+          originTable <- retrieveTable(tableId)
+          columns <- retrieveColumns(originTable)
+          filteredColumns = filterColumns(originTable, columns)
 
-    //       unionColumnOrdering = unionTableColumns.map(c => c.id)
-    //       originColumn2UnionColumnMapping: Map[OriginColumnId, ColumnId] =
-    //         getColumnMapping(originTable, unionTableColumns)
+          unionColumnOrdering = unionTableColumns.map(c => c.id)
+          originColumn2UnionColumnMapping: Map[OriginColumnId, ColumnId] =
+            getColumnMapping(originTable, unionTableColumns)
 
-    //       // retrieve only relevant columns that we need to return for the union table
-    //       relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
-    //       originColumnOrdering = relevantFilteredColumns.map(c => c.id)
+          // retrieve only relevant columns that we need to return for the union table
+          relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
+          originColumnOrdering = relevantFilteredColumns.map(c => c.id)
 
-    //       rowSeq <-
-    //         retrieveRows(originTable, relevantFilteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination, true)
-    //       resultRows <- filterRows(filteredColumns, rowSeq.rows)
-    //     } yield {
-    //       val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
-    //       val originColumnValue = originTable.getDisplayNameJson
+          row <- retrieveRow(originTable, relevantFilteredColumns, rowId)
+        } yield {
+          val filteredRows = roleModel.filterDomainObjects(ViewRow, Seq(row), ComparisonObjects(), false)
+          val originColumnValue = originTable.getDisplayNameJson
 
-    //       val unifyColumns = addAndReorderOriginColumnValues(
-    //         originColumnValue,
-    //         originColumn2UnionColumnMapping,
-    //         originColumnOrdering,
-    //         unionColumnOrdering
-    //       )(_)
+          val unifyColumns = addAndReorderOriginColumnValues(
+            originColumnValue,
+            originColumn2UnionColumnMapping,
+            originColumnOrdering,
+            unionColumnOrdering
+          )(_)
 
-    //       val combinedRows = acc.rows ++ unifyColumns(filteredRows)
-
-    //       (RowSeq(combinedRows, rowSeq.page), totalSize)
-    //     }
-    // }
+          unifyColumns(filteredRows).head
+        }
+    }
   }
 
   def retrieveUnionTableRows(
