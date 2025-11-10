@@ -27,7 +27,7 @@ object Starter {
   val DEFAULT_ROLE_PERMISSIONS_PATH = "./role-permissions.json"
   val DEFAULT_IS_PUBLIC_FILE_SERVER_ENABLED = false
   val DEFAULT_IS_ROW_PERMISSION_CHECK_ENABLED = false
-  val DEFAULT_UNION_TABLE_ROW_OFFSET = 1000000
+  val DEFAULT_UNION_TABLE_ROW_OFFSET = 1000000L
   val DEFAULT_VERTX_CACHE_TIMEOUT_MILLIS = 400
 
   // We increased the default max header size because we hit the limit with large bearer tokens that
@@ -66,7 +66,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       val rolePermissionsPath = getStringDefault(config, "rolePermissionsPath", Starter.DEFAULT_ROLE_PERMISSIONS_PATH)
       val openApiUrl = Option(getStringDefault(config, "openApiUrl", null))
       val unionTableRowOffset =
-        config.getInteger("unionTableRowOffset", Starter.DEFAULT_UNION_TABLE_ROW_OFFSET)
+        config.getLong("unionTableRowOffset", Starter.DEFAULT_UNION_TABLE_ROW_OFFSET)
       val vertxCacheTimeoutMillis =
         config.getInteger("vertxCacheTimeoutMillis", Starter.DEFAULT_VERTX_CACHE_TIMEOUT_MILLIS)
 

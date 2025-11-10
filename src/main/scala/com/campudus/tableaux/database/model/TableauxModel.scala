@@ -1243,10 +1243,17 @@ class TableauxModel(
   )(
       implicit user: TableauxUser
   ): Future[Row] = {
-    for {
-      rawRow <- retrieveRowModel.retrieve(table.id, rowId, columns)
-      rowSeq <- mapRawRows(table, columns, Seq(rawRow), columnFilter)
-    } yield rowSeq.head
+    if (table.tableType == UnionTable) {
+      for {
+        unionTableColumns <- retrieveColumns(table)
+        row <- retrieveUnionTableRow(table, unionTableColumns, rowId)
+      } yield row
+    } else {
+      for {
+        rawRow <- retrieveRowModel.retrieve(table.id, rowId, columns)
+        rowSeq <- mapRawRows(table, columns, Seq(rawRow), columnFilter)
+      } yield rowSeq.head
+    }
   }
 
   def retrieveForeignRows(
@@ -1410,6 +1417,50 @@ class TableauxModel(
     }
   }
 
+  def retrieveUnionTableRow(unionTable: Table, unionTableColumns: Seq[ColumnType[_]], rowId: RowId)(
+      implicit user: TableauxUser
+  ): Future[Row] = {
+    ???
+
+    // unionTable.originTables match {
+    //   case None => Future.failed(InvalidRequestException("Union table has no origin tables defined"))
+
+    //   case Some(originTables) =>
+    //     val originTableId =
+    //     for {
+    //       originTable <- retrieveTable(tableId)
+    //       columns <- retrieveColumns(originTable)
+    //       filteredColumns = filterColumns(originTable, columns)
+
+    //       unionColumnOrdering = unionTableColumns.map(c => c.id)
+    //       originColumn2UnionColumnMapping: Map[OriginColumnId, ColumnId] =
+    //         getColumnMapping(originTable, unionTableColumns)
+
+    //       // retrieve only relevant columns that we need to return for the union table
+    //       relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
+    //       originColumnOrdering = relevantFilteredColumns.map(c => c.id)
+
+    //       rowSeq <-
+    //         retrieveRows(originTable, relevantFilteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination, true)
+    //       resultRows <- filterRows(filteredColumns, rowSeq.rows)
+    //     } yield {
+    //       val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+    //       val originColumnValue = originTable.getDisplayNameJson
+
+    //       val unifyColumns = addAndReorderOriginColumnValues(
+    //         originColumnValue,
+    //         originColumn2UnionColumnMapping,
+    //         originColumnOrdering,
+    //         unionColumnOrdering
+    //       )(_)
+
+    //       val combinedRows = acc.rows ++ unifyColumns(filteredRows)
+
+    //       (RowSeq(combinedRows, rowSeq.page), totalSize)
+    //     }
+    // }
+  }
+
   def retrieveUnionTableRows(
       unionTable: Table,
       unionTableColumns: Seq[ColumnType[_]],
@@ -1471,7 +1522,6 @@ class TableauxModel(
     if (table.tableType == UnionTable) {
       for {
         unionTableColumns <- retrieveColumns(table)
-        // _ = println(s"###LOG###: ")
         rowSeq <- retrieveUnionTableRows(table, unionTableColumns, finalFlagOpt, archivedFlagOpt, pagination)
       } yield rowSeq
     } else {
