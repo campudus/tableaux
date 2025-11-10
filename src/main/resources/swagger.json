@@ -4150,7 +4150,7 @@
             "taxonomy",
             "union"
           ],
-          "description": "The type of the table to"
+          "description": "The type of the table to be created."
         }
       },
       "description": "Creates a new empty table.",
@@ -4717,7 +4717,8 @@
           ],
           "items": {
             "type": "object"
-          }
+          },
+          "description": "An array of values, one for each column."
         },
         "final": {
           "type": "boolean",
@@ -4734,6 +4735,12 @@
           "items": {
             "$ref": "#/definitions/CellAnnotation"
           }
+        },
+        "tableId": {
+          "type": "integer",
+          "format": "int64",
+          "example": 1,
+          "description": "If the requested row comes from a union table, this field contains the id of the origin table."
         }
       },
       "description": "A row contains all column values of this specific table."
