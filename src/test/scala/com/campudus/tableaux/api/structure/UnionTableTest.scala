@@ -325,9 +325,16 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
   @Test
   def createUnionTable_withInvalidOriginTables_shouldFail(implicit c: TestContext): Unit =
-    exceptionTest("error.database.unknown") {
+    okTest {
+      val expectedException = TestCustomException(
+        "com.campudus.tableaux.NotFoundInDatabaseException: error.database.notfound.table: "
+          + "originTables with ids [999] not found",
+        "NOT FOUND",
+        404
+      )
+
       for {
-        _ <- sendRequest(
+        exception <- sendRequest(
           "POST",
           "/tables",
           Json.obj(
@@ -336,8 +343,10 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
             "displayName" -> Json.obj("de" -> "Union Table"),
             "originTables" -> Json.arr(999)
           )
-        )
-      } yield ()
+        ).toException()
+      } yield {
+        assertEquals(expectedException, exception)
+      }
     }
 
   @Test
@@ -638,7 +647,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       patchCell <- sendRequest("PATCH", s"/tables/$tableId/columns/1/rows/1", cellPayload).toException()
       deleteCell <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1").toException()
       retrieveAnnotationsTable <- sendRequest("GET", s"/tables/$tableId/annotations").toException()
-      retrieveRow <- sendRequest("GET", s"/tables/$tableId/rows/1").toException()
       retrieveForeignRows <-
         sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/foreignRows").toException()
       retrieveDependentRows <- sendRequest("GET", s"/tables/$tableId/rows/1/dependent").toException()
@@ -675,7 +683,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       assertEquals(expectedException, patchCell)
       assertEquals(expectedException, deleteCell)
       assertEquals(expectedException, retrieveAnnotationsTable)
-      assertEquals(expectedException, retrieveRow)
       assertEquals(expectedException, retrieveForeignRows)
       assertEquals(expectedException, retrieveDependentRows)
       assertEquals(expectedException, retrieveCellAnnotations)
@@ -950,4 +957,52 @@ class RetrieveColumnsUnionTableTest extends TableauxTestBase with UnionTableTest
       assertJSONEquals(unionTableCol5withOriginColumns, columns(4))
     }
   }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveRowUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
+
+  @Test
+  def unionTable_retrieveRow_ok(implicit c: TestContext): Unit = okTest {
+    val valuesTable2Row1 = Json.arr(
+      Json.obj("de" -> "table2_de", "en" -> "table2_en"),
+      "color1",
+      Json.obj("de" -> "Rot", "en" -> "Red"),
+      1,
+      Json.arr(Json.obj("id" -> 1, "value" -> "table1row1"))
+    )
+
+    val valuesTable4Row8 = Json.arr(
+      Json.obj("de" -> "table4_de", "en" -> "table4_en"),
+      "color11",
+      Json.obj("de" -> "Lila", "en" -> "Purple"),
+      8,
+      Json.arr(Json.obj("id" -> 2, "value" -> "table1row2"))
+    )
+
+    for {
+      tableId <- createUnionTable(true)
+      resultRowTable2Row1 <- sendRequest("GET", s"/tables/$tableId/rows/2000001")
+      resultRowTable4Row8 <- sendRequest("GET", s"/tables/$tableId/rows/4000008")
+
+    } yield {
+      assertEquals(2000001, resultRowTable2Row1.getInteger("id"))
+      assertEquals(2, resultRowTable2Row1.getInteger("tableId"))
+      assertJSONEquals(valuesTable2Row1, resultRowTable2Row1.getJsonArray("values"))
+
+      assertEquals(4000008, resultRowTable4Row8.getInteger("id"))
+      assertEquals(4, resultRowTable4Row8.getInteger("tableId"))
+      assertJSONEquals(valuesTable4Row8, resultRowTable4Row8.getJsonArray("values"))
+    }
+  }
+
+  @Test
+  def unionTable_retrieveRowThatDoesNotExist_shouldFail(implicit c: TestContext): Unit =
+    exceptionTest("NOT FOUND") {
+      for {
+        tableId <- createUnionTable(true)
+        _ <- sendRequest("GET", s"/tables/$tableId/rows/4000009")
+
+      } yield ()
+    }
 }

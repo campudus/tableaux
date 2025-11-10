@@ -4,7 +4,6 @@ import com.campudus.tableaux.NotImplementedException
 import com.campudus.tableaux.database.domain.Table
 import com.campudus.tableaux.database.domain.TableType
 import com.campudus.tableaux.database.domain.UnionTable
-import com.campudus.tableaux.database.domain.UnionTableRow
 import com.campudus.tableaux.database.model.TableauxModel.RowId
 import com.campudus.tableaux.database.model.TableauxModel.TableId
 
