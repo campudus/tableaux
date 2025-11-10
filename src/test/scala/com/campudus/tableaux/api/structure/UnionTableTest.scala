@@ -677,6 +677,8 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       deleteAttachment <-
         sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/attachment/$anyUuid").toException()
       deleteLink <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/link/1").toException()
+      retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").toException()
+      retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/first/rows").toException()
     } yield {
       assertEquals(expectedException, retrieveCell)
       assertEquals(expectedException, postCell)
@@ -703,18 +705,14 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       assertEquals(expectedException, deleteRow)
       assertEquals(expectedException, deleteAttachment)
       assertEquals(expectedException, deleteLink)
+      assertEquals(expectedException, retrieveRowsOfColumn)
+      assertEquals(expectedException, retrieveRowsOfFirstColumn)
     }
   }
 }
 
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
-
-  // EPs to implement for union tables
-
-  // - retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows")
-  // - retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first")
-  // - retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows")
 
   /**
     * Tables have the following number of rows:
@@ -747,8 +745,6 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   def unionTable_retrieveRows_ok(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- createUnionTable(true)
-      retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").toException()
-      retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/first").toException()
 
       retrieveAllUnionTableRows <- sendRequest("GET", s"/tables/$tableId/rows")
       retrieveTable2Rows <- sendRequest("GET", s"/tables/2/rows")
