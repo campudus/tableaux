@@ -3,11 +3,12 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.Starter
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.UnionTableHelper
 
 import org.vertx.scala.core.json._
 
 object UnionTableRow {
-  var rowOffset: Int = Starter.DEFAULT_UNION_TABLE_ROW_OFFSET
+  var rowOffset: Long = Starter.DEFAULT_UNION_TABLE_ROW_OFFSET
 }
 
 case class RawRow(
@@ -64,21 +65,12 @@ case class UnionTableRow(
     values: Seq[_]
 ) extends RowLike {
 
-  /**
-    * Because the frontend and other API consumers cannot handle composite row IDs (tableId and rowId), we calculate a
-    * unique row ID by adding a table-specific offset to the row ID. This is the easiest way to handle that problem
-    * without changing the frontend and the API. We will encounter problems if we have more than 1,000,000 rows in a
-    * single table, but that is highly unlikely today.
-    */
-  private def calcRowId(rowId: RowId, tableId: TableId): RowId =
-    (tableId * UnionTableRow.rowOffset) + rowId
-
   override def getJson: JsonObject = {
     val json = buildBaseJson
     json.mergeIn(Json.obj(
       "tableId" -> table.id
     ))
-    json.put("id", calcRowId(id, table.id))
+    json.put("id", UnionTableHelper.calcRowId(table.id, id, UnionTableRow.rowOffset))
   }
 }
 
