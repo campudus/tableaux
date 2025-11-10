@@ -1034,13 +1034,16 @@
             "in": "body",
             "required": false,
             "schema": {
-              "type": "array",
+              "type": "object",
               "required": [
                 "columns"
               ],
               "properties": {
                 "columns": {
-                  "$ref": "#/definitions/Shared Request: Column"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/Shared Request: Column"
+                  }
                 }
               }
             }
@@ -3235,11 +3238,15 @@
         },
         "originTables": {
           "type": "array",
-          "description": "The table ids which are used as origin tables (property only available for union tables)",
+          "description": "An array of table IDs to be referenced as origin tables. The property is only included for tables of type 'union'.",
           "items": {
             "type": "integer",
             "format": "int64"
-          }
+          },
+          "example": [
+            1,
+            2
+          ]
         }
       }
     },
@@ -4110,7 +4117,7 @@
             "type": "integer",
             "format": "int64"
           },
-          "description": "An array of table ids that are used as origin tables."
+          "description": "An array of table IDs to be used to form this UnionTable. The property is only required for tables of type 'union'."
         },
         "tableGroupId": {
           "type": "integer",
@@ -4658,6 +4665,9 @@
         },
         "constraint": {
           "$ref": "#/definitions/constraint"
+        },
+        "originColumns": {
+          "$ref": "#/definitions/Response: OriginColumns array"
         }
       }
     },
@@ -5077,7 +5087,7 @@
       "description": "A subfolder returned in a request to folders"
     },
     "Shared Request: Column": {
-      "type": "array",
+      "type": "object",
       "required": [
         "kind",
         "name",
@@ -5116,6 +5126,9 @@
         "groups": {
           "type": "array",
           "description": "A list of column ids that should build a group column",
+          "items": {
+            "type": "integer"
+          },
           "example": [
             1,
             2,
@@ -5149,6 +5162,9 @@
           "description": "Number of decimal digits, only for numeric columns. Values between 0 and 10 are allowed. If not set, the default value is 3.",
           "format": "int32",
           "example": 2
+        },
+        "originColumns": {
+          "$ref": "#/definitions/Request: OriginColumns array"
         }
       },
       "description": "A column object, which is used to create a new column.",
@@ -5189,6 +5205,21 @@
           "formatPattern": "city {{1}} has {{2}} inhabitants",
           "showMemberColumns": true,
           "decimalDigits": 6
+        },
+        {
+          "kind": "shorttext",
+          "name": "example_for_union_table",
+          "ordering": "4",
+          "originColumns": [
+            {
+              "tableId": 10,
+              "columnId": 5
+            },
+            {
+              "tableId": 11,
+              "columnId": 3
+            }
+          ]
         }
       ]
     },
@@ -5244,6 +5275,42 @@
         "archived": {
           "type": "boolean",
           "example": true
+        }
+      }
+    },
+    "Request: OriginColumns array": {
+      "type": "array",
+      "description": "An array of references from this column to all origin columns in the referenced origin tables. (property `originTables` in table).\nThis is only required for creating columns in union tables.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tableId": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "columnId": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2
+          }
+        }
+      }
+    },
+    "Response: OriginColumns array": {
+      "type": "array",
+      "description": "An array of references from this column to all origin columns in the referenced origin tables. (property `originTables` in table).\nIn contrast to the request version, the response version contains the full column objects instead of only the column ids.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tableId": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "column": {
+            "$ref": "#/definitions/Shared Response: Column"
+          }
         }
       }
     }
