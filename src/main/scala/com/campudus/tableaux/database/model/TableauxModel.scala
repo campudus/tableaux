@@ -1217,13 +1217,7 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[RowLike] = {
     for {
       columns <- retrieveColumns(table)
-      filteredColumns = roleModel
-        .filterDomainObjects[ColumnType[_]](
-          ViewCellValue,
-          columns,
-          ComparisonObjects(table),
-          isInternalCall = false
-        )
+      filteredColumns = filterColumns(table, columns)
       row <- retrieveRow(table, filteredColumns, rowId, columnFilter)
       resultRow <-
         if (config.isRowPermissionCheckEnabled) {
