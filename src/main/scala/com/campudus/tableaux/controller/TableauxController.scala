@@ -656,7 +656,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       colList <- repository.retrieveColumns(table)
-      rowList <- repository.retrieveRows(table, None, None, Pagination(None, None))
+      rowList <- repository.retrieveRows(table, None, None, Pagination(None, None), ColumnFilter(None, None))
     } yield CompleteTable(table, colList, rowList)
   }
 

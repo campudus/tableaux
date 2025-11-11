@@ -1403,7 +1403,15 @@ class TableauxModel(
       relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
       originColumnOrdering = relevantFilteredColumns.map(c => c.id)
 
-      rowSeq <- retrieveRows(originTable, relevantFilteredColumns, finalFlagOpt, archivedFlagOpt, tablePagination, true)
+      rowSeq <- retrieveRows(
+        originTable,
+        relevantFilteredColumns,
+        finalFlagOpt,
+        archivedFlagOpt,
+        tablePagination,
+        ColumnFilter(None, None),
+        true
+      )
       resultRows <- filterRows(filteredColumns, rowSeq.rows)
     } yield {
       val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
@@ -1445,7 +1453,7 @@ class TableauxModel(
           relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
           originColumnOrdering = relevantFilteredColumns.map(c => c.id)
 
-          row <- retrieveRow(originTable, relevantFilteredColumns, rowId)
+          row <- retrieveRow(originTable, relevantFilteredColumns, rowId, ColumnFilter(None, None))
         } yield {
           val filteredRows = roleModel.filterDomainObjects(ViewRow, Seq(row), ComparisonObjects(), false)
           val originColumnValue = originTable.getDisplayNameJson
@@ -1518,7 +1526,7 @@ class TableauxModel(
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination,
-      columnFilter: ColumnFilter = ColumnFilter(None, None)
+      columnFilter: ColumnFilter
   )(implicit user: TableauxUser): Future[RowSeq] = {
     if (table.tableType == UnionTable) {
       for {
