@@ -402,7 +402,6 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ = UnionTableHelper.notImplemented(table)
       row <- repository.retrieveRow(table, rowId, columnFilter)
     } yield row
   }
