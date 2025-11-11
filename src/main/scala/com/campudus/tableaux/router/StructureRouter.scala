@@ -1,28 +1,16 @@
 package com.campudus.tableaux.router
 
-import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.InvalidJsonException
-import com.campudus.tableaux.TableauxConfig
-import com.campudus.tableaux.WrongJsonTypeException
+import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
 import com.campudus.tableaux.controller.StructureController
-import com.campudus.tableaux.database.domain.ColumnSeq
-import com.campudus.tableaux.database.domain.ColumnFilter, DisplayInfos
-import com.campudus.tableaux.database.domain.GenericTable
-import com.campudus.tableaux.database.domain.Table
-import com.campudus.tableaux.database.domain.TableType
+import com.campudus.tableaux.database.domain.{ColumnFilter, DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
-import io.vertx.scala.ext.web.Router
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
-import org.vertx.scala.core.json.JsonObject
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object StructureRouter {
 
