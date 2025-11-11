@@ -1376,6 +1376,7 @@ class TableauxModel(
   }
 
   def retrieveAndProcessTableRows(
+      unionTable: Table,
       tableId: TableId,
       unionTableColumns: Seq[ColumnType[_]],
       acc: RowSeq,
@@ -1407,18 +1408,62 @@ class TableauxModel(
         true
       )
       resultRows <- filterRows(filteredColumns, rowSeq.rows)
-    } yield {
-      val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
-      val originColumnValue = originTable.getDisplayNameJson
+      filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+      originColumnValue = originTable.getDisplayNameJson
 
-      val unifyColumns = addAndReorderOriginColumnValues(
+      unifyColumns = addAndReorderOriginColumnValues(
         originColumnValue,
         originColumn2UnionColumnMapping,
         originColumnOrdering,
         unionColumnOrdering
       )(_)
 
-      val combinedRows = acc.rows ++ unifyColumns(filteredRows)
+      foo = unifyColumns(filteredRows)
+      bar <-
+        if (unionColumnOrdering.contains(0L)) {
+          // concat case
+          for {
+            rowsWithConcatValues <- mapRawRows(
+              unionTable,
+              unionTableColumns,
+              foo.map(x =>
+                RawRow(x.id, x.rowLevelAnnotations, x.rowPermissions, x.cellLevelAnnotations, x.values)
+              )
+            )
+          } yield {
+            // set first row values to the concat values
+            // rowsWithConcatValues.map { rowWithConcatValues =>
+            //   val concatValues = rowWithConcatValues.values
+            //   rowWithConcatValues.copy(values = concatValues)
+            // }
+            // foo.zip(rowsWithConcatValues).map { case (originalRow, rowWithConcatValues) =>
+            //   val concatValues = rowWithConcatValues.values
+            //   originalRow.values.updated(0, concatValues(0))
+
+            // }
+            foo.zip(rowsWithConcatValues).map { case (originalRow, rowWithConcatValues) =>
+              val concatValues = rowWithConcatValues.values
+              originalRow match {
+                case row: Row => row.copy(values = row.values.updated(0, concatValues(0)))
+                case row: UnionTableRow => row.copy(values = row.values.updated(0, concatValues(0)))
+              }
+            }
+          }
+        } else {
+          Future.successful(foo)
+        }
+
+      // rowsWithConcatValues <- mapRawRows(
+      //   unionTable,
+      //   unionTableColumns,
+      //   foo.map(x =>
+      //     RawRow(x.id, x.rowLevelAnnotations, x.rowPermissions, x.cellLevelAnnotations, x.values)
+      //   )
+      // )
+    } yield {
+      val combinedRows = acc.rows ++ bar
+
+// rowSeq <- mapRawRows(table, columns, rawRows, columnFilter)
 
       (RowSeq(combinedRows, rowSeq.page), totalSize)
     }
@@ -1497,6 +1542,7 @@ class TableauxModel(
                     Future.successful((acc, totalSize))
                   } else {
                     retrieveAndProcessTableRows(
+                      unionTable,
                       tableId,
                       unionTableColumns,
                       acc,
@@ -1672,7 +1718,7 @@ class TableauxModel(
       columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(
       implicit user: TableauxUser
-  ): Future[Seq[Row]] = {
+  ): Future[Seq[RowLike]] = {
     val idsOfFilteredColumnsWithConcats = columns
       .filter(columnFilter.filter)
       .flatMap(c =>

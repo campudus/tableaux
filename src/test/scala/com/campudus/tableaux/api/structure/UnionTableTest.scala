@@ -882,6 +882,36 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       assertEquals(1, rowValueCount)
     }
   }
+
+  @Test
+  def unionTable_retrieveRowsWithConcatColumn_ok(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createUnionTable(true)
+      // change column 2 to be second identifier column
+      _ <- sendRequest(
+        "PATCH",
+        s"/tables/$tableId/columns/2",
+        Json.obj("identifier" -> true)
+      )
+
+      retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows").map(_.getJsonArray("rows"))
+      retrieveRow <- sendRequest("GET", s"/tables/$tableId/rows/2000001")
+    } yield {
+      val concatValueFirstRow1 = retrieveRows.asScala.headOption.map(row =>
+        row.asInstanceOf[JsonObject].getJsonArray("values") // .getJsonArray(0)
+      ).getOrElse(null)
+      val concatValueFirstRow2 = retrieveRow.getJsonArray("values") // .getJsonArray(0)
+
+      println(s"###LOG### retrieveRows: ${concatValueFirstRow1}")
+      println(s"###LOG### retrieveRow: ${concatValueFirstRow2}")
+
+// com.campudus.tableaux.api.structure.RetrieveRowsUnionTableTest > unionTable_retrieveRowsWithConcatColumn_ok STANDARD_OUT
+//     ###LOG### retrieveRows: [[{"de":"table2_de","en":"table2_en"},"color1"],{"de":"table2_de","en":"table2_en"},"color1",{"de":"Rot","en":"Red"},1,[{"id":1,"value":"table1row1"}]]
+//     ###LOG### retrieveRow: [null,{"de":"table2_de","en":"table2_en"},"color1",{"de":"Rot","en":"Red"},1,[{"id":1,"value":"table1row1"}]]
+//   com.campudus.tableaux.api.structure.RetrieveRowsUnionTableTest
+
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
