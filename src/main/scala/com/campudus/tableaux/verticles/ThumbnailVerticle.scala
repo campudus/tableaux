@@ -29,11 +29,19 @@ import java.util.UUID
 import javax.imageio.ImageIO
 import org.joda.time.Period
 import org.joda.time.PeriodType
-import org.joda.time.format.PeriodFormat
+import org.joda.time.format.{PeriodFormat, PeriodFormatterBuilder}
 
 class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxConfig) extends ScalaVerticle
     with LazyLogging {
   private lazy val eventBus = vertx.eventBus()
+
+  private val periodFormatter = new PeriodFormatterBuilder()
+    .appendDays().appendSuffix("d ")
+    .appendHours().appendSuffix("h ")
+    .appendMinutes().appendSuffix("min ")
+    .appendSeconds().appendSuffix("s ")
+    .appendMillis().appendSuffix("ms")
+    .toFormatter()
 
   private var fileModel: FileModel = _
 
@@ -51,7 +59,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
   private val secondsIn30Days = 30 * 24 * 60 * 60 // 2592000
   private val cacheMaxAge = getIntDefault(thumbnailsConfig, "cacheMaxAge", secondsIn30Days);
   private val cacheMaxAgePeriod = Period.seconds(cacheMaxAge).normalizedStandard(PeriodType.dayTime());
-  private val cacheMaxAgeReadable = PeriodFormat.getDefault.print(cacheMaxAgePeriod) // e.g. "30 days"
+  private val cacheMaxAgeReadable = periodFormatter.print(cacheMaxAgePeriod)
 
   private val oldFileFilter = new FileFilter {
 
@@ -85,10 +93,16 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     }
 
     if (enableCacheWarmup) {
+      val start = System.currentTimeMillis()
+
       for {
         _ <- this.generateThumbnailsForExistingImages()
       } yield {
-        logger.info(s"Cache warmup for thumbnails complete")
+        val end = System.currentTimeMillis()
+        val period = new Period(start, end)
+        val readablePeriod = periodFormatter.print(period)
+
+        logger.info(s"Cache warmup for thumbnails complete in $readablePeriod")
       }
     }
 
@@ -252,10 +266,21 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         (pathsAcc, pathsChunk) =>
           for {
             acc <- pathsAcc
+            start = System.currentTimeMillis()
             chunk <- Future.sequence(pathsChunk)
             newAcc = acc ++ chunk
+            end = System.currentTimeMillis()
+            period = new Period(start, end)
+            readablePeriod = periodFormatter.print(period)
+
+            chunkCount = chunk.size
+            processedCount = newAcc.size
+            totalCount = pathsFutures.size
+            generatedCount = newAcc.count(_.isDefined)
+            skippedCount = newAcc.count(_.isEmpty)
+
             _ = logger.info(
-              s"Processed ${newAcc.size} of ${pathsFutures.size} thumbnails (generated: ${newAcc.count(_.isDefined)}, skipped: ${newAcc.count(_.isEmpty)})"
+              s"Processed $chunkCount thumbnails in $readablePeriod ($processedCount / $totalCount, generated: $generatedCount, skipped: $skippedCount)"
             )
           } yield newAcc
       }
