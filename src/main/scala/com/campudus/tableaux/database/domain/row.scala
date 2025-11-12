@@ -47,6 +47,16 @@ trait RowLike extends DomainObject {
   override def getJson: JsonObject = buildBaseJson
 }
 
+object RowLike {
+
+  implicit class RowLikeOps(row: RowLike) {
+
+    def toUnionTableRow(table: Table): UnionTableRow = {
+      UnionTableRow(table, row.id, row.rowLevelAnnotations, row.rowPermissions, row.cellLevelAnnotations, row.values)
+    }
+  }
+}
+
 case class Row(
     table: Table,
     id: RowId,

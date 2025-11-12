@@ -1348,7 +1348,7 @@ class TableauxModel(
       originColumn2UnionColumnMapping: Map[Long, Long],
       originColumnOrdering: Seq[Long],
       unionColumnOrdering: Seq[Long]
-  )(rows: Seq[RowLike]): Seq[RowLike] = {
+  )(rows: Seq[RowLike]): Seq[RawRow] = {
     rows.map({ row =>
       // column with id 0 is always the identifier concat column
       // if we have a concat column in the union table, we need to insert the "magic" origin column
@@ -1363,9 +1363,7 @@ class TableauxModel(
         val theValue = row.values(originColumnIndex.toInt)
         acc.updated(unionColumnIndex.toInt, theValue)
       }
-
-      UnionTableRow(
-        row.table,
+      RawRow(
         row.id,
         row.rowLevelAnnotations,
         row.rowPermissions,
@@ -1377,7 +1375,7 @@ class TableauxModel(
 
   def retrieveAndProcessTableRows(
       unionTable: Table,
-      tableId: TableId,
+      originTableId: TableId,
       unionTableColumns: Seq[ColumnType[_]],
       acc: RowSeq,
       totalSize: Long,
@@ -1387,7 +1385,7 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[(RowSeq, Long)] = {
 
     for {
-      originTable <- retrieveTable(tableId)
+      originTable <- retrieveTable(originTableId)
       columns <- retrieveColumns(originTable)
       filteredColumns = filterColumns(originTable, columns)
 
@@ -1418,55 +1416,25 @@ class TableauxModel(
         unionColumnOrdering
       )(_)
 
-      foo = unifyColumns(filteredRows)
-      bar <-
-        if (unionColumnOrdering.contains(0L)) {
-          // concat case
-          for {
-            rowsWithConcatValues <- mapRawRows(
-              unionTable,
-              unionTableColumns,
-              foo.map(x =>
-                RawRow(x.id, x.rowLevelAnnotations, x.rowPermissions, x.cellLevelAnnotations, x.values)
-              )
-            )
-          } yield {
-            // set first row values to the concat values
-            // rowsWithConcatValues.map { rowWithConcatValues =>
-            //   val concatValues = rowWithConcatValues.values
-            //   rowWithConcatValues.copy(values = concatValues)
-            // }
-            // foo.zip(rowsWithConcatValues).map { case (originalRow, rowWithConcatValues) =>
-            //   val concatValues = rowWithConcatValues.values
-            //   originalRow.values.updated(0, concatValues(0))
-
-            // }
-            foo.zip(rowsWithConcatValues).map { case (originalRow, rowWithConcatValues) =>
-              val concatValues = rowWithConcatValues.values
-              originalRow match {
-                case row: Row => row.copy(values = row.values.updated(0, concatValues(0)))
-                case row: UnionTableRow => row.copy(values = row.values.updated(0, concatValues(0)))
-              }
-            }
-          }
-        } else {
-          Future.successful(foo)
-        }
-
-      // rowsWithConcatValues <- mapRawRows(
-      //   unionTable,
-      //   unionTableColumns,
-      //   foo.map(x =>
-      //     RawRow(x.id, x.rowLevelAnnotations, x.rowPermissions, x.cellLevelAnnotations, x.values)
-      //   )
-      // )
+      rawRows = unifyColumns(filteredRows)
+      mappedRows <- mapRawUnionTableRows(unionTable, originTable, unionTableColumns, rawRows)
     } yield {
-      val combinedRows = acc.rows ++ bar
-
-// rowSeq <- mapRawRows(table, columns, rawRows, columnFilter)
-
+      val combinedRows = acc.rows ++ mappedRows
       (RowSeq(combinedRows, rowSeq.page), totalSize)
     }
+  }
+
+  private def mapRawUnionTableRows(
+      unionTable: Table,
+      originTable: Table,
+      unionTableColumns: Seq[ColumnType[_]],
+      rawRows: Seq[RawRow]
+  )(implicit user: TableauxUser): Future[Seq[UnionTableRow]] = {
+    for {
+      mappedRows <- mapRawRows(unionTable, unionTableColumns, rawRows)
+      mappedUnionTableRows = mappedRows.map(_.toUnionTableRow(originTable))
+    } yield mappedUnionTableRows
+
   }
 
   def retrieveUnionTableRow(unionTable: Table, unionTableColumns: Seq[ColumnType[_]], compositeId: RowId)(
@@ -1493,18 +1461,20 @@ class TableauxModel(
           originColumnOrdering = relevantFilteredColumns.map(c => c.id)
 
           row <- retrieveRow(originTable, relevantFilteredColumns, rowId, ColumnFilter(None, None))
-        } yield {
-          val filteredRows = roleModel.filterDomainObjects(ViewRow, Seq(row), ComparisonObjects(), false)
-          val originColumnValue = originTable.getDisplayNameJson
+          filteredRows = roleModel.filterDomainObjects(ViewRow, Seq(row), ComparisonObjects(), false)
+          originColumnValue = originTable.getDisplayNameJson
 
-          val unifyColumns = addAndReorderOriginColumnValues(
+          unifyColumns = addAndReorderOriginColumnValues(
             originColumnValue,
             originColumn2UnionColumnMapping,
             originColumnOrdering,
             unionColumnOrdering
           )(_)
 
-          unifyColumns(filteredRows).head
+          rawRows = unifyColumns(filteredRows)
+          mappedRows <- mapRawUnionTableRows(unionTable, originTable, unionTableColumns, rawRows)
+        } yield {
+          mappedRows.head
         }
     }
   }
@@ -1527,10 +1497,10 @@ class TableauxModel(
 
         for {
           foldResult <- originTables.foldLeft(Future.successful((RowSeq(Seq.empty, Page(pagination, Some(0L))), 0L)))(
-            (accFuture, tableId) =>
+            (accFuture, originTableId) =>
               for {
                 (acc, accTotalSize) <- accFuture
-                rowCount <- retrieveRowModel.size(tableId, finalFlagOpt, archivedFlagOpt)
+                rowCount <- retrieveRowModel.size(originTableId, finalFlagOpt, archivedFlagOpt)
 
                 totalSize = accTotalSize + rowCount
                 tableOffset = Math.max(0, originalOffset - accTotalSize)
@@ -1543,7 +1513,7 @@ class TableauxModel(
                   } else {
                     retrieveAndProcessTableRows(
                       unionTable,
-                      tableId,
+                      originTableId,
                       unionTableColumns,
                       acc,
                       totalSize,
@@ -1737,14 +1707,10 @@ class TableauxModel(
         concatenateColumn: ConcatenateColumn,
         linkedRows: JsonArray
     ): Future[List[JsonObject]] = {
-      import scala.collection.JavaConverters._
-
-      // Iterate over each linked row and
-      // replace json's value with ConcatColumn value
+      // Iterate over each linked row and replace json's value with ConcatColumn value
       linkedRows.asScala.map(_.asInstanceOf[JsonObject]).foldLeft(Future.successful(List.empty[JsonObject])) {
         case (futureList, linkedRow: JsonObject) =>
-          // ConcatColumn's value is always a
-          // json array with the linked row ids
+          // ConcatColumn's value is always a json array with the linked row ids
           val rowId = linkedRow.getLong("id").longValue()
 
           for {
