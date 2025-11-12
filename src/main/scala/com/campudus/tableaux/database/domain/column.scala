@@ -776,21 +776,6 @@ case class UnionColumn(
 ) extends SimpleValueColumn[UnionColumn](kind)(languageType) {
   override def checkValidSingleValue[B](value: B): Try[UnionColumn] = Try(value.asInstanceOf[UnionColumn])
 
-  // TODO: temporarily use this override to test FE behavior
-  // override def getJson: JsonObject = {
-  // we need the kind `origintable` only for internal purposes,
-  // we can render it externally like a normal TextColumn
-  // kind match {
-  //   case OriginTableType => {
-  //     println(s"###LOG###: fix, wieso geht des ned")
-  //     val overrideKind = Json.obj("kind" -> "text")
-  //     super.getJson.mergeIn(overrideKind)
-  //   }
-  //   case _ =>
-  //     super.getJson
-  // }
-  // }
-
   override def getJson: JsonObject = {
     val originColumnsJson = originColumns.getJson
     if (originColumnsJson.isEmpty) {
