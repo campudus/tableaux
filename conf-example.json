@@ -27,6 +27,7 @@
     "enableCacheWarmup": true,
     "cacheWarmupWidths": [200, 400],
     "cacheWarmupChunkSize": 100,
+    "cacheWarmupFilter": 3,
     "cacheMaxAge": 2592000,
     "cacheClearPollingInterval": 21600000,
     "cacheCreateTimeout": 10000

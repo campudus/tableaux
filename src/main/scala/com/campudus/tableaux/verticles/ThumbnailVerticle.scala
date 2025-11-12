@@ -40,9 +40,11 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
   private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
 
+  private val defaultResizeFilter = ResampleOp.FILTER_TRIANGLE;
   private val enableCacheWarmup = getBooleanDefault(thumbnailsConfig, "enableCacheWarmup", false);
   private val cacheWarmupWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("cacheWarmupWidths", Json.emptyArr()))
   private val cacheWarmupChunkSize = getIntDefault(thumbnailsConfig, "cacheWarmupChunkSize", 50);
+  private val cacheWarmupFilter = getIntDefault(thumbnailsConfig, "cacheWarmupFilter", defaultResizeFilter);
 
   private val msIn6hours = 6 * 60 * 60 * 1000; // 21600000
   private val cacheClearPollingInterval = getIntDefault(thumbnailsConfig, "cacheClearPollingInterval", msIn6hours);
@@ -129,6 +131,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       fileUuid: UUID,
       langtag: String,
       width: Int,
+      filter: Option[Int],
       enableLogs: Boolean = true
   ): Future[Option[Path]] = {
     for {
@@ -139,7 +142,8 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       extension = Path(internalName).extension
       internalUuid = internalName.replace(s".$extension", "")
       filePath = uploadsDirectoryPath / Path(internalName)
-      thumbnailName = s"${internalUuid}_$width.png" // thumbnail is always png
+      resizeFilter = filter.getOrElse(defaultResizeFilter)
+      thumbnailName = s"${internalUuid}_${width}_${resizeFilter}.png" // thumbnail is always png
       thumbnailPath = thumbnailsDirectoryPath / Path(thumbnailName)
       doesFileExist <- checkExistence(filePath)
       doesThumbnailExist <- checkExistence(thumbnailPath)
@@ -165,7 +169,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
             case (resizeWidth, resizeHeight) if resizeWidth > 0 && resizeHeight > 0 => {
               if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
 
-              val resizeOp = new ResampleOp(resizeWidth, resizeHeight, ResampleOp.FILTER_LANCZOS);
+              val resizeOp = new ResampleOp(resizeWidth, resizeHeight, resizeFilter);
               val resizeImage = resizeOp.filter(baseImage, null)
               val resizeFile = new File(thumbnailPath.toString)
 
@@ -191,9 +195,10 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     val fileUuid = UUID.fromString(uuid);
     val langtag = message.body().getString("langtag")
     val width = message.body().getInteger("width").intValue()
+    val filter = Try(message.body().getInteger("filter").intValue()).toOption
 
     for {
-      thumbnailPath <- retrieveThumbnailPath(fileUuid, langtag, width)
+      thumbnailPath <- retrieveThumbnailPath(fileUuid, langtag, width, filter)
     } yield {
       thumbnailPath match {
         case Some(path) => message.reply(path.toString)
@@ -228,7 +233,8 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         file <- validFiles
         langtag <- file.internalName.langtags
         width <- cacheWarmupWidths
-      } yield retrieveThumbnailPath(file.uuid, langtag, width, enableLogs = false)
+        filter = cacheWarmupFilter
+      } yield retrieveThumbnailPath(file.uuid, langtag, width, Some(filter), enableLogs = false)
 
       _ = logger.info(s"Generating/Updating ${pathsFutures.size} thumbnails for ${validFiles.size} existing files")
       _ = logger.info(s"Thumbnail widths: ${cacheWarmupWidths.mkString(", ")}")
