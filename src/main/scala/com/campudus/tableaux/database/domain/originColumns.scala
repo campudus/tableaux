@@ -30,7 +30,7 @@ object OriginColumnsBase {
 
 case class OriginColumns(
     tableId2ColumnId: Map[TableId, ColumnId],
-    tableId2Column: Map[TableId, ColumnType[_]] = Map() // placeholder
+    tableId2Column: Map[TableId, ColumnType[_]] = Map() // placeholder in first create, get filled later
 ) extends OriginColumnsBase {
 
   def getJson: JsonArray = {
@@ -49,7 +49,7 @@ object OriginColumns {
   }
 }
 
-case class CreateOriginColumns(tableId2ColumnId: Map[TableId, ColumnId]) extends OriginColumnsBase {}
+case class CreateOriginColumns(tableId2ColumnId: Map[TableId, ColumnId]) extends OriginColumnsBase
 
 object CreateOriginColumns {
   val fieldName = OriginColumns.fieldName

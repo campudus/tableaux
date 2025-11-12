@@ -111,7 +111,7 @@ case class Table(
     tableGroup.foreach(tg => tableJson.put("group", tg.getJson))
 
     if (originTables.isDefined) {
-      tableJson.mergeIn(Json.obj("originTables" -> originTables.get))
+      tableJson.mergeIn(Json.obj("originTables" -> originTables.getOrElse(Seq.empty)))
     }
 
     tableJson
