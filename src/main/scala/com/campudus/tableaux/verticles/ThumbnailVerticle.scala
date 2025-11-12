@@ -21,7 +21,7 @@ import scala.util.{Failure, Success, Try}
 
 import com.twelvemonkeys.image.ResampleOp
 import com.typesafe.scalalogging.LazyLogging
-import java.io.{File, FileFilter}
+import java.io.{File, FileFilter, FileNotFoundException}
 import java.nio.file.Files
 import java.nio.file.attribute.FileTime
 import java.time.{Duration, Instant}
@@ -40,11 +40,10 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
   private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
 
-  private val defaultResizeFilter = ResampleOp.FILTER_TRIANGLE;
   private val enableCacheWarmup = getBooleanDefault(thumbnailsConfig, "enableCacheWarmup", false);
   private val cacheWarmupWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("cacheWarmupWidths", Json.emptyArr()))
   private val cacheWarmupChunkSize = getIntDefault(thumbnailsConfig, "cacheWarmupChunkSize", 50);
-  private val cacheWarmupFilter = getIntDefault(thumbnailsConfig, "cacheWarmupFilter", defaultResizeFilter);
+  private val defaultResizeFilter = getIntDefault(thumbnailsConfig, "cacheWarmupFilter", ResampleOp.FILTER_TRIANGLE);
 
   private val msIn6hours = 6 * 60 * 60 * 1000; // 21600000
   private val cacheClearPollingInterval = getIntDefault(thumbnailsConfig, "cacheClearPollingInterval", msIn6hours);
@@ -80,6 +79,10 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     val dbConnection = DatabaseConnection(vertxAccess, connection)
 
     fileModel = FileModel(dbConnection)
+
+    if (defaultResizeFilter < 0 | defaultResizeFilter > 15) {
+      throw new Exception("Provide a valid 'cacheWarmupFilter' with a value between 0 and 15")
+    }
 
     if (enableCacheWarmup) {
       for {
@@ -133,7 +136,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       width: Int,
       filter: Option[Int],
       enableLogs: Boolean = true
-  ): Future[Option[Path]] = {
+  ): Future[Path] = {
     for {
       _ <- createThumbnailsDirectory()
       file <- fileModel.retrieve(fileUuid)
@@ -155,7 +158,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
           Files.setLastModifiedTime(thumbnailPath.jfile.toPath, FileTime.from(Instant.now()))
 
-          Some(thumbnailPath.toString)
+          thumbnailPath.toString
         }
         case (true, false, true) => {
           val baseFile = new File(filePath.toString)
@@ -175,17 +178,20 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
               ImageIO.write(resizeImage, "png", resizeFile)
 
-              Some(thumbnailPath.toString)
+              thumbnailPath.toString
             }
-            case _ => {
-              logger.warn("Skipping thumbnail creation: width and height must be positive")
-              None
+            case (resizeWidth, resizeHeight) => {
+              throw new IllegalArgumentException(s"Width and height must be positive (${resizeWidth}, ${resizeHeight})")
             }
           }
 
         }
-        case (false, _, _) => None // file doesn't exist (only in dev)
-        case (_, _, false) => None // unsupported mime type
+        case (false, _, _) => {
+          throw new FileNotFoundException(s"Source file not found") // file doesn't exist (only in dev)
+        }
+        case (_, _, false) => {
+          throw new IllegalArgumentException(s"Unsupported mimeType ${mimeType}")
+        }
       }
     }
   }
@@ -197,14 +203,11 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     val width = message.body().getInteger("width").intValue()
     val filter = Try(message.body().getInteger("filter").intValue()).toOption
 
-    for {
-      thumbnailPath <- retrieveThumbnailPath(fileUuid, langtag, width, filter)
-    } yield {
-      thumbnailPath match {
-        case Some(path) => message.reply(path.toString)
-        case None => message.fail(400, s"Unsupported mimeType")
-      }
-    }
+    retrieveThumbnailPath(fileUuid, langtag, width, filter)
+      .map(path => message.reply(path.toString))
+      .recover({
+        case ex => message.fail(400, s"Error retrieving thumbnail: ${ex.getMessage}")
+      })
   }
 
   private def clearOldThumbnails(): Unit = {
@@ -233,11 +236,17 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         file <- validFiles
         langtag <- file.internalName.langtags
         width <- cacheWarmupWidths
-        filter = cacheWarmupFilter
-      } yield retrieveThumbnailPath(file.uuid, langtag, width, Some(filter), enableLogs = false)
+      } yield {
+        retrieveThumbnailPath(file.uuid, langtag, width, Some(defaultResizeFilter), enableLogs = false)
+          .map(Some(_))
+          .recover({
+            case ex => None // skip on exception
+          })
+      }
 
-      _ = logger.info(s"Generating/Updating ${pathsFutures.size} thumbnails for ${validFiles.size} existing files")
-      _ = logger.info(s"Thumbnail widths: ${cacheWarmupWidths.mkString(", ")}")
+      _ = logger.info(
+        s"Generating ${pathsFutures.size} thumbnails for ${validFiles.size} files (widths: ${cacheWarmupWidths.mkString(", ")})"
+      )
 
       paths <- pathsFutures.grouped(cacheWarmupChunkSize).foldLeft(Future.successful(Seq.empty[Option[Path]])) {
         (pathsAcc, pathsChunk) =>
@@ -245,7 +254,9 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
             acc <- pathsAcc
             chunk <- Future.sequence(pathsChunk)
             newAcc = acc ++ chunk
-            _ = logger.info(s"Generated/Updated ${newAcc.count(_.isDefined)} of ${pathsFutures.size} thumbnails")
+            _ = logger.info(
+              s"Processed ${newAcc.size} of ${pathsFutures.size} thumbnails (generated: ${newAcc.count(_.isDefined)}, skipped: ${newAcc.count(_.isEmpty)})"
+            )
           } yield newAcc
       }
     } yield paths

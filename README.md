@@ -131,6 +131,30 @@ Feature flags are used to enable or disable certain features. They have to be co
 - Editing Publishing Workflow
 - Workspaces & Custom Projections
 
+## Media management
+
+Thumbnails for uploaded files can be generated/updated on server start.
+Configuration for thumbnails and cache retention can be configured in the configuration file:
+
+```json
+"thumbnails": {
+    // Generate thumbnails at server start (default: false)
+    "enableCacheWarmup": true,
+    // Target widths for automatic thumbnail generation (default: [])
+    "cacheWarmupWidths": [200, 400],
+    // Chunks of thumbnails generated in parallel (default: 100)
+    "cacheWarmupChunkSize": 100,
+    // Resize filter used in thumbnail generation (value between 0 and 15) (default: 3 -> FILTER_TRIANGLE)
+    "cacheWarmupFilter": 3,
+    // Maximum age of thumbnail in seconds after it is deleted (default: 2592000 -> 30 days)
+    "cacheMaxAge": 2592000,
+    // polling interval in milliseconds for max age check (default: 21600000 -> 6 hours)
+    "cacheClearPollingInterval": 21600000,
+    // timeout in milliseconds for single thumbnail during automatic thumbnail generation
+    "cacheCreateTimeout": 10000
+}
+```
+
 ## License
 
 ```txt
