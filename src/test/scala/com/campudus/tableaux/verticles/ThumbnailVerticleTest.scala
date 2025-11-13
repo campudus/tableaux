@@ -261,7 +261,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
     }
   }
 
-    @Test
+  @Test
   def testThumbnailCreationInvalidFilter(implicit c: TestContext): Unit = {
     exceptionTest("error.request.invalid") {
       val fileName = "Screen.Shot.png"
