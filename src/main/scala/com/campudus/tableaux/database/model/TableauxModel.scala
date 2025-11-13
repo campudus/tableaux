@@ -1346,9 +1346,12 @@ class TableauxModel(
   private def addAndReorderOriginColumnValues(
       originColumnValue: JsonObject,
       originColumn2UnionColumnMapping: Map[Long, Long],
-      originColumnOrdering: Seq[Long],
-      unionColumnOrdering: Seq[Long]
+      originColumns: Seq[ColumnType[_]],
+      unionTableColumns: Seq[ColumnType[_]]
   )(rows: Seq[RowLike]): Seq[RawRow] = {
+    val unionColumnOrdering = unionTableColumns.map(c => c.id)
+    val originColumnOrdering = originColumns.map(c => c.id)
+
     rows.map({ row =>
       // column with id 0 is always the identifier concat column
       // if we have a concat column in the union table, we need to insert the "magic" origin column
@@ -1363,11 +1366,23 @@ class TableauxModel(
         val theValue = row.values(originColumnIndex.toInt)
         acc.updated(unionColumnIndex.toInt, theValue)
       }
+
+      // we get the annotations in the origin column order,
+      // so we need to reorder them so that they fit to the union table column ordering
+      val unionTableAnnotationMapping: Map[ColumnId, Seq[CellLevelAnnotation]] =
+        originColumn2UnionColumnMapping
+          .map({ case (originColumnId, unionColumnId) =>
+            val annotationsForOriginColumn = row.cellLevelAnnotations.annotations
+              .getOrElse(originColumnId, Seq.empty)
+            (unionColumnId, annotationsForOriginColumn)
+          })
+      val reorderedAnnotations = new CellLevelAnnotations(unionTableColumns, unionTableAnnotationMapping)
+
       RawRow(
         row.id,
         row.rowLevelAnnotations,
         row.rowPermissions,
-        row.cellLevelAnnotations,
+        reorderedAnnotations,
         reorderedValues
       )
     })
@@ -1389,12 +1404,10 @@ class TableauxModel(
       columns <- retrieveColumns(originTable)
       filteredColumns = filterColumns(originTable, columns)
 
-      unionColumnOrdering = unionTableColumns.map(c => c.id)
       originColumn2UnionColumnMapping: Map[OriginColumnId, ColumnId] = getColumnMapping(originTable, unionTableColumns)
 
       // retrieve only relevant columns that we need to return for the union table
       relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
-      originColumnOrdering = relevantFilteredColumns.map(c => c.id)
 
       rowSeq <- retrieveRows(
         originTable,
@@ -1412,8 +1425,8 @@ class TableauxModel(
       unifyColumns = addAndReorderOriginColumnValues(
         originColumnValue,
         originColumn2UnionColumnMapping,
-        originColumnOrdering,
-        unionColumnOrdering
+        relevantFilteredColumns,
+        unionTableColumns
       )(_)
 
       rawRows = unifyColumns(filteredRows)
@@ -1452,13 +1465,11 @@ class TableauxModel(
           columns <- retrieveColumns(originTable)
           filteredColumns = filterColumns(originTable, columns)
 
-          unionColumnOrdering = unionTableColumns.map(c => c.id)
           originColumn2UnionColumnMapping: Map[OriginColumnId, ColumnId] =
             getColumnMapping(originTable, unionTableColumns)
 
           // retrieve only relevant columns that we need to return for the union table
           relevantFilteredColumns = filteredColumns.filter(c => originColumn2UnionColumnMapping.contains(c.id))
-          originColumnOrdering = relevantFilteredColumns.map(c => c.id)
 
           row <- retrieveRow(originTable, relevantFilteredColumns, rowId, ColumnFilter(None, None))
           filteredRows = roleModel.filterDomainObjects(ViewRow, Seq(row), ComparisonObjects(), false)
@@ -1467,8 +1478,8 @@ class TableauxModel(
           unifyColumns = addAndReorderOriginColumnValues(
             originColumnValue,
             originColumn2UnionColumnMapping,
-            originColumnOrdering,
-            unionColumnOrdering
+            relevantFilteredColumns,
+            unionTableColumns
           )(_)
 
           rawRows = unifyColumns(filteredRows)

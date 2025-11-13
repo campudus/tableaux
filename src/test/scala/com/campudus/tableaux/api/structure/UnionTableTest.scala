@@ -1031,3 +1031,60 @@ class RetrieveRowUnionTableTest extends TableauxTestBase with UnionTableTestHelp
       } yield ()
     }
 }
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveAnnotationsUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
+
+  @Test
+  def unionTable_retrieveAnnotations_ok(implicit c: TestContext): Unit = okTest {
+
+    val expectedAnnotations = Json.arr(
+      null, // this is the concat column
+      null, // this is the originTable column
+      Json.arr(Json.obj("type" -> "flag", "value" -> "check-me")),
+      Json.arr(Json.obj("type" -> "flag", "value" -> "needs_translation", "langtags" -> Json.arr("de", "en"))),
+      Json.arr(
+        Json.obj("type" -> "info", "value" -> "this is a comment"),
+        Json.obj("type" -> "info", "value" -> "this is another comment")
+      ),
+      Json.arr(
+        Json.obj("type" -> "error", "value" -> null),
+        Json.obj("type" -> "flag", "value" -> "important")
+      )
+    )
+    val checkMeFlag = """{"type": "flag", "value": "check-me"}"""
+    val importantFlag = """{"type": "flag", "value": "important"}"""
+    val errorAnnotation = """{"type": "error"}"""
+    val commentAnnotation = (msg: String) => s"""{"type": "info", "value": "${msg}"}"""
+    val needsTranslationFlag = """{"langtags": ["de", "en"], "type": "flag", "value": "needs_translation"}"""
+
+    for {
+      tableId <- createUnionTable(true)
+      // change column 2 to be second identifier column
+      _ <- sendRequest(
+        "PATCH",
+        s"/tables/$tableId/columns/2",
+        Json.obj("identifier" -> true)
+      )
+
+      // add some annotations to an origin table 4 (because table 4 has very different column ordering)
+      _ <- sendRequest("POST", s"/tables/4/columns/1/rows/1/annotations", errorAnnotation)
+      _ <- sendRequest("POST", s"/tables/4/columns/1/rows/1/annotations", importantFlag)
+      _ <- sendRequest("POST", s"/tables/4/columns/2/rows/1/annotations", needsTranslationFlag)
+      _ <- sendRequest("POST", s"/tables/4/columns/3/rows/1/annotations", commentAnnotation("this is a comment"))
+      _ <- sendRequest("POST", s"/tables/4/columns/3/rows/1/annotations", commentAnnotation("this is another comment"))
+      _ <- sendRequest("POST", s"/tables/4/columns/4/rows/1/annotations", checkMeFlag)
+
+      retrieveRows <- sendRequest("GET", s"/tables/$tableId/rows").map(_.getJsonArray("rows"))
+      retrieveRow <- sendRequest("GET", s"/tables/$tableId/rows/4000001")
+    } yield {
+      val annotationsFirstRow1 = retrieveRows.asScala.toSeq.lift(3) // first row from table 4
+        .map(row => row.asInstanceOf[JsonObject].getJsonArray("annotations"))
+        .getOrElse(null)
+      val annotationsFirstRow2 = retrieveRow.getJsonArray("annotations")
+
+      assertJSONEquals(expectedAnnotations, annotationsFirstRow1)
+      assertJSONEquals(expectedAnnotations, annotationsFirstRow2)
+    }
+  }
+}
