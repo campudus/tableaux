@@ -102,7 +102,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         val period = new Period(start, end)
         val readablePeriod = periodFormatter.print(period)
 
-        logger.info(s"Cache warmup for thumbnails complete in $readablePeriod")
+        logger.info(s"Finished cache warmup for thumbnails in $readablePeriod")
       }
     }
 
