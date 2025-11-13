@@ -153,7 +153,13 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     sendMessage(ADDRESS_FILE_CHANGED, message)
   }
 
-  def retrieveThumbnailPath(fileUuid: UUID, langtag: String, width: Int, filter: Option[Int], timeout: Int): Future[Path] = {
+  def retrieveThumbnailPath(
+      fileUuid: UUID,
+      langtag: String,
+      width: Int,
+      filter: Option[Int],
+      timeout: Int
+  ): Future[Path] = {
     val message = Json.obj("uuid" -> fileUuid.toString, "langtag" -> langtag, "width" -> width)
 
     val filterJson = filter match {
