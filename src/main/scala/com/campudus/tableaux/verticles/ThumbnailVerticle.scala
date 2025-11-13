@@ -48,10 +48,10 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
   private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
 
+  private val defaultResizeFilter = getIntDefault(thumbnailsConfig, "defaultResizeFilter", ResampleOp.FILTER_TRIANGLE);
   private val enableCacheWarmup = getBooleanDefault(thumbnailsConfig, "enableCacheWarmup", false);
   private val cacheWarmupWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("cacheWarmupWidths", Json.emptyArr()))
   private val cacheWarmupChunkSize = getIntDefault(thumbnailsConfig, "cacheWarmupChunkSize", 50);
-  private val defaultResizeFilter = getIntDefault(thumbnailsConfig, "cacheWarmupFilter", ResampleOp.FILTER_TRIANGLE);
 
   private val msIn6hours = 6 * 60 * 60 * 1000; // 21600000
   private val cacheClearPollingInterval = getIntDefault(thumbnailsConfig, "cacheClearPollingInterval", msIn6hours);
@@ -88,8 +88,8 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
     fileModel = FileModel(dbConnection)
 
-    if (defaultResizeFilter < 0 | defaultResizeFilter > 15) {
-      throw new Exception("Provide a valid 'cacheWarmupFilter' with a value between 0 and 15")
+    if (defaultResizeFilter < 1 | defaultResizeFilter > 15) {
+      throw new Exception("Provide a valid 'defaultResizeFilter' with a value between 1 and 15")
     }
 
     if (enableCacheWarmup) {

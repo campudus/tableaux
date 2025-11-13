@@ -336,7 +336,7 @@
           },
           {
             "name": "filter",
-            "description": "Quality filter for image resizing (0-15; 0 lowest quality; 15 highest quality)",
+            "description": "Quality filter for image resizing (1-15; 1 lowest quality; 15 highest quality)",
             "in": "query",
             "required": false,
             "type": "integer"

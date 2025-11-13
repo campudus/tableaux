@@ -131,21 +131,23 @@ Feature flags are used to enable or disable certain features. They have to be co
 - Editing Publishing Workflow
 - Workspaces & Custom Projections
 
-## Media management
+## Thumbnails
+
+### Thumbnails configuration
 
 Thumbnails for uploaded files can be generated/updated on server start.
 Configuration for thumbnails and cache retention can be configured in the configuration file:
 
 ```json
 "thumbnails": {
+    // Resize filter used in thumbnail generation (value between 1 and 15) (default: 3 -> FILTER_TRIANGLE)
+    "defaultResizeFilter": 3,
     // Generate thumbnails at server start (default: false)
     "enableCacheWarmup": true,
     // Target widths for automatic thumbnail generation (default: [])
     "cacheWarmupWidths": [200, 400],
     // Chunks of thumbnails generated in parallel (default: 100)
     "cacheWarmupChunkSize": 100,
-    // Resize filter used in thumbnail generation (value between 0 and 15) (default: 3 -> FILTER_TRIANGLE)
-    "cacheWarmupFilter": 3,
     // Maximum age of thumbnail in seconds after it is deleted (default: 2592000 -> 30 days)
     "cacheMaxAge": 2592000,
     // polling interval in milliseconds for max age check (default: 21600000 -> 6 hours)
@@ -154,6 +156,26 @@ Configuration for thumbnails and cache retention can be configured in the config
     "cacheCreateTimeout": 10000
 }
 ```
+
+### Thumbnails filter overview
+
+| Int    | Constant Name            | Description                                                                                | Typical Use Cases & Performance                                                   |
+| ------ | ------------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| **1**  | `FILTER_POINT`           | Nearest-neighbor interpolation – extremely fast but blocky and low quality.                | Best for real-time previews, thumbnails, or pixel art where sharp edges matter.   |
+| **2**  | `FILTER_BOX`             | Box filter – averages nearby pixels; simple and efficient but can blur.                    | Good for quick downscaling with integer factors.                                  |
+| **3**  | `FILTER_TRIANGLE` (**default**)   | Linear (bilinear) interpolation – smooths edges, moderate quality and speed.               | Default for many simple scaling tasks; good balance for most UIs.                 |
+| **4**  | `FILTER_HERMITE`         | Hermite interpolation – smooth, continuous filter; slightly sharper than linear.           | Sometimes used for resizing smooth graphics or textures.                          |
+| **5**  | `FILTER_HANNING`         | Hanning window filter – smooth windowed filter; suppresses ringing.                        | Used in scientific or high-fidelity image processing; slower than simple filters. |
+| **6**  | `FILTER_HAMMING`         | Hamming window filter – similar to Hanning with slightly different weighting.              | Also used in high-fidelity image resampling or signal applications.               |
+| **7**  | `FILTER_BLACKMAN`        | Blackman window filter – smooth filter with good frequency response and low aliasing.      | Ideal when reducing high-detail images; slower but very clean output.             |
+| **8**  | `FILTER_GAUSSIAN`        | Gaussian blur filter – softens transitions, reduces aliasing.                              | Used when a smooth, natural look is preferred (e.g. photographic images).         |
+| **9**  | `FILTER_QUADRATIC`       | Quadratic interpolation – smoother than bilinear, not as sharp as cubic.                   | Useful for moderate-quality resampling where performance matters.                 |
+| **10** | `FILTER_CUBIC`           | Cubic interpolation – classic “bicubic” resampling with good sharpness.                    | Commonly used in photo editors; a good quality default.                           |
+| **11** | `FILTER_CATROM`          | Catmull-Rom spline – sharp cubic filter preserving edges well.                             | Good for natural images where edge detail matters.                                |
+| **12** | `FILTER_MITCHELL`        | Mitchell–Netravali cubic filter – balanced between sharpness and smoothness.               | Often used as a high-quality general-purpose resampler.                           |
+| **13** | `FILTER_LANCZOS`         | Lanczos (windowed sinc) – excellent quality, minimal aliasing.                             | Best for downscaling photographs or detailed textures; slowest but sharpest.      |
+| **14** | `FILTER_BLACKMAN_BESSEL` | Blackman–Bessel – very high-order smooth filter, minimal ringing.                          | Scientific or print applications where color fidelity is critical.                |
+| **15** | `FILTER_BLACKMAN_SINC`   | Blackman–Sinc – Blackman window with Sinc kernel, extremely high quality.                  | Top-tier downscaling, archival or professional image processing; very slow.       |
 
 ## License
 
