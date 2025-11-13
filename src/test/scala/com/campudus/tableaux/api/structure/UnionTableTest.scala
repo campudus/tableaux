@@ -1022,6 +1022,49 @@ class RetrieveRowUnionTableTest extends TableauxTestBase with UnionTableTestHelp
   }
 
   @Test
+  def unionTable_retrieveRowWithTwoColumnsToSameOriginColumnInOneTable_ok(implicit c: TestContext): Unit = okTest {
+    val valuesTable2Row1 = Json.arr(
+      Json.obj("de" -> "table2_de", "en" -> "table2_en"),
+      "color1",
+      Json.obj("de" -> "Rot", "en" -> "Red"),
+      Json.obj("de" -> "Rot", "en" -> "Red"),
+      1,
+      Json.arr(Json.obj("id" -> 1, "value" -> "table1row1"))
+    )
+
+    val secondColumnToOriginColumnColor =
+      Json.obj(
+        "name" -> "color2",
+        "kind" -> "text",
+        "ordering" -> 2,
+        "languageType" -> "language",
+        "displayName" -> Json.obj("de" -> "Name der Farbe 2", "en" -> "Color Name 2"),
+        "description" -> Json.obj("de" -> "Name der Farbe 2", "en" -> "Name of the color 2"),
+        "originColumns" -> Json.arr(
+          Json.obj("tableId" -> 2, "columnId" -> 2),
+          Json.obj("tableId" -> 3, "columnId" -> 3),
+          Json.obj("tableId" -> 4, "columnId" -> 2)
+        )
+      )
+
+    for {
+      tableId <- createUnionTable(true)
+      // add another column that maps to the same origin columns as column 3
+      columns <- sendRequest(
+        "POST",
+        s"/tables/$tableId/columns",
+        Json.obj("columns" -> Json.arr(secondColumnToOriginColumnColor))
+      )
+      resultRowTable2Row1 <- sendRequest("GET", s"/tables/$tableId/rows/2000001")
+
+    } yield {
+      assertEquals(2000001, resultRowTable2Row1.getInteger("id"))
+      assertEquals(2, resultRowTable2Row1.getInteger("tableId"))
+      assertJSONEquals(valuesTable2Row1, resultRowTable2Row1.getJsonArray("values"))
+    }
+  }
+
+  @Test
   def unionTable_retrieveRowThatDoesNotExist_shouldFail(implicit c: TestContext): Unit =
     exceptionTest("NOT FOUND") {
       for {
