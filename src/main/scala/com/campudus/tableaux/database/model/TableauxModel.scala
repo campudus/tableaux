@@ -1883,6 +1883,27 @@ class TableauxModel(
     retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt)
   }
 
+  def retrieveUnionTableCellHistory(
+      table: Table,
+      column: UnionColumn,
+      rowId: RowId,
+      langtagOpt: Option[String],
+      typeOpt: Option[String],
+      includeDeleted: Boolean
+  )(implicit user: TableauxUser): Future[Seq[History]] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(rowId, UnionTableRow.rowOffset)
+    val originColumnId = column.originColumns.tableId2ColumnId(originTableId)
+
+    for {
+      originTable <- retrieveTable(originTableId)
+      originColumn <- retrieveColumn(originTable, originColumnId)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn))
+      cellHistorySeq <-
+        retrieveHistoryModel.retrieveCell(originTable, originColumn, originRowId, langtagOpt, typeOpt, includeDeleted)
+      remappedCellHistorySeq = cellHistorySeq.map(_.toUnionTableHistory(rowId, column.id))
+    } yield remappedCellHistorySeq
+  }
+
   def retrieveCellHistory(
       table: Table,
       columnId: ColumnId,
@@ -1904,7 +1925,16 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
-      cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt, includeDeleted)
+      cellHistorySeq <- table.tableType match {
+        case UnionTable =>
+          column match {
+            case unionColumn: UnionColumn =>
+              retrieveUnionTableCellHistory(table, unionColumn, rowId, langtagOpt, typeOpt, includeDeleted)
+            case _ => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
+          }
+        case _ =>
+          retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt, includeDeleted)
+      }
     } yield cellHistorySeq
   }
 
