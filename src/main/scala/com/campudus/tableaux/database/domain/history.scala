@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.History.RevisionId
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
+import com.campudus.tableaux.database.model.TableauxModel._
 
 import org.vertx.scala.core.json._
 
@@ -49,33 +49,26 @@ object History {
 
   implicit class HistoryOps(h: History) {
 
-    // def toUnionTableHistory(originTableRowId: RowId): History = {
-    //   val baseHistory =
-    //     BaseHistory(h.revision, originTableRowId, h.event, h.historyType, h.author, h.timestamp, h.deletedAt)
-
-    //   h match {
-    //     // case ch: CellHistory =>
-    //     //   val columnId = originColumnIdOpt.getOrElse(ch.columnId)
-    //     //   CellHistory(baseHistory, columnId, ch.valueType, ch.languageType, ch.value)
-    //     // case cfh: CellFlagHistory =>
-    //     //   val columnId = originColumnIdOpt.getOrElse(cfh.columnId)
-    //     // CellFlagHistory(baseHistory, columnId, cfh.languageType, cfh.value)
-    //     case rh: RowHistory => RowHistory(baseHistory, rh.value)
-    //     case rf: RowFlagHistory => RowFlagHistory(baseHistory, rf.valueType)
-    //     case rph: RowPermissionsHistory => RowPermissionsHistory(baseHistory, rph.valueType, rph.value)
-    //     case _ => throw new IllegalArgumentException(
-    //         s"Invalid historyType for toUnionTableHistory: ${h.getClass.getSimpleName}"
-    //       )
-    //   }
-    // }
-
     /**
       * In order to map the history entries to the cells of the union table in FE, we must overwrite the rowId and
-      * columnId of the history with those of the UnionTable.
+      * columnId of the history with those of the UnionTable. For the lookup of the correct union columnId, a mapping
+      * from unionColumnId to originColumnId must be provided.
+      *
+      * @param unionRowId
+      * @param unionColumnMapping2originColumn
+      * @return
+      *   remapped History
       */
-    def toUnionTableHistory(unionRowId: RowId, unionColumnId: ColumnId): History = {
+    def toUnionTableHistory(
+        unionRowId: RowId,
+        unionColumnMapping2originColumn: Map[UnionColumnId, OriginColumnId]
+    ): History = {
       val baseHistory =
         BaseHistory(h.revision, unionRowId, h.event, h.historyType, h.author, h.timestamp, h.deletedAt)
+
+      val unionColumnId = unionColumnMapping2originColumn.collectFirst({
+        case (ucId, originColId) if h.columnIdOpt.contains(originColId) => ucId
+      }).getOrElse(-1L) // should never happen
 
       h match {
         case ch: CellHistory => CellHistory(baseHistory, unionColumnId, ch.valueType, ch.languageType, ch.value)
