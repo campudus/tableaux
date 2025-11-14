@@ -141,7 +141,7 @@ Configuration for thumbnails and cache retention can be configured in the config
 ```json
 "thumbnails": {
     // Resize filter used in thumbnail generation (value between 1 and 15) (default: 3 -> FILTER_TRIANGLE)
-    "defaultResizeFilter": 3,
+    "resizeFilter": 3,
     // Generate thumbnails at server start (default: false)
     "enableCacheWarmup": true,
     // Target widths for automatic thumbnail generation (default: [])
