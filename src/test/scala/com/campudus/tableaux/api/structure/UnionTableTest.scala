@@ -652,7 +652,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       retrieveDependentRows <- sendRequest("GET", s"/tables/$tableId/rows/1/dependent").toException()
       retrieveCellAnnotations <-
         sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/annotations").toException()
-      retrieveCellHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/history").toException()
       retrieveColumnHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/history").toException()
       retrieveRowHistory <- sendRequest("GET", s"/tables/$tableId/rows/1/history").toException()
       retrieveTableHistory <- sendRequest("GET", s"/tables/$tableId/history").toException()
@@ -661,8 +660,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       deleteRowPermissions <- sendRequest("DELETE", s"/tables/$tableId/rows/1/permissions").toException()
       replaceRowPermissions <-
         sendRequest("PUT", s"/tables/$tableId/rows/1/permissions", permissionsPayload).toException()
-      retrieveCellHistory <-
-        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/history").toException()
       createRow <- sendRequest("POST", s"/tables/$tableId/rows", Json.obj()).toException()
       duplicateRow <- sendRequest("POST", s"/tables/$tableId/rows/1/duplicate").toException()
       updateRowAnnotations <-
@@ -688,14 +685,12 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       assertEquals(expectedException, retrieveForeignRows)
       assertEquals(expectedException, retrieveDependentRows)
       assertEquals(expectedException, retrieveCellAnnotations)
-      assertEquals(expectedException, retrieveCellHistory)
       assertEquals(expectedException, retrieveColumnHistory)
       assertEquals(expectedException, retrieveRowHistory)
       assertEquals(expectedException, retrieveTableHistory)
       assertEquals(expectedException, addRowPermissions)
       assertEquals(expectedException, deleteRowPermissions)
       assertEquals(expectedException, replaceRowPermissions)
-      assertEquals(expectedException, retrieveCellHistory)
       assertEquals(expectedException, createRow)
       assertEquals(expectedException, duplicateRow)
       assertEquals(expectedException, updateRowAnnotations)
@@ -1128,6 +1123,28 @@ class RetrieveAnnotationsUnionTableTest extends TableauxTestBase with UnionTable
 
       assertJSONEquals(expectedAnnotations, annotationsFirstRow1)
       assertJSONEquals(expectedAnnotations, annotationsFirstRow2)
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveHistoryUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
+
+  @Test
+  def unionTable_retrieveCellHistory_ok(implicit c: TestContext): Unit = okTest {
+    val expectedHistory = Json.arr(
+      Json.obj("revision" -> 1, "rowId" -> 4000001, "event" -> "row_created"),
+      Json.obj("revision" -> 5, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 5),
+      Json.obj("revision" -> 41, "rowId" -> 4000001, "event" -> "annotation_added", "columnId" -> 5)
+    )
+    val importantFlag = """{"type": "flag", "value": "important"}"""
+
+    for {
+      tableId <- createUnionTable(true)
+      _ <- sendRequest("POST", s"/tables/4/columns/1/rows/1/annotations", importantFlag)
+      cellHistory <- sendRequest("GET", s"/tables/$tableId/columns/5/rows/4000001/history").map(_.getJsonArray("rows"))
+    } yield {
+      assertJSONEquals(expectedHistory, cellHistory)
     }
   }
 }
