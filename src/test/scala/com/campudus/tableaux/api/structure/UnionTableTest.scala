@@ -652,8 +652,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       retrieveDependentRows <- sendRequest("GET", s"/tables/$tableId/rows/1/dependent").toException()
       retrieveCellAnnotations <-
         sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/annotations").toException()
-      retrieveColumnHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/history").toException()
-      retrieveTableHistory <- sendRequest("GET", s"/tables/$tableId/history").toException()
       addRowPermissions <-
         sendRequest("PATCH", s"/tables/$tableId/rows/1/permissions", permissionsPayload).toException()
       deleteRowPermissions <- sendRequest("DELETE", s"/tables/$tableId/rows/1/permissions").toException()
@@ -684,8 +682,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       assertEquals(expectedException, retrieveForeignRows)
       assertEquals(expectedException, retrieveDependentRows)
       assertEquals(expectedException, retrieveCellAnnotations)
-      assertEquals(expectedException, retrieveColumnHistory)
-      assertEquals(expectedException, retrieveTableHistory)
       assertEquals(expectedException, addRowPermissions)
       assertEquals(expectedException, deleteRowPermissions)
       assertEquals(expectedException, replaceRowPermissions)
@@ -1164,6 +1160,50 @@ class RetrieveHistoryUnionTableTest extends TableauxTestBase with UnionTableTest
       rowHistory <- sendRequest("GET", s"/tables/$tableId/rows/4000001/history").map(_.getJsonArray("rows"))
     } yield {
       assertJSONEquals(expectedHistory, rowHistory)
+    }
+  }
+
+  @Test
+  def unionTable_retrieveColumnHistory_ok(implicit c: TestContext): Unit = okTest {
+    val expectedHistory = Json.arr( // without values, because order of history creation is not guaranteed
+      // Json.obj("revision" -> 1, "rowId" -> 4000001, "event" -> "row_created"),
+      // Json.obj("revision" -> 2, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 4),
+      // Json.obj("revision" -> 3, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 2),
+      // Json.obj("revision" -> 4, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 3),
+      // Json.obj("revision" -> 5, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 5),
+      // Json.obj("revision" -> 41, "rowId" -> 4000001, "event" -> "annotation_added", "columnId" -> 5)
+    )
+    val importantFlag = """{"type": "flag", "value": "important"}"""
+
+    for {
+      tableId <- createUnionTable(true)
+      _ <- sendRequest("POST", s"/tables/4/columns/1/rows/1/annotations", importantFlag)
+      columnHistory <- sendRequest("GET", s"/tables/$tableId/columns/5/history").map(_.getJsonArray("rows"))
+    } yield {
+      // uhh, we have to requests every origin table and merge the results to get the full history for the union column
+      assertJSONEquals(expectedHistory, columnHistory)
+    }
+  }
+
+  @Test
+  def unionTable_retrieveTableHistory_ok(implicit c: TestContext): Unit = okTest {
+    val expectedHistory = Json.arr( // without values, because order of history creation is not guaranteed
+      // Json.obj("revision" -> 1, "rowId" -> 4000001, "event" -> "row_created"),
+      // Json.obj("revision" -> 2, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 4),
+      // Json.obj("revision" -> 3, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 2),
+      // Json.obj("revision" -> 4, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 3),
+      // Json.obj("revision" -> 5, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 5),
+      // Json.obj("revision" -> 41, "rowId" -> 4000001, "event" -> "annotation_added", "columnId" -> 5)
+    )
+    val importantFlag = """{"type": "flag", "value": "important"}"""
+
+    for {
+      tableId <- createUnionTable(true)
+      _ <- sendRequest("POST", s"/tables/4/columns/1/rows/1/annotations", importantFlag)
+      tableHistory <- sendRequest("GET", s"/tables/$tableId/history").map(_.getJsonArray("rows"))
+    } yield {
+      // uhh, we have to requests every origin table and merge the results to get the full history for the union column
+      assertJSONEquals(expectedHistory, tableHistory)
     }
   }
 }
