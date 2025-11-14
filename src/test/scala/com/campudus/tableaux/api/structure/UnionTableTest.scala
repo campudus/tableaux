@@ -653,7 +653,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       retrieveCellAnnotations <-
         sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/annotations").toException()
       retrieveColumnHistory <- sendRequest("GET", s"/tables/$tableId/columns/1/history").toException()
-      retrieveRowHistory <- sendRequest("GET", s"/tables/$tableId/rows/1/history").toException()
       retrieveTableHistory <- sendRequest("GET", s"/tables/$tableId/history").toException()
       addRowPermissions <-
         sendRequest("PATCH", s"/tables/$tableId/rows/1/permissions", permissionsPayload).toException()
@@ -686,7 +685,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       assertEquals(expectedException, retrieveDependentRows)
       assertEquals(expectedException, retrieveCellAnnotations)
       assertEquals(expectedException, retrieveColumnHistory)
-      assertEquals(expectedException, retrieveRowHistory)
       assertEquals(expectedException, retrieveTableHistory)
       assertEquals(expectedException, addRowPermissions)
       assertEquals(expectedException, deleteRowPermissions)
@@ -1145,6 +1143,27 @@ class RetrieveHistoryUnionTableTest extends TableauxTestBase with UnionTableTest
       cellHistory <- sendRequest("GET", s"/tables/$tableId/columns/5/rows/4000001/history").map(_.getJsonArray("rows"))
     } yield {
       assertJSONEquals(expectedHistory, cellHistory)
+    }
+  }
+
+  @Test
+  def unionTable_retrieveRowHistory_ok(implicit c: TestContext): Unit = okTest {
+    val expectedHistory = Json.arr( // without values, because order of history creation is not guaranteed
+      Json.obj("revision" -> 1, "rowId" -> 4000001, "event" -> "row_created"),
+      Json.obj("revision" -> 2, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 4),
+      Json.obj("revision" -> 3, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 2),
+      Json.obj("revision" -> 4, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 3),
+      Json.obj("revision" -> 5, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 5),
+      Json.obj("revision" -> 41, "rowId" -> 4000001, "event" -> "annotation_added", "columnId" -> 5)
+    )
+    val importantFlag = """{"type": "flag", "value": "important"}"""
+
+    for {
+      tableId <- createUnionTable(true)
+      _ <- sendRequest("POST", s"/tables/4/columns/1/rows/1/annotations", importantFlag)
+      rowHistory <- sendRequest("GET", s"/tables/$tableId/rows/4000001/history").map(_.getJsonArray("rows"))
+    } yield {
+      assertJSONEquals(expectedHistory, rowHistory)
     }
   }
 }
