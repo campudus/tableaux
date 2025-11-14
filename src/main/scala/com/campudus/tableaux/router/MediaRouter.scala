@@ -232,6 +232,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   private def serveFile(context: RoutingContext): Unit = {
     val isWorkingDirectoryAbsolute = config.isWorkingDirectoryAbsolute
     val thumbnailWidth = getIntQuery("width", context)
+    val thumbnailFilter = getIntQuery("filter", context)
 
     for {
       uuid <- getUUID(context)
@@ -244,7 +245,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
           for {
             (file, filePaths) <- controller.retrieveFile(fileUUid)
             path <- thumbnailWidth match {
-              case Some(width) => controller.retrieveThumbnailPath(fileUUid, langtag, width)
+              case Some(width) => controller.retrieveThumbnailPath(fileUUid, langtag, width, thumbnailFilter)
               case _ => Future.successful(filePaths(langtag))
             }
             mimeType = thumbnailWidth match {

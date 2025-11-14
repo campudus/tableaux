@@ -41,8 +41,9 @@ class ThumbnailVerticleTest extends TableauxTestBase {
 
       val thumbnailMimeType = "image/png"
       val thumbnailWidth = 400
+      val thumbnailFilter = 3 // default
       val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
-      val thumbnailPathExpected = s"/com/campudus/tableaux/uploads/Screen.Shot_$thumbnailWidth.png"
+      val thumbnailPathExpected = s"/com/campudus/tableaux/uploads/Screen.Shot_${thumbnailWidth}_${thumbnailFilter}.png"
       val thumbnailBufferExpected =
         vertx.fileSystem.readFileBlocking(getClass.getResource(thumbnailPathExpected).toURI.getPath)
 
@@ -58,7 +59,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
         internalName = uploadedFile.getJsonObject("internalName").getString("de-DE")
         extension = Path(internalName).extension
         internalUuid = internalName.replace(s".$extension", "")
-        thumbnailName = s"${internalUuid}_$thumbnailWidth.png"
+        thumbnailName = s"${internalUuid}_${thumbnailWidth}_${thumbnailFilter}.png"
         thumbnailPath = thumbnailsDirectoryPath / Path(thumbnailName)
 
         doesThumbnailExistBeforeRequest <- vertx.fileSystem().existsFuture(thumbnailPath.toString)
@@ -169,6 +170,121 @@ class ThumbnailVerticleTest extends TableauxTestBase {
           httpRequest(
             "GET",
             s"/files/$fileUuid/de-DE/$encodedFileName?width=$thumbnailWidth",
+            (client: HttpClient, resp: HttpClientResponse) => {
+              resp.bodyHandler((buffer: Buffer) => {
+                assertEquals(400, resp.statusCode())
+
+                client.close()
+
+                if (resp.statusCode() != 200) {
+                  p.failure(TestCustomException(buffer.toString(), resp.statusMessage(), resp.statusCode()))
+                } else {
+                  p.success(buffer)
+                }
+              })
+            },
+            (client: HttpClient, x: Throwable) => {
+              client.close()
+              c.fail(x)
+              p.failure(x)
+            },
+            None
+          ).end()
+        )
+      } yield ()
+    }
+  }
+
+  @Test
+  def testThumbnailCreationWithFilter(implicit c: TestContext): Unit = {
+    okTest {
+      val fileName = "Screen.Shot.png"
+      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+      val fileMimeType = "image/png"
+
+      val thumbnailMimeType = "image/png"
+      val thumbnailWidth = 400
+      val thumbnailFilter = 13
+      val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
+      val thumbnailPathExpected = s"/com/campudus/tableaux/uploads/Screen.Shot_${thumbnailWidth}_${thumbnailFilter}.png"
+      val thumbnailBufferExpected =
+        vertx.fileSystem.readFileBlocking(getClass.getResource(thumbnailPathExpected).toURI.getPath)
+
+      val meta = Json.obj(
+        "title" -> Json.obj("de-DE" -> "Test Image"),
+        "description" -> Json.obj("de-DE" -> "A screenshot")
+      )
+
+      for {
+        file <- sendRequest("POST", "/files", meta)
+        fileUuid = file.getString("uuid")
+        uploadedFile <- uploadFile("PUT", s"/files/$fileUuid/de-DE", filePath, fileMimeType)
+        internalName = uploadedFile.getJsonObject("internalName").getString("de-DE")
+        extension = Path(internalName).extension
+        internalUuid = internalName.replace(s".$extension", "")
+        thumbnailName = s"${internalUuid}_${thumbnailWidth}_${thumbnailFilter}.png"
+        thumbnailPath = thumbnailsDirectoryPath / Path(thumbnailName)
+
+        doesThumbnailExistBeforeRequest <- vertx.fileSystem().existsFuture(thumbnailPath.toString)
+
+        thumbnailBuffer <- futurify((p: Promise[Buffer]) =>
+          httpRequest(
+            "GET",
+            s"/files/$fileUuid/de-DE/$fileName?width=$thumbnailWidth&filter=$thumbnailFilter",
+            (client: HttpClient, resp: HttpClientResponse) => {
+              assertEquals(200, resp.statusCode())
+              assertEquals("Should get the correct MIME type", Some(thumbnailMimeType), resp.getHeader("content-type"))
+
+              resp.bodyHandler((buffer: Buffer) => {
+                client.close()
+                p.success(buffer)
+              })
+            },
+            (client: HttpClient, x: Throwable) => {
+              client.close()
+              c.fail(x)
+              p.failure(x)
+            },
+            None
+          ).end()
+        )
+
+        doesThumbnailExistAfterRequest <- vertx.fileSystem().existsFuture(thumbnailPath.toString)
+
+        _ <- sendRequest("DELETE", s"/files/$fileUuid")
+        _ <- vertx.fileSystem().deleteFuture(thumbnailPath.toString())
+      } yield {
+        assertEquals(false, doesThumbnailExistBeforeRequest)
+        assertEquals("Should be the expected file", thumbnailBufferExpected, thumbnailBuffer)
+        assertEquals(true, doesThumbnailExistAfterRequest)
+      }
+    }
+  }
+
+  @Test
+  def testThumbnailCreationInvalidFilter(implicit c: TestContext): Unit = {
+    exceptionTest("error.request.invalid") {
+      val fileName = "Screen.Shot.png"
+      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+      val fileMimeType = "image/png"
+
+      val thumbnailWidth = 400
+      val thumbnailFilter = 16
+
+      val meta = Json.obj(
+        "title" -> Json.obj("de-DE" -> "Test Image"),
+        "description" -> Json.obj("de-DE" -> "A screenshot")
+      )
+
+      for {
+        file <- sendRequest("POST", "/files", meta)
+        fileUuid = file.getString("uuid")
+        _ <- uploadFile("PUT", s"/files/$fileUuid/de-DE", filePath, fileMimeType)
+
+        _ <- futurify((p: Promise[Buffer]) =>
+          httpRequest(
+            "GET",
+            s"/files/$fileUuid/de-DE/$fileName?width=$thumbnailWidth&filter=$thumbnailFilter",
             (client: HttpClient, resp: HttpClientResponse) => {
               resp.bodyHandler((buffer: Buffer) => {
                 assertEquals(400, resp.statusCode())

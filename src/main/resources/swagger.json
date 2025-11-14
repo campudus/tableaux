@@ -333,6 +333,13 @@
             "in": "query",
             "required": false,
             "type": "integer"
+          },
+          {
+            "name": "filter",
+            "description": "Quality filter for image resizing (1-15; 1 lowest quality; 15 highest quality)",
+            "in": "query",
+            "required": false,
+            "type": "integer"
           }
         ],
         "responses": {

@@ -287,7 +287,7 @@ class MediaController(
     }
   }
 
-  def retrieveThumbnailPath(uuid: UUID, langtag: String, width: Int): Future[Path] = {
+  def retrieveThumbnailPath(uuid: UUID, langtag: String, width: Int, filter: Option[Int]): Future[Path] = {
     val timeout = Option(config.thumbnailsConfig.getInteger("timeout")).map(_.intValue).getOrElse(10000);
     val context = s"(uuid: ${uuid.toString}, langtag: $langtag, width: ${width.toString})"
 
@@ -295,7 +295,7 @@ class MediaController(
       case w if w <= 0 =>
         logger.error(s"Invalid thumbnail request $context: width must be positive")
         Future.failed(InvalidRequestException(s"Invalid thumbnail request: width must be positive"))
-      case _ => eventClient.retrieveThumbnailPath(uuid, langtag, width, timeout).recoverWith({
+      case _ => eventClient.retrieveThumbnailPath(uuid, langtag, width, filter, timeout).recoverWith({
           case ex: ReplyException if ex.failureCode() == 400 =>
             logger.error(s"Invalid thumbnail request $context: ${ex.getMessage}", ex)
             Future.failed(InvalidRequestException(s"Invalid thumbnail request: ${ex.getMessage}"))
