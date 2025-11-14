@@ -148,7 +148,7 @@ Configuration for thumbnails and cache retention can be configured in the config
     "cacheWarmupWidths": [200, 400],
     // Chunks of thumbnails generated in parallel (default: 100)
     "cacheWarmupChunkSize": 100,
-    // Maximum age of thumbnail in seconds after it is deleted (default: 2592000 -> 30 days)
+    // Maximum age of thumbnail in seconds before it is deleted (default: 2592000 -> 30 days)
     "cacheMaxAge": 2592000,
     // polling interval in milliseconds for max age check (default: 21600000 -> 6 hours)
     "cacheClearPollingInterval": 21600000,
