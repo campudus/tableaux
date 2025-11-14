@@ -67,6 +67,7 @@ object BasicColumnInformation {
       createColumn.maxLength,
       createColumn.minLength,
       createColumn.decimalDigits
+      // None
     )
   }
 }
@@ -384,6 +385,7 @@ object SimpleValueColumn {
       case DateType => DateColumn.apply
       case DateTimeType => DateTimeColumn.apply
       case IntegerType => IntegerColumn.apply
+      case OriginTableType => OriginTableColumn.apply
 
       case _ => throw new IllegalArgumentException("Can only map type to SimpleValueColumn")
     }
@@ -753,6 +755,34 @@ case class GroupColumn(
       .mergeIn(groupsJson)
       .mergeIn(formatPatternJson)
       .mergeIn(showMemberColumnsJson)
+  }
+}
+
+case class OriginTableColumn(override val languageType: LanguageType)(
+    override val columnInformation: ColumnInformation
+)(implicit override val roleModel: RoleModel, val user: TableauxUser)
+    extends SimpleValueColumn[OriginTableColumn](OriginTableType)(languageType) {
+  override def checkValidSingleValue[B](value: B): Try[OriginTableColumn] = Try(value.asInstanceOf[OriginTableColumn])
+}
+
+case class UnionColumn(
+    override val kind: TableauxDbType,
+    override val languageType: LanguageType,
+    override val columnInformation: ColumnInformation,
+    originColumns: OriginColumns
+)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[UnionColumn](kind)(languageType) {
+  override def checkValidSingleValue[B](value: B): Try[UnionColumn] = Try(value.asInstanceOf[UnionColumn])
+
+  override def getJson: JsonObject = {
+    val originColumnsJson = originColumns.getJson
+    if (originColumnsJson.isEmpty) {
+      super.getJson
+    } else {
+      super.getJson.mergeIn(Json.obj(OriginColumns.fieldName -> originColumnsJson))
+    }
   }
 }
 

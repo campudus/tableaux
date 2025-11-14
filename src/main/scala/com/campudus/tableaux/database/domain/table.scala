@@ -14,6 +14,7 @@ object TableType {
       case GenericTable.NAME => GenericTable
       case SettingsTable.NAME => SettingsTable
       case TaxonomyTable.NAME => TaxonomyTable
+      case UnionTable.NAME => UnionTable
       case _ => throw new IllegalArgumentException("Unknown table type")
     }
   }
@@ -35,10 +36,14 @@ case object TaxonomyTable extends TableType {
   override val NAME = "taxonomy"
 }
 
+case object UnionTable extends TableType {
+  override val NAME = "union"
+}
+
 object Table {
 
   def apply(id: TableId)(implicit roleModel: RoleModel, user: TableauxUser): Table = {
-    Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None, None, None)
+    Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None, None, None, None)
   }
 }
 
@@ -51,8 +56,19 @@ case class Table(
     tableType: TableType,
     tableGroup: Option[TableGroup],
     attributes: Option[JsonObject],
-    concatFormatPattern: Option[String]
+    concatFormatPattern: Option[String],
+    originTables: Option[Seq[TableId]]
 )(implicit roleModel: RoleModel = RoleModel(), user: TableauxUser) extends DomainObject {
+
+  def getDisplayNameJson: JsonObject = {
+    val displayNameJson = Json.obj()
+    displayInfos.foreach { di =>
+      di.optionalName.map(name => {
+        displayNameJson.mergeIn(Json.obj(di.langtag -> name))
+      })
+    }
+    displayNameJson
+  }
 
   override def getJson: JsonObject = {
     val tableJson = Json.obj(
@@ -93,6 +109,10 @@ case class Table(
     tableJson.mergeIn(concatFormatPatternJson)
 
     tableGroup.foreach(tg => tableJson.put("group", tg.getJson))
+
+    if (originTables.isDefined) {
+      tableJson.mergeIn(Json.obj("originTables" -> originTables.getOrElse(Seq.empty)))
+    }
 
     tableJson
   }

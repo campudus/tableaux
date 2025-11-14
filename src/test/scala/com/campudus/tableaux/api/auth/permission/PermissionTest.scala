@@ -20,7 +20,7 @@ class PermissionTest {
       hidden: Boolean = false,
       tableType: TableType = GenericTable,
       tableGroupOpt: Option[TableGroup] = None
-  ): Table = Table(id, name, hidden, null, null, tableType, tableGroupOpt, None, None)
+  ): Table = Table(id, name, hidden, null, null, tableType, tableGroupOpt, None, None, None)
 
   private def createSimpleColumn(
       id: Long = 1,
@@ -30,7 +30,6 @@ class PermissionTest {
       identifier: Boolean = false,
       table: Table = createTable()
   ): ColumnType[_] = {
-    // displayInfos, only to prevent NPE while println
     val displayInfos = Seq(DisplayInfos.fromString("en", "name", "desc"))
     val createColumn: CreateColumn =
       CreateSimpleColumn(name, null, kind, languageType, identifier, displayInfos, false, None)
@@ -63,7 +62,7 @@ class PermissionTest {
   @Test
   def isMatching_tablePermissionRegexAll_returnsTrue(): Unit = {
 
-    val table = Table(1, "table", hidden = false, null, null, null, null, None, None)
+    val table = Table(1, "table", hidden = false, null, null, null, null, None, None, None)
 
     val permission: Permission = Permission(defaultPermissionJson)
     Assert.assertEquals(true, permission.isMatching(ViewTable, ComparisonObjects(table)))
