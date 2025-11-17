@@ -21,9 +21,9 @@ project.version = '0.1.0'
 def vertxVersion = '3.8.0'
 def scalaVersion = '2.12.8'
 
-sourceCompatibility = '11'
+sourceCompatibility = '17'
 
-def requiredJavaVersion = JavaVersion.VERSION_11
+def requiredJavaVersion = JavaVersion.VERSION_17
 // ensure that the build fails if sdk version doesn't match the required version
 if(JavaVersion.current() < requiredJavaVersion) {
   throw new GradleException("This project requires minimum Java Version ${requiredJavaVersion}, but it's running on " + JavaVersion.current())
