@@ -24,6 +24,7 @@
     "apiKey": "<cdn-api-key>"
   },
   "thumbnails": {
+    "resizeFilter": 3,
     "enableCacheWarmup": true,
     "cacheWarmupWidths": [200, 400],
     "cacheWarmupChunkSize": 100,
