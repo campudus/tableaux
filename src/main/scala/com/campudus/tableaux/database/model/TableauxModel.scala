@@ -985,16 +985,34 @@ class TableauxModel(
     } yield cellLevelAnnotations
   }
 
-  def retrieveCell(
-      table: Table,
-      columnId: ColumnId,
-      rowId: RowId,
-      isInternalCall: Boolean = false
-  )(implicit user: TableauxUser): Future[Cell[Any]] = {
+  def retrieveUnionTableCell(unionColumn: UnionColumn, compositeId: RowId, isInternalCall: Boolean = false)(
+      implicit user: TableauxUser
+  ): Future[Cell[Any]] = {
+    val (originTableId, rowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+    val originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
+
+    for {
+      originTable <- retrieveTable(originTableId)
+      originColumn <- retrieveColumn(originTable, originColumnId)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn), isInternalCall)
+      cell <- retrieveCell(originColumn, rowId, isInternalCall)
+    } yield cell
+  }
+
+  def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId, isInternalCall: Boolean = false)(
+      implicit user: TableauxUser
+  ): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column), isInternalCall)
-      cell <- retrieveCell(column, rowId, isInternalCall)
+      cell <- table.tableType match {
+        case UnionTable =>
+          column match {
+            case unionColumn: UnionColumn => retrieveUnionTableCell(unionColumn, rowId, isInternalCall)
+            case _ => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
+          }
+        case _ => retrieveCell(column, rowId, isInternalCall)
+      }
     } yield cell
   }
 
@@ -1884,15 +1902,14 @@ class TableauxModel(
   }
 
   def retrieveUnionTableCellHistory(
-      table: Table,
-      column: UnionColumn,
+      unionColumn: UnionColumn,
       rowId: RowId,
       langtagOpt: Option[String],
       typeOpt: Option[String],
       includeDeleted: Boolean
   )(implicit user: TableauxUser): Future[Seq[History]] = {
     val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(rowId, UnionTableRow.rowOffset)
-    val originColumnId = column.originColumns.tableId2ColumnId(originTableId)
+    val originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
 
     for {
       originTable <- retrieveTable(originTableId)
@@ -1900,7 +1917,7 @@ class TableauxModel(
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn))
       cellHistorySeq <-
         retrieveHistoryModel.retrieveCell(originTable, originColumn, originRowId, langtagOpt, typeOpt, includeDeleted)
-      remappedCellHistorySeq = cellHistorySeq.map(_.toUnionTableHistory(rowId, Map(column.id -> originColumnId)))
+      remappedCellHistorySeq = cellHistorySeq.map(_.toUnionTableHistory(rowId, Map(unionColumn.id -> originColumnId)))
     } yield remappedCellHistorySeq
   }
 
@@ -1929,18 +1946,17 @@ class TableauxModel(
         case UnionTable =>
           column match {
             case unionColumn: UnionColumn =>
-              retrieveUnionTableCellHistory(table, unionColumn, rowId, langtagOpt, typeOpt, includeDeleted)
+              retrieveUnionTableCellHistory(unionColumn, rowId, langtagOpt, typeOpt, includeDeleted)
             case _ => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
           }
-        case _ =>
-          retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt, includeDeleted)
+        case _ => retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt, includeDeleted)
       }
     } yield cellHistorySeq
   }
 
   def retrieveUnionTableColumnHistory(
       unionTable: Table,
-      column: UnionColumn,
+      unionColumn: UnionColumn,
       langtagOpt: Option[String],
       typeOpt: Option[String],
       includeDeleted: Boolean
@@ -1955,7 +1971,7 @@ class TableauxModel(
             for {
               (acc) <- accFuture
               originTable <- retrieveTable(originTableId)
-              originColumnId = column.originColumns.tableId2ColumnId(originTableId)
+              originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
               originColumn <- retrieveColumn(originTable, originColumnId)
               _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn))
               rawHistoryResult <-
@@ -1964,7 +1980,7 @@ class TableauxModel(
                 rawHistoryResult.map(history => {
                   val unionTableRowId =
                     UnionTableHelper.calcRowId(originTableId, history.rowId, UnionTableRow.rowOffset)
-                  history.toUnionTableHistory(unionTableRowId, Map(column.id -> originColumnId))
+                  history.toUnionTableHistory(unionTableRowId, Map(unionColumn.id -> originColumnId))
                 })
 
             } yield acc ++ remappedHistorySeq
@@ -1991,15 +2007,13 @@ class TableauxModel(
               retrieveUnionTableColumnHistory(table, unionColumn, langtagOpt, typeOpt, includeDeleted)
             case _ => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
           }
-        case _ =>
-          retrieveHistoryModel.retrieveColumn(table, column, langtagOpt, typeOpt, includeDeleted)
+        case _ => retrieveHistoryModel.retrieveColumn(table, column, langtagOpt, typeOpt, includeDeleted)
       }
     } yield columnHistorySeq
   }
 
   def retrieveUnionTableRowHistory(
-      table: Table,
-      columns: Seq[UnionColumn],
+      unionColumns: Seq[UnionColumn],
       rowId: RowId,
       langtagOpt: Option[String],
       typeOpt: Option[String],
@@ -2010,7 +2024,7 @@ class TableauxModel(
     for {
       originTable <- retrieveTable(originTableId)
       originColumns <- retrieveColumns(originTable)
-      unionColumn2originColumn = getColumnMapping(originTable, columns)
+      unionColumn2originColumn = getColumnMapping(originTable, unionColumns)
       cellHistorySeq <- retrieveHistoryModel.retrieveRow(originTable, originRowId, langtagOpt, typeOpt, includeDeleted)
       filteredHistorySeq = filterHistoriesForColumns(cellHistorySeq, originColumns)
       remappedHistorySeq = filteredHistorySeq.map(_.toUnionTableHistory(rowId, unionColumn2originColumn))
@@ -2039,9 +2053,8 @@ class TableauxModel(
       cellHistorySeq <- table.tableType match {
         case UnionTable =>
           val unionColumns = columns.collect({ case uc: UnionColumn => uc })
-          retrieveUnionTableRowHistory(table, unionColumns, rowId, langtagOpt, typeOpt, includeDeleted)
-        case _ =>
-          retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt, includeDeleted)
+          retrieveUnionTableRowHistory(unionColumns, rowId, langtagOpt, typeOpt, includeDeleted)
+        case _ => retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt, includeDeleted)
       }
 
       filteredHistorySeq = filterHistoriesForColumns(cellHistorySeq, columns)
@@ -2096,8 +2109,7 @@ class TableauxModel(
         case UnionTable =>
           val unionColumns = columns.collect({ case uc: UnionColumn => uc })
           retrieveUnionTableHistory(table, unionColumns, langtagOpt, typeOpt, includeDeleted)
-        case _ =>
-          retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt, includeDeleted)
+        case _ => retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt, includeDeleted)
       }
       filteredHistorySeq = filterHistoriesForColumns(historySeq, columns)
     } yield filteredHistorySeq

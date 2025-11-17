@@ -634,7 +634,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
 
     for {
       tableId <- createUnionTable()
-      retrieveCell <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/1").toException()
       postCell <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", cellPayload).toException()
       patchCell <- sendRequest("PATCH", s"/tables/$tableId/columns/1/rows/1", cellPayload).toException()
       deleteCell <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1").toException()
@@ -666,7 +665,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").toException()
       retrieveRowsOfFirstColumn <- sendRequest("GET", s"/tables/$tableId/columns/first/rows").toException()
     } yield {
-      assertEquals(expectedException, retrieveCell)
       assertEquals(expectedException, postCell)
       assertEquals(expectedException, patchCell)
       assertEquals(expectedException, deleteCell)
@@ -1204,6 +1202,20 @@ class RetrieveHistoryUnionTableTest extends TableauxTestBase with UnionTableTest
       assertJSONEquals(firstHistoryOfTable2, tableHistory.asScala.toSeq(0).asInstanceOf[JsonObject])
       assertJSONEquals(firstHistoryOfTable4, tableHistory.asScala.toSeq(15).asInstanceOf[JsonObject])
       assertJSONEquals(firstHistoryOfTable3, tableHistory.asScala.toSeq(56).asInstanceOf[JsonObject])
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveCellUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
+
+  @Test
+  def unionTable_retrieveCell_ok(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createUnionTable(true)
+      cellValue <- sendRequest("GET", s"/tables/$tableId/columns/3/rows/4000001").map(_.getJsonObject("value"))
+    } yield {
+      assertJSONEquals(Json.obj("de" -> "Rot", "en" -> "Red"), cellValue)
     }
   }
 }
