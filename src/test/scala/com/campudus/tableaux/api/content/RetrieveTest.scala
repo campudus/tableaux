@@ -369,7 +369,7 @@ class RetrieveRowsTest extends TableauxTestBase {
 
   @Test
   def retrieveRowWithFilteredColumnsByIdsInvalidNoNegative(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments") {
+    okTest {
       for {
         _ <- createDefaultTable()
         _ <- sendRequest("GET", "/tables/1/rows/1?columnIds=-1")
@@ -378,8 +378,8 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveRowWithFilteredColumnsByIdsInvalidNoConcat(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments") {
+  def retrieveRowWithFilteredColumnsByIdsValidWithConcat(implicit c: TestContext): Unit = {
+    okTest {
       for {
         _ <- createDefaultTable()
         _ <- sendRequest("GET", "/tables/1/rows/1?columnIds=0")
@@ -388,7 +388,7 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveRowWithFilteredColumnsByNamesInvalidNoConcat(implicit c: TestContext): Unit = {
+  def retrieveRowWithFilteredColumnsByNamesValidWithConcat(implicit c: TestContext): Unit = {
     exceptionTest("error.arguments") {
       for {
         _ <- createDefaultTable()
@@ -537,8 +537,8 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveRowsWithFilteredColumnsByIdsInvalidNoConcat(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments") {
+  def retrieveRowsWithFilteredColumnsByIdsValidWithConcat(implicit c: TestContext): Unit = {
+    okTest {
       for {
         _ <- createDefaultTable()
         _ <- sendRequest("GET", "/tables/1/rows?columnIds=0")
@@ -557,8 +557,8 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveRowsWithFilteredColumnsByNamesInvalidNoConcat(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments") {
+  def retrieveRowsWithFilteredColumnsByNamesValidWithConcat(implicit c: TestContext): Unit = {
+    okTest {
       for {
         _ <- createDefaultTable()
         _ <- sendRequest("GET", "/tables/1/rows?columnNames=ID")
