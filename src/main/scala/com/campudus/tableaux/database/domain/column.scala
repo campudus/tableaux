@@ -791,19 +791,12 @@ case class ColumnFilter(
 
   override def getJson: JsonObject = Json.obj("columnIds" -> columnIds.orNull, "columnNames" -> columnNames.orNull)
 
-  private def notConcatName(name: String): ArgumentCheck[String] = {
-    name match {
-      case "ID" => FailArg(InvalidJsonException(s"Parameter columnNames should not contain ID column", "invalid"))
-      case value => OkArg(value)
-    }
-  }
-
   def check: ArgumentCheck[_] = {
     (columnIds, columnNames) match {
       case (Some(ids), Some(names)) =>
         FailArg(InvalidJsonException(s"Parameter columnIds can not be used in combination with columnNames", "invalid"))
-      case (Some(ids), None) => sequence(ids.map(greaterZero(_)))
-      case (None, Some(names)) => sequence(names.map(notConcatName(_)))
+      case (Some(ids), None) => sequence(ids.map(greaterThan(_, -1, "columnId")))
+      case (None, Some(names)) => OkArg(None)
       case (None, None) => OkArg(None)
     }
   }
