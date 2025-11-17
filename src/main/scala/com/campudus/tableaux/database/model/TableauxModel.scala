@@ -1405,10 +1405,10 @@ class TableauxModel(
       columns <- retrieveColumns(originTable)
       filteredColumns = filterColumns(originTable, columns)
 
-      unionColumnMapping2originColumn = getColumnMapping(originTable, unionTableColumns)
+      unionColumn2originColumn = getColumnMapping(originTable, unionTableColumns)
 
       // retrieve only relevant columns that we need to return for the union table
-      relevantFilteredColumns = filteredColumns.filter(c => unionColumnMapping2originColumn.values.toSeq.contains(c.id))
+      relevantFilteredColumns = filteredColumns.filter(c => unionColumn2originColumn.values.toSeq.contains(c.id))
 
       rowSeq <- retrieveRows(
         originTable,
@@ -1425,7 +1425,7 @@ class TableauxModel(
 
       unifyColumns = reorderValuesAndAnnotations(
         originColumnValue,
-        unionColumnMapping2originColumn,
+        unionColumn2originColumn,
         relevantFilteredColumns,
         unionTableColumns
       )(_)
@@ -1466,11 +1466,11 @@ class TableauxModel(
           columns <- retrieveColumns(originTable)
           filteredColumns = filterColumns(originTable, columns)
 
-          unionColumnMapping2originColumn = getColumnMapping(originTable, unionTableColumns)
+          unionColumn2originColumn = getColumnMapping(originTable, unionTableColumns)
 
           // retrieve only relevant columns that we need to return for the union table
           relevantFilteredColumns =
-            filteredColumns.filter(c => unionColumnMapping2originColumn.values.toSeq.contains(c.id))
+            filteredColumns.filter(c => unionColumn2originColumn.values.toSeq.contains(c.id))
 
           row <- retrieveRow(originTable, relevantFilteredColumns, rowId, ColumnFilter(None, None))
           filteredRows = roleModel.filterDomainObjects(ViewRow, Seq(row), ComparisonObjects(), false)
@@ -1478,7 +1478,7 @@ class TableauxModel(
 
           unifyColumns = reorderValuesAndAnnotations(
             originColumnValue,
-            unionColumnMapping2originColumn,
+            unionColumn2originColumn,
             relevantFilteredColumns,
             unionTableColumns
           )(_)
@@ -1970,7 +1970,6 @@ class TableauxModel(
             } yield acc ++ remappedHistorySeq
           )
         } yield foldResult
-
     }
   }
 
@@ -2011,10 +2010,10 @@ class TableauxModel(
     for {
       originTable <- retrieveTable(originTableId)
       originColumns <- retrieveColumns(originTable)
-      unionColumnMapping2originColumn = getColumnMapping(originTable, columns)
+      unionColumn2originColumn = getColumnMapping(originTable, columns)
       cellHistorySeq <- retrieveHistoryModel.retrieveRow(originTable, originRowId, langtagOpt, typeOpt, includeDeleted)
-      filteredHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, originColumns)
-      remappedHistorySeq = filteredHistorySeq.map(_.toUnionTableHistory(rowId, unionColumnMapping2originColumn))
+      filteredHistorySeq = filterHistoriesForColumns(cellHistorySeq, originColumns)
+      remappedHistorySeq = filteredHistorySeq.map(_.toUnionTableHistory(rowId, unionColumn2originColumn))
     } yield remappedHistorySeq
   }
 
@@ -2045,8 +2044,47 @@ class TableauxModel(
           retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt, includeDeleted)
       }
 
-      filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
-    } yield filteredCellHistorySeq
+      filteredHistorySeq = filterHistoriesForColumns(cellHistorySeq, columns)
+    } yield filteredHistorySeq
+  }
+
+  def retrieveUnionTableHistory(
+      unionTable: Table,
+      unionColumns: Seq[UnionColumn],
+      langtagOpt: Option[String],
+      typeOpt: Option[String],
+      includeDeleted: Boolean
+  )(
+      implicit user: TableauxUser
+  ): Future[Seq[History]] = {
+    unionTable.originTables match {
+      case None =>
+        Future.failed(InvalidRequestException("Union table has no origin tables defined"))
+
+      case Some(originTables) =>
+        for {
+          foldResult <- originTables.foldLeft(Future.successful(Seq.empty[History]))((accFuture, originTableId) =>
+            for {
+              (acc) <- accFuture
+              originTable <- retrieveTable(originTableId)
+              originColumns <- retrieveColumns(originTable)
+              unionColumn2originColumn = getColumnMapping(originTable, unionColumns)
+              originColumnIds = unionColumn2originColumn.values.toSeq
+              rawHistoryResult <- retrieveHistoryModel.retrieveTable(originTable, langtagOpt, typeOpt, includeDeleted)
+              remappedHistorySeq =
+                rawHistoryResult.filter(history =>
+                  history.columnIdOpt.forall(historyColumnId => originColumnIds.contains(historyColumnId))
+                )
+                  .map(history => {
+                    val unionTableRowId =
+                      UnionTableHelper.calcRowId(originTableId, history.rowId, UnionTableRow.rowOffset)
+                    history.toUnionTableHistory(unionTableRowId, unionColumn2originColumn)
+                  })
+
+            } yield acc ++ remappedHistorySeq
+          )
+        } yield foldResult
+    }
   }
 
   def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String], includeDeleted: Boolean)(
@@ -2054,12 +2092,18 @@ class TableauxModel(
   ): Future[Seq[History]] = {
     for {
       columns <- retrieveColumns(table)
-      cellHistorySeq <- retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt, includeDeleted)
-      filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
-    } yield filteredCellHistorySeq
+      historySeq <- table.tableType match {
+        case UnionTable =>
+          val unionColumns = columns.collect({ case uc: UnionColumn => uc })
+          retrieveUnionTableHistory(table, unionColumns, langtagOpt, typeOpt, includeDeleted)
+        case _ =>
+          retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt, includeDeleted)
+      }
+      filteredHistorySeq = filterHistoriesForColumns(historySeq, columns)
+    } yield filteredHistorySeq
   }
 
-  private def filterCellHistoriesForColumns(cellHistorySeq: Seq[History], columns: Seq[ColumnType[_]]) = {
+  private def filterHistoriesForColumns(cellHistorySeq: Seq[History], columns: Seq[ColumnType[_]]) = {
     cellHistorySeq.filter(history => {
       val columnIds: Seq[ColumnId] = columns.map(_.id)
       history.columnIdOpt.forall(historyColumnId => columnIds.contains(historyColumnId))
