@@ -369,7 +369,7 @@ class RetrieveRowsTest extends TableauxTestBase {
 
   @Test
   def retrieveRowWithFilteredColumnsByIdsInvalidNoNegative(implicit c: TestContext): Unit = {
-    okTest {
+    exceptionTest("error.arguments") {
       for {
         _ <- createDefaultTable()
         _ <- sendRequest("GET", "/tables/1/rows/1?columnIds=-1")
@@ -389,7 +389,7 @@ class RetrieveRowsTest extends TableauxTestBase {
 
   @Test
   def retrieveRowWithFilteredColumnsByNamesValidWithConcat(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments") {
+    okTest {
       for {
         _ <- createDefaultTable()
         _ <- sendRequest("GET", "/tables/1/rows/1?columnNames=ID")
