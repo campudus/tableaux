@@ -130,14 +130,6 @@ sealed trait UnionTableTestHelper extends TableauxTestBase {
     )
 
     val table3ColumnsAndRows = Json.obj(
-      // "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 3), Json.obj("id" -> 4), Json.obj("id" -> 2)),
-      // "rows" -> Json.arr(
-      //   Json.obj("values" -> Json.arr("color12", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
-      //   Json.obj("values" -> Json.arr("color13", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
-      //   Json.obj("values" -> Json.arr("color14", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1))),
-      //   Json.obj("values" -> Json.arr("color15", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
-      //   Json.obj("values" -> Json.arr("color16", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(1)))
-      // )
       "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 3), Json.obj("id" -> 4), Json.obj("id" -> 2)),
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("color12", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
@@ -1197,14 +1189,10 @@ class RetrieveHistoryUnionTableTest extends TableauxTestBase with UnionTableTest
 
   @Test
   def unionTable_retrieveTableHistory_ok(implicit c: TestContext): Unit = okTest {
-    val expectedHistory = Json.arr( // without values, because order of history creation is not guaranteed
-      // Json.obj("revision" -> 1, "rowId" -> 4000001, "event" -> "row_created"),
-      // Json.obj("revision" -> 2, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 4),
-      // Json.obj("revision" -> 3, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 2),
-      // Json.obj("revision" -> 4, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 3),
-      // Json.obj("revision" -> 5, "rowId" -> 4000001, "event" -> "cell_changed", "columnId" -> 5),
-      // Json.obj("revision" -> 41, "rowId" -> 4000001, "event" -> "annotation_added", "columnId" -> 5)
-    )
+    val firstHistoryOfTable2 = Json.obj("revision" -> 1, "rowId" -> 2000001, "event" -> "row_created")
+    val firstHistoryOfTable4 = Json.obj("revision" -> 1, "rowId" -> 4000001, "event" -> "row_created")
+    val firstHistoryOfTable3 = Json.obj("revision" -> 1, "rowId" -> 3000001, "event" -> "row_created")
+
     val importantFlag = """{"type": "flag", "value": "important"}"""
 
     for {
@@ -1212,8 +1200,10 @@ class RetrieveHistoryUnionTableTest extends TableauxTestBase with UnionTableTest
       _ <- sendRequest("POST", s"/tables/4/columns/1/rows/1/annotations", importantFlag)
       tableHistory <- sendRequest("GET", s"/tables/$tableId/history").map(_.getJsonArray("rows"))
     } yield {
-      // uhh, we have to requests every origin table and merge the results to get the full history for the union column
-      assertJSONEquals(expectedHistory, tableHistory)
+      assertEquals(81, tableHistory.size())
+      assertJSONEquals(firstHistoryOfTable2, tableHistory.asScala.toSeq(0).asInstanceOf[JsonObject])
+      assertJSONEquals(firstHistoryOfTable4, tableHistory.asScala.toSeq(15).asInstanceOf[JsonObject])
+      assertJSONEquals(firstHistoryOfTable3, tableHistory.asScala.toSeq(56).asInstanceOf[JsonObject])
     }
   }
 }
