@@ -1,0 +1,14 @@
+version: "3.7"
+
+services:
+  grud-backend:
+    restart: "no"
+    image: localhost/grud-be-25
+    container_name: grud-backend-branch-localhost-grud-be
+    ports:
+      - "8080:8080"
+    # command: ["ls", "-rtl"]
+    # command: ["cat", "config.json"]
+    volumes:
+      # - /Users/mz/dev/tableaux-master/conf-docker.json:/config.json:ro
+      - /Users/mz/dev/tableaux-master/conf-winora_local_prod.jsonc:/config.json:ro

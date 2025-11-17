@@ -21,8 +21,8 @@ RUN gradle -v \
   && gradle testClasses assemble \
   && mv conf-jenkins.json conf-test.json
 
-FROM openjdk:21-slim as prod
+FROM eclipse-temurin:25-alpine as prod
 ARG APP_HOME
 WORKDIR $APP_HOME
 COPY --from=builder $APP_HOME/build/libs/grud-backend-0.1.0-fat.jar ./tableaux-fat.jar
-CMD [ "java", "-Xmx512M", "-jar", "./tableaux-fat.jar", "-conf /config.json" ]
+CMD [ "java", "-Xmx512M", "-jar", "./tableaux-fat.jar", "-conf", "/config.json" ]
