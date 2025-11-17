@@ -4,7 +4,7 @@ final String BRANCH = params.BRANCH
 final boolean NOTIFY_SLACK_ON_FAILURE = params.NOTIFY_SLACK_ON_FAILURE
 final boolean NOTIFY_SLACK_ON_SUCCESS = params.NOTIFY_SLACK_ON_SUCCESS
 
-final String CLEAN_GIT_BRANCH = BRANCH ? BRANCH.replaceAll("[\\.\\_\\#]", "-").tokenize('/').last().toLowerCase() : ""
+final String CLEAN_GIT_BRANCH = BRANCH ? BRANCH.replaceAll("[\\.\\_\\#]", "-").tokenize('/').last().toLowerCase() : "master"
 
 final String IMAGE_NAME = "campudus/grud-backend"
 final String IMAGE_TAG = CLEAN_GIT_BRANCH && CLEAN_GIT_BRANCH != "master" ? CLEAN_GIT_BRANCH : "latest"
@@ -76,6 +76,11 @@ pipeline {
       steps {
         script {
           try {
+            sh """
+              TEST_IMAGE=${IMAGE_NAME}-builder \
+              CLEAN_GIT_BRANCH=${CLEAN_GIT_BRANCH}-build-${BUILD_NUMBER} \
+              docker-compose -f ./docker-compose.run-tests.yml down -v 2>/dev/null || true
+            """
             sh """
               TEST_IMAGE=${IMAGE_NAME}-builder \
               CLEAN_GIT_BRANCH=${CLEAN_GIT_BRANCH}-build-${BUILD_NUMBER} \
