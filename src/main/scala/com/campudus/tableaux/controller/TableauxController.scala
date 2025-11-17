@@ -510,7 +510,6 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ = UnionTableHelper.notImplemented(table)
       cell <- repository.retrieveCell(table, columnId, rowId)
     } yield cell
   }
