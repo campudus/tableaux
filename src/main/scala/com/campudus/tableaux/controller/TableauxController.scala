@@ -720,7 +720,6 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ = UnionTableHelper.notImplemented(table)
       historySequence <- repository.retrieveColumnHistory(table, columnId, langtagOpt, typeOpt, includeDeleted)
     } yield SeqHistory(historySequence)
   }
