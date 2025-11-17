@@ -153,8 +153,8 @@ class GetStructureTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveColumnsFilteredByIdsInvalidNoConcat(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments") {
+  def retrieveColumnsFilteredByIdsValidWithConcat(implicit c: TestContext): Unit = {
+    okTest {
       for {
         _ <- createDefaultTable()
         test <- sendRequest("GET", "/tables/1/columns?columnIds=0")
@@ -215,8 +215,8 @@ class GetStructureTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveColumnsFilteredByNamesInvalidNoConcat(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments") {
+  def retrieveColumnsFilteredByNamesValidWithConcat(implicit c: TestContext): Unit = {
+    okTest {
       for {
         _ <- createDefaultTable()
         test <- sendRequest("GET", "/tables/1/columns?columnNames=ID")
