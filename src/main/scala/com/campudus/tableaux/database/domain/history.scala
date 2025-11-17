@@ -55,18 +55,18 @@ object History {
       * from unionColumnId to originColumnId must be provided.
       *
       * @param unionRowId
-      * @param unionColumnMapping2originColumn
+      * @param unionColumn2originColumn
       * @return
       *   remapped History
       */
     def toUnionTableHistory(
         unionRowId: RowId,
-        unionColumnMapping2originColumn: Map[UnionColumnId, OriginColumnId]
+        unionColumn2originColumn: Map[UnionColumnId, OriginColumnId]
     ): History = {
       val baseHistory =
         BaseHistory(h.revision, unionRowId, h.event, h.historyType, h.author, h.timestamp, h.deletedAt)
 
-      val unionColumnId = unionColumnMapping2originColumn.collectFirst({
+      val unionColumnId = unionColumn2originColumn.collectFirst({
         case (ucId, originColId) if h.columnIdOpt.contains(originColId) => ucId
       }).getOrElse(-1L) // should never happen
 
