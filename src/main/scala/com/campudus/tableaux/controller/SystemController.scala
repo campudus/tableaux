@@ -182,7 +182,13 @@ class SystemController(
   }
 
   private def writeDemoData(json: JsonObject)(implicit user: TableauxUser): Future[Table] = {
-    createTable(json.getString("name"), JsonUtils.toCreateColumnSeq(json), JsonUtils.toRowValueSeq(json))
+    val tableType = GenericTable
+    createTable(
+      tableType,
+      json.getString("name"),
+      JsonUtils.toCreateColumnSeq(tableType, json),
+      JsonUtils.toRowValueSeq(json)
+    )
   }
 
   private def readDemoData(name: String): JsonObject = {
@@ -190,14 +196,15 @@ class SystemController(
     Json.fromObjectString(file)
   }
 
-  private def createTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]])(
+  private def createTable(tableType: TableType, tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]])(
       implicit user: TableauxUser
   ): Future[Table] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
     logger.info(s"createTable $tableName columns $rows")
 
     for {
-      table <- structureModel.tableStruc.create(tableName, hidden = false, None, List(), GenericTable, None, None, None)
+      table <-
+        structureModel.tableStruc.create(tableName, hidden = false, None, List(), tableType, None, None, None, None)
       columns <- structureModel.columnStruc.createColumns(table, columns)
 
       columnIds = columns.map(_.id)

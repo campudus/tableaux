@@ -68,10 +68,10 @@ object JsonUtils extends LazyLogging {
   }
 
   private def toTableauxType(kind: String): ArgumentCheck[TableauxDbType] = {
-    tryMap(TableauxDbType.apply, InvalidJsonException("Warning: No such type", "type"))(kind)
+    tryMap(TableauxDbType.apply, InvalidJsonException(s"Warning: No such type: '$kind'", "type"))(kind)
   }
 
-  private def toJsonObjectSeq(field: String, json: JsonObject): ArgumentCheck[Seq[JsonObject]] = {
+  def toJsonObjectSeq(field: String, json: JsonObject): ArgumentCheck[Seq[JsonObject]] = {
     for {
       jsonArray <- checkNotNullArray(json, field)
       jsonObjectList <- asCastedList[JsonObject](jsonArray)
@@ -80,7 +80,7 @@ object JsonUtils extends LazyLogging {
     } yield checkedNonEmptyJsonObjectList
   }
 
-  def toCreateColumnSeq(json: JsonObject): Seq[CreateColumn] = {
+  def toCreateColumnSeq(tableType: TableType, json: JsonObject): Seq[CreateColumn] = {
     (for {
       columnObjects <- toJsonObjectSeq("columns", json)
       createColumnSeq <- sequence(columnObjects.map({ json =>
@@ -113,11 +113,31 @@ object JsonUtils extends LazyLogging {
             // displayName and description; both multi-language objects
             val displayInfos = DisplayInfos.fromJson(json)
 
-            dbType match {
-              case AttachmentType =>
+            val originColumnsJson = json.getJsonArray(CreateOriginColumns.fieldName, Json.emptyArr())
+            val originColumns = Try(CreateOriginColumns.parseJson(originColumnsJson)).toOption
+
+            (tableType, dbType) match {
+              case (UnionTable, _) =>
+                CreateSimpleColumn(
+                  name,
+                  ordering,
+                  dbType,
+                  languageType,
+                  identifier,
+                  displayInfos,
+                  separator,
+                  attributes,
+                  hidden,
+                  maxLength,
+                  minLength,
+                  decimalDigits,
+                  originColumns
+                )
+
+              case (_, AttachmentType) =>
                 CreateAttachmentColumn(name, ordering, identifier, displayInfos, attributes, hidden)
 
-              case LinkType =>
+              case (_, LinkType) =>
                 // link specific fields
                 val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
                 val toTableId = hasLong("toTable", json).get
@@ -182,7 +202,7 @@ object JsonUtils extends LazyLogging {
                   hidden
                 )
 
-              case GroupType =>
+              case (_, GroupType) =>
                 // group specific fields
 
                 val groups = checked(hasArray("groups", json)).asScala
@@ -205,7 +225,7 @@ object JsonUtils extends LazyLogging {
                   showMemberColumns
                 )
 
-              case StatusType =>
+              case (_, StatusType) =>
                 val rules = json.getJsonArray("rules", new JsonArray())
                 CreateStatusColumn(
                   name,
@@ -230,7 +250,8 @@ object JsonUtils extends LazyLogging {
                   hidden,
                   maxLength,
                   minLength,
-                  decimalDigits
+                  decimalDigits,
+                  originColumns
                 )
             }
           }

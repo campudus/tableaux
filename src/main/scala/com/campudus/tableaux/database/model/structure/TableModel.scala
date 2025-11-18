@@ -30,7 +30,8 @@ class TableModel(val connection: DatabaseConnection)(
       tableType: TableType,
       tableGroupIdOpt: Option[TableGroupId],
       attributes: Option[JsonObject],
-      concatFormatPattern: Option[String]
+      concatFormatPattern: Option[String],
+      originTables: Option[Seq[TableId]]
   )(
       implicit user: TableauxUser
   ): Future[Table] = {
@@ -80,6 +81,13 @@ class TableModel(val connection: DatabaseConnection)(
                |)
             """.stripMargin
           )
+          t <-
+            if (tableType == UnionTable) {
+              insertIntoSystemUnionTable(t, id, originTables.getOrElse(Seq.empty))
+            } else {
+              Future.successful(t)
+            }
+
           t <- createLanguageTable(t, id)
           t <- createCellAnnotationsTable(t, id)
           t <- createHistoryTable(t, id)
@@ -108,7 +116,8 @@ class TableModel(val connection: DatabaseConnection)(
             tableType,
             tableGroup,
             attributes,
-            concatFormatPattern
+            concatFormatPattern,
+            originTables
           )
         )
       }
@@ -127,6 +136,25 @@ class TableModel(val connection: DatabaseConnection)(
     } else {
       Future.successful((t, Json.obj()))
     }
+  }
+
+  private def insertIntoSystemUnionTable(
+      t: DbTransaction,
+      id: TableId,
+      originTableIds: Seq[TableId]
+  ): Future[DbTransaction] = {
+    val stmt = s"""
+                  |INSERT INTO system_union_table (table_id, origin_table_id, ordering)
+                  |VALUES ${originTableIds.map(_ => "(?, ?, ?)").mkString(", ")}
+                  """.stripMargin
+    val binds = Json.arr(originTableIds.zipWithIndex.flatMap {
+      // ensure to keep the order of the incoming originTableIds
+      case (oid, index) => Seq(id, oid, index * 10 + 10)
+    }: _*)
+
+    for {
+      (t, _) <- t.query(stmt, binds)
+    } yield t
   }
 
   private def createLanguageTable(t: DbTransaction, id: TableId): Future[DbTransaction] = {
@@ -231,16 +259,40 @@ class TableModel(val connection: DatabaseConnection)(
     } yield table
   }
 
+  private def getTableStatement(tableIdOpt: Option[TableId]): String = {
+    val baseStatement =
+      """
+        |SELECT
+        |  table_id,
+        |  user_table_name,
+        |  is_hidden,
+        |  array_to_json(langtags) AS langtags,
+        |  type,
+        |  group_id,
+        |  attributes,
+        |  concat_format_pattern,
+        |  array_to_json((
+        |    SELECT array_agg(sut.origin_table_id ORDER BY sut.ordering ASC)
+        |    FROM system_union_table sut
+        |    WHERE sut.table_id = st.table_id)) AS origin_tables
+        |FROM system_table st
+        """.stripMargin
+
+    tableIdOpt match {
+      case Some(tableId) =>
+        s"$baseStatement WHERE table_id = ?"
+      case None =>
+        s"$baseStatement ORDER BY ordering, table_id"
+    }
+  }
+
   private def getTableWithDisplayInfos(tableId: TableId, defaultLangtags: Seq[String])(
       implicit user: TableauxUser
   ): Future[Table] = {
     for {
       t <- connection.begin()
 
-      (t, tableResult) <- t.query(
-        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes, concat_format_pattern FROM system_table WHERE table_id = ?",
-        Json.arr(tableId)
-      )
+      (t, tableResult) <- t.query(getTableStatement(Some(tableId)), Json.arr(tableId))
       (t, displayInfoResult) <- t.query(
         "SELECT table_id, langtag, name, description FROM system_table_lang WHERE table_id = ?",
         Json.arr(tableId)
@@ -268,9 +320,7 @@ class TableModel(val connection: DatabaseConnection)(
     for {
       t <- connection.begin()
 
-      (t, tablesResult) <- t.query(
-        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes, concat_format_pattern FROM system_table ORDER BY ordering, table_id"
-      )
+      (t, tablesResult) <- t.query(getTableStatement(None))
       (t, displayInfosResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
 
       _ <- t.commit()
@@ -331,7 +381,11 @@ class TableModel(val connection: DatabaseConnection)(
       TableType(row.getString(4)),
       Option(row.getLong(5)).map(_.longValue()).flatMap(tableGroups.get),
       Option(row.getString(6)).map(jsonString => new JsonObject(jsonString)),
-      Option(row.getString(7))
+      Option(row.getString(7)),
+      Option(row.getString(8)).map(arrayString =>
+        Json.fromArrayString(arrayString).asScala.toSeq
+          .map({ case f: java.lang.Integer => f.longValue() })
+      )
     )
   }
 
@@ -531,5 +585,51 @@ class TableModel(val connection: DatabaseConnection)(
       _ <- Future(checkUpdateResults(results: _*)) recoverWith t.rollbackAndFail()
       _ <- t.commit()
     } yield ()
+  }
+
+  def retrieveDependentUnionTableModels(
+      originTableId: TableId,
+      originColumnIdOpt: Option[ColumnId] = None
+  ): Future[Seq[UnionTableModel]] = {
+    val whereClause = originColumnIdOpt match {
+      case Some(_) => "WHERE origin_table_id = ? AND origin_column_id = ?"
+      case None => "WHERE origin_table_id = ?"
+    }
+
+    val binds = Json.arr(
+      Seq(originTableId) ++ originColumnIdOpt.toSeq: _*
+    )
+
+    for {
+      result <- connection.query(
+        s"""
+           |SELECT
+           |  sub.table_id,
+           |  sub.column_id,
+           |  (
+           |    SELECT json_agg(json_build_object('tableId', origin_table_id, 'columnId', origin_column_id))
+           |    FROM system_union_column suc
+           |    WHERE suc.table_id = sub.table_id
+           |      AND suc.column_id = sub.column_id
+           |  ) AS origin_columns
+           |FROM (
+           |  SELECT DISTINCT table_id, column_id
+           |  FROM system_union_column
+           |  $whereClause
+           |) sub
+           |""".stripMargin,
+        binds
+      )
+    } yield {
+      resultObjectToJsonArray(result)
+        .map(arr => {
+          val tableId = arr.get[TableId](0)
+          val columnId = arr.get[ColumnId](1)
+          val jsonArrayString = arr.getString(2)
+          val jsonArray = Json.fromArrayString(jsonArrayString)
+          val originColumns = OriginColumns.parseJson(jsonArray)
+          UnionTableModel(tableId, columnId, originColumns)
+        })
+    }
   }
 }
