@@ -972,6 +972,24 @@ class TableauxModel(
     } yield ()
   }
 
+  def retrieveUnionTableCellAnnotations(
+      unionTable: Table,
+      unionColumn: UnionColumn,
+      compositeId: RowId,
+      isInternalCall: Boolean = true
+  )(implicit user: TableauxUser): Future[CellLevelAnnotations] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+    val originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
+
+    for {
+      originTable <- retrieveTable(originTableId)
+      originColumn <- retrieveColumn(originTable, originColumnId)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn), isInternalCall)
+      (_, _, cellLevelAnnotations) <-
+        retrieveRowModel.retrieveAnnotations(originTable.id, originRowId, Seq(originColumn))
+    } yield cellLevelAnnotations
+  }
+
   def retrieveCellAnnotations(
       table: Table,
       columnId: ColumnId,
@@ -981,21 +999,33 @@ class TableauxModel(
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column), isInternalCall)
-      (_, _, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
+
+      cellLevelAnnotations <- table.tableType match {
+        case UnionTable =>
+          column match {
+            case unionColumn: UnionColumn =>
+              retrieveUnionTableCellAnnotations(table, unionColumn, rowId, isInternalCall)
+            case _ => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
+          }
+        case _ =>
+          for {
+            (_, _, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
+          } yield cellLevelAnnotations
+      }
     } yield cellLevelAnnotations
   }
 
   def retrieveUnionTableCell(unionColumn: UnionColumn, compositeId: RowId, isInternalCall: Boolean = false)(
       implicit user: TableauxUser
   ): Future[Cell[Any]] = {
-    val (originTableId, rowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
     val originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
 
     for {
       originTable <- retrieveTable(originTableId)
       originColumn <- retrieveColumn(originTable, originColumnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn), isInternalCall)
-      cell <- retrieveCell(originColumn, rowId, isInternalCall)
+      cell <- retrieveCell(originColumn, originRowId, isInternalCall)
     } yield cell
   }
 
@@ -1472,15 +1502,15 @@ class TableauxModel(
   def retrieveUnionTableRow(unionTable: Table, unionTableColumns: Seq[ColumnType[_]], compositeId: RowId)(
       implicit user: TableauxUser
   ): Future[RowLike] = {
-    val (tableId, rowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
 
     unionTable.originTables match {
       case None => Future.failed(InvalidRequestException("Union table has no origin tables defined"))
 
       case Some(originTables) =>
-        logger.info(s"retrieveRow from originTable $tableId $rowId")
+        logger.info(s"retrieveRow from originTable $originTableId $originRowId")
         for {
-          originTable <- retrieveTable(tableId)
+          originTable <- retrieveTable(originTableId)
           columns <- retrieveColumns(originTable)
           filteredColumns = filterColumns(originTable, columns)
 
@@ -1490,7 +1520,7 @@ class TableauxModel(
           relevantFilteredColumns =
             filteredColumns.filter(c => unionColumn2originColumn.values.toSeq.contains(c.id))
 
-          row <- retrieveRow(originTable, relevantFilteredColumns, rowId, ColumnFilter(None, None))
+          row <- retrieveRow(originTable, relevantFilteredColumns, originRowId, ColumnFilter(None, None))
           filteredRows = roleModel.filterDomainObjects(ViewRow, Seq(row), ComparisonObjects(), false)
           originColumnValue = originTable.getDisplayNameJson
 

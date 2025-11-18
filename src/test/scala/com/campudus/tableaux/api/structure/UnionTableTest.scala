@@ -641,8 +641,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       retrieveForeignRows <-
         sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/foreignRows").toException()
       retrieveDependentRows <- sendRequest("GET", s"/tables/$tableId/rows/1/dependent").toException()
-      retrieveCellAnnotations <-
-        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/annotations").toException()
       addRowPermissions <-
         sendRequest("PATCH", s"/tables/$tableId/rows/1/permissions", permissionsPayload).toException()
       deleteRowPermissions <- sendRequest("DELETE", s"/tables/$tableId/rows/1/permissions").toException()
@@ -671,7 +669,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       assertEquals(expectedException, retrieveAnnotationsTable)
       assertEquals(expectedException, retrieveForeignRows)
       assertEquals(expectedException, retrieveDependentRows)
-      assertEquals(expectedException, retrieveCellAnnotations)
       assertEquals(expectedException, addRowPermissions)
       assertEquals(expectedException, deleteRowPermissions)
       assertEquals(expectedException, replaceRowPermissions)
@@ -1109,6 +1106,33 @@ class RetrieveAnnotationsUnionTableTest extends TableauxTestBase with UnionTable
       assertJSONEquals(expectedAnnotations, annotationsFirstRow2)
     }
   }
+
+  @Test
+  def unionTable_retrieveCellAnnotations_ok(implicit c: TestContext): Unit = okTest {
+
+    val expectedAnnotations = Json.arr(
+      Json.arr(
+        Json.obj("type" -> "info", "value" -> "this is a comment"),
+        Json.obj("type" -> "flag", "value" -> "check-me")
+      )
+    )
+
+    val checkMeFlag = """{"type": "flag", "value": "check-me"}"""
+    val commentAnnotation = (msg: String) => s"""{"type": "info", "value": "${msg}"}"""
+
+    for {
+      tableId <- createUnionTable(true)
+
+      // add two annotations to an origin table 4 (because table 4 has very different column ordering)
+      _ <- sendRequest("POST", s"/tables/4/columns/3/rows/1/annotations", commentAnnotation("this is a comment"))
+      _ <- sendRequest("POST", s"/tables/4/columns/3/rows/1/annotations", checkMeFlag)
+
+      annotations <-
+        sendRequest("GET", s"/tables/$tableId/columns/4/rows/4000001/annotations").map(_.getJsonArray("annotations"))
+    } yield {
+      assertJSONEquals(expectedAnnotations, annotations)
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -1213,9 +1237,11 @@ class RetrieveCellUnionTableTest extends TableauxTestBase with UnionTableTestHel
   def unionTable_retrieveCell_ok(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- createUnionTable(true)
-      cellValue <- sendRequest("GET", s"/tables/$tableId/columns/3/rows/4000001").map(_.getJsonObject("value"))
+      cellValue1 <- sendRequest("GET", s"/tables/$tableId/columns/3/rows/4000001").map(_.getJsonObject("value"))
+      cellValue2 <- sendRequest("GET", s"/tables/$tableId/columns/4/rows/4000001").map(_.getLong("value"))
     } yield {
-      assertJSONEquals(Json.obj("de" -> "Rot", "en" -> "Red"), cellValue)
+      assertJSONEquals(Json.obj("de" -> "Rot", "en" -> "Red"), cellValue1)
+      assertEquals(1L, cellValue2)
     }
   }
 }
