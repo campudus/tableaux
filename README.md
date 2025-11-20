@@ -151,9 +151,7 @@ Configuration for thumbnails and cache retention can be configured in the config
     // Maximum age of thumbnail in seconds before it is deleted (default: 2592000 -> 30 days)
     "cacheMaxAge": 2592000,
     // Polling interval in milliseconds for max age check (default: 21600000 -> 6 hours)
-    "cacheClearPollingInterval": 21600000,
-    // Timeout in milliseconds for single thumbnail during automatic thumbnail generation
-    "cacheCreateTimeout": 10000
+    "cacheClearPollingInterval": 21600000
 }
 ```
 

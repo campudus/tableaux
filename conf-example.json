@@ -26,11 +26,13 @@
   "thumbnails": {
     "resizeFilter": 3,
     "enableCacheWarmup": true,
-    "cacheWarmupWidths": [40, 200],
+    "cacheWarmupWidths": [
+      40,
+      200
+    ],
     "cacheWarmupChunkSize": 100,
     "cacheMaxAge": 2592000,
-    "cacheClearPollingInterval": 21600000,
-    "cacheCreateTimeout": 10000
+    "cacheClearPollingInterval": 21600000
   },
   "unionTableRowOffset": 1000000,
   "vertxCacheTimeoutMillis": 400
