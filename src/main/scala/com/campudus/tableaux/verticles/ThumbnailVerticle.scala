@@ -35,7 +35,24 @@ import org.joda.time.format.{PeriodFormat, PeriodFormatterBuilder}
 class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxConfig) extends ScalaVerticle
     with LazyLogging {
   private lazy val eventBus = vertx.eventBus()
-  private var workerExecutor: WorkerExecutor = _
+
+  private lazy val workerExecutor: WorkerExecutor = {
+    val cpuCount = Runtime.getRuntime().availableProcessors()
+    val poolSize = if (cpuCount <= 1) 1 else (cpuCount * 3) / 4
+    val maxExecuteTime = 30
+    val maxExecuteTimeUnit = TimeUnit.SECONDS
+
+    logger.info(s"Creating thumbnail worker pool with poolSize: $poolSize (cpuCount: $cpuCount)")
+
+    vertx.createSharedWorkerExecutor("thumbnail-worker-pool", poolSize, maxExecuteTime, maxExecuteTimeUnit)
+  }
+
+  private lazy val fileModel: FileModel = {
+    val vertxAccess = this.vertxAccess()
+    val connection = SQLConnection(vertxAccess, tableauxConfig.databaseConfig)
+    val dbConnection = DatabaseConnection(vertxAccess, connection)
+    FileModel(dbConnection)
+  }
 
   private val periodFormatter = new PeriodFormatterBuilder()
     .appendDays().appendSuffix("d ")
@@ -44,8 +61,6 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     .appendSeconds().appendSuffix("s ")
     .appendMillis().appendSuffix("ms")
     .toFormatter()
-
-  private var fileModel: FileModel = _
 
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
   private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
@@ -82,29 +97,6 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     logger.info("start future")
 
     vertx.setPeriodic(cacheClearPollingInterval, _ => clearOldThumbnails())
-
-    val vertxAccess = this.vertxAccess()
-
-    val connection = SQLConnection(vertxAccess, tableauxConfig.databaseConfig)
-    val dbConnection = DatabaseConnection(vertxAccess, connection)
-    val cpuCount = Runtime.getRuntime().availableProcessors();
-    val poolSize =
-      if (cpuCount <= 1) 1
-      else (cpuCount * 3) / 4
-
-    val maxExecuteTime = 2;
-    val maxExecuteTimeUnit = TimeUnit.MINUTES;
-
-    logger.info(s"Creating thumbnail worker pool with poolSize: $poolSize (cpuCount: $cpuCount)")
-
-    workerExecutor = vertx.createSharedWorkerExecutor(
-      "thumbnail-worker-pool",
-      poolSize,
-      maxExecuteTime,
-      maxExecuteTimeUnit
-    );
-
-    fileModel = FileModel(dbConnection)
 
     if (defaultResizeFilter < 1 | defaultResizeFilter > 15) {
       throw new Exception("Provide a valid 'resizeFilter' with a value between 1 and 15")
