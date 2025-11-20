@@ -9,7 +9,7 @@ import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.core.Vertx
+import io.vertx.scala.core.{Vertx, WorkerExecutor}
 import io.vertx.scala.core.eventbus.Message
 import io.vertx.scala.ext.web.client.WebClient
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -26,6 +26,7 @@ import java.nio.file.Files
 import java.nio.file.attribute.FileTime
 import java.time.{Duration, Instant}
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import org.joda.time.Period
 import org.joda.time.PeriodType
@@ -34,6 +35,7 @@ import org.joda.time.format.{PeriodFormat, PeriodFormatterBuilder}
 class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxConfig) extends ScalaVerticle
     with LazyLogging {
   private lazy val eventBus = vertx.eventBus()
+  private var workerExecutor: WorkerExecutor = _
 
   private val periodFormatter = new PeriodFormatterBuilder()
     .appendDays().appendSuffix("d ")
@@ -85,6 +87,22 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
     val connection = SQLConnection(vertxAccess, tableauxConfig.databaseConfig)
     val dbConnection = DatabaseConnection(vertxAccess, connection)
+    val cpuCount = Runtime.getRuntime().availableProcessors();
+    val poolSize =
+      if (cpuCount <= 1) 1
+      else (cpuCount * 3) / 4
+
+    val maxExecuteTime = 2;
+    val maxExecuteTimeUnit = TimeUnit.MINUTES;
+
+    workerExecutor = vertx.createSharedWorkerExecutor(
+      "thumbnail-worker-pool",
+      poolSize,
+      maxExecuteTime,
+      maxExecuteTimeUnit
+    );
+
+    logger.info(s"Creating thumbnail worker pool with poolSize: $poolSize (cpuCount: $cpuCount)")
 
     fileModel = FileModel(dbConnection)
 
@@ -165,49 +183,56 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       doesFileExist <- checkExistence(filePath)
       doesThumbnailExist <- checkExistence(thumbnailPath)
       isMimeTypeValid = isValidMimeType(mimeType)
-    } yield {
-      (doesFileExist, doesThumbnailExist, isMimeTypeValid) match {
-        case (true, true, true) => {
-          if (enableLogs) logger.info(s"Updating timestamps for thumbnail $thumbnailName")
+      path <- workerExecutor.executeBlocking(
+        () => {
+          (doesFileExist, doesThumbnailExist, isMimeTypeValid) match {
+            case (true, true, true) => {
+              if (enableLogs) logger.info(s"Updating timestamps for thumbnail $thumbnailName")
 
-          Files.setLastModifiedTime(thumbnailPath.jfile.toPath, FileTime.from(Instant.now()))
-
-          thumbnailPath.toString
-        }
-        case (true, false, true) => {
-          val baseFile = new File(filePath.toString)
-          val baseImage = ImageIO.read(baseFile)
-          val baseWidth = baseImage.getWidth;
-          val baseHeight = baseImage.getHeight;
-          val targetWidth = width;
-          val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
-
-          (targetWidth, targetHeight.toInt) match {
-            case (resizeWidth, resizeHeight) if resizeWidth > 0 && resizeHeight > 0 => {
-              if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
-
-              val resizeOp = new ResampleOp(resizeWidth, resizeHeight, resizeFilter);
-              val resizeImage = resizeOp.filter(baseImage, null)
-              val resizeFile = new File(thumbnailPath.toString)
-
-              ImageIO.write(resizeImage, "png", resizeFile)
+              Files.setLastModifiedTime(thumbnailPath.jfile.toPath, FileTime.from(Instant.now()))
 
               thumbnailPath.toString
             }
-            case (resizeWidth, resizeHeight) => {
-              throw new IllegalArgumentException(s"Width and height must be positive (${resizeWidth}, ${resizeHeight})")
+            case (true, false, true) => {
+              val baseFile = new File(filePath.toString)
+              val baseImage = ImageIO.read(baseFile)
+              val baseWidth = baseImage.getWidth;
+              val baseHeight = baseImage.getHeight;
+              val targetWidth = width;
+              val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
+
+              (targetWidth, targetHeight.toInt) match {
+                case (resizeWidth, resizeHeight) if resizeWidth > 0 && resizeHeight > 0 => {
+                  if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
+
+                  val resizeOp = new ResampleOp(resizeWidth, resizeHeight, resizeFilter);
+                  val resizeImage = resizeOp.filter(baseImage, null)
+                  val resizeFile = new File(thumbnailPath.toString)
+
+                  ImageIO.write(resizeImage, "png", resizeFile)
+
+                  thumbnailPath.toString
+                }
+                case (resizeWidth, resizeHeight) => {
+                  throw new IllegalArgumentException(
+                    s"Width and height must be positive (${resizeWidth}, ${resizeHeight})"
+                  )
+                }
+              }
+
+            }
+            case (false, _, _) => {
+              throw new FileNotFoundException(s"Source file not found") // file doesn't exist (only in dev)
+            }
+            case (_, _, false) => {
+              throw new IllegalArgumentException(s"Unsupported mimeType ${mimeType}")
             }
           }
 
-        }
-        case (false, _, _) => {
-          throw new FileNotFoundException(s"Source file not found") // file doesn't exist (only in dev)
-        }
-        case (_, _, false) => {
-          throw new IllegalArgumentException(s"Unsupported mimeType ${mimeType}")
-        }
-      }
-    }
+        },
+        false
+      )
+    } yield path
   }
 
   private def retrieveThumbnailPath(message: Message[JsonObject]): Unit = {
