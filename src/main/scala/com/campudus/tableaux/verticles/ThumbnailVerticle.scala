@@ -155,11 +155,66 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       .existsFuture(thumbnailPath.toString)
   }
 
+  private def checkSourceFile(filePath: Path): Future[Unit] = {
+    vertx
+      .fileSystem()
+      .existsFuture(filePath.toString)
+      .flatMap {
+        case true => Future.successful(())
+        case false => Future.failed(new FileNotFoundException("Source file not found"))
+      }
+  }
+
+  private def checkMimeType(mimeType: String): Future[Unit] = {
+    isValidMimeType(mimeType) match {
+      case true => Future.successful(())
+      case false => Future.failed(new IllegalArgumentException(s"Unsupported mimeType ${mimeType}"))
+    }
+  }
+
   private def isValidMimeType(mimeType: String): Boolean = {
     mimeType match {
       case "image/jpeg" | "image/png" | "image/webp" | "image/tiff" => true
       case _ => false
     }
+  }
+
+  private def createAndSaveThumbnail(
+      filePath: Path,
+      thumbnailPath: Path,
+      width: Int,
+      resizeFilter: Int
+  ): Future[Boolean] = {
+    workerExecutor.executeBlocking(
+      () => {
+        val baseFile = new File(filePath.toString)
+        val baseImage = ImageIO.read(baseFile)
+        val baseWidth = baseImage.getWidth;
+        val baseHeight = baseImage.getHeight;
+        val resizeWidth = width;
+        val resizeHeight = ((baseHeight.toFloat / baseWidth.toFloat) * resizeWidth).toInt
+
+        if (resizeWidth <= 0 || resizeHeight <= 0) {
+          throw new IllegalArgumentException(s"Width and height must be positive (${resizeWidth}, ${resizeHeight})")
+        }
+
+        val resizeOp = new ResampleOp(resizeWidth, resizeHeight, resizeFilter);
+        val resizeImage = resizeOp.filter(baseImage, null)
+        val resizeFile = new File(thumbnailPath.toString)
+
+        ImageIO.write(resizeImage, "png", resizeFile)
+      },
+      false
+    );
+  }
+
+  private def updateThumbnailTimestamps(thumbnailPath: Path): Future[Unit] = {
+    workerExecutor.executeBlocking(
+      () => {
+        Files.setLastModifiedTime(thumbnailPath.jfile.toPath, FileTime.from(Instant.now()))
+      },
+      false
+    );
   }
 
   private def retrieveThumbnailPath(
@@ -180,59 +235,18 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       resizeFilter = filter.getOrElse(defaultResizeFilter)
       thumbnailName = s"${internalUuid}_${width}_${resizeFilter}.png" // thumbnail is always png
       thumbnailPath = thumbnailsDirectoryPath / Path(thumbnailName)
-      doesFileExist <- checkExistence(filePath)
-      doesThumbnailExist <- checkExistence(thumbnailPath)
-      isMimeTypeValid = isValidMimeType(mimeType)
-      path <- workerExecutor.executeBlocking(
-        () => {
-          (doesFileExist, doesThumbnailExist, isMimeTypeValid) match {
-            case (true, true, true) => {
-              if (enableLogs) logger.info(s"Updating timestamps for thumbnail $thumbnailName")
-
-              Files.setLastModifiedTime(thumbnailPath.jfile.toPath, FileTime.from(Instant.now()))
-
-              thumbnailPath.toString
-            }
-            case (true, false, true) => {
-              val baseFile = new File(filePath.toString)
-              val baseImage = ImageIO.read(baseFile)
-              val baseWidth = baseImage.getWidth;
-              val baseHeight = baseImage.getHeight;
-              val targetWidth = width;
-              val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
-
-              (targetWidth, targetHeight.toInt) match {
-                case (resizeWidth, resizeHeight) if resizeWidth > 0 && resizeHeight > 0 => {
-                  if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
-
-                  val resizeOp = new ResampleOp(resizeWidth, resizeHeight, resizeFilter);
-                  val resizeImage = resizeOp.filter(baseImage, null)
-                  val resizeFile = new File(thumbnailPath.toString)
-
-                  ImageIO.write(resizeImage, "png", resizeFile)
-
-                  thumbnailPath.toString
-                }
-                case (resizeWidth, resizeHeight) => {
-                  throw new IllegalArgumentException(
-                    s"Width and height must be positive (${resizeWidth}, ${resizeHeight})"
-                  )
-                }
-              }
-
-            }
-            case (false, _, _) => {
-              throw new FileNotFoundException(s"Source file not found") // file doesn't exist (only in dev)
-            }
-            case (_, _, false) => {
-              throw new IllegalArgumentException(s"Unsupported mimeType ${mimeType}")
-            }
-          }
-
-        },
-        false
-      )
-    } yield path
+      _ <- checkSourceFile(filePath)
+      _ <- checkMimeType(mimeType)
+      _ <- checkExistence(thumbnailPath).flatMap({ exists =>
+        if (exists) {
+          if (enableLogs) logger.info(s"Updating timestamps for thumbnail $thumbnailName")
+          updateThumbnailTimestamps(thumbnailPath)
+        } else {
+          if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
+          createAndSaveThumbnail(filePath, thumbnailPath, width, resizeFilter)
+        }
+      })
+    } yield thumbnailPath.toString
   }
 
   private def retrieveThumbnailPath(message: Message[JsonObject]): Unit = {
@@ -249,21 +263,26 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       })
   }
 
-  private def clearOldThumbnails(): Unit = {
-    val oldFiles = thumbnailsDirectoryPath.jfile.listFiles(oldFileFilter)
+  private def clearOldThumbnails(): Future[Unit] = {
+    workerExecutor.executeBlocking(
+      () => {
+        val oldFiles = thumbnailsDirectoryPath.jfile.listFiles(oldFileFilter)
 
-    logger.info(s"Clearing thumbnails older than $cacheMaxAgeReadable")
+        logger.info(s"Clearing thumbnails older than $cacheMaxAgeReadable")
 
-    for (oldFile <- oldFiles) {
-      val deleteResult = Try(Files.delete(oldFile.toPath))
+        for (oldFile <- oldFiles) {
+          val deleteResult = Try(Files.delete(oldFile.toPath))
 
-      deleteResult match {
-        case Success(_) =>
-          logger.info(s"Successfully deleted thumbnail ${oldFile.getName}")
-        case Failure(ex) =>
-          logger.info(s"Failed to delete thumbnail ${oldFile.getName}: ${ex.getMessage}")
-      }
-    }
+          deleteResult match {
+            case Success(_) =>
+              logger.info(s"Successfully deleted thumbnail ${oldFile.getName}")
+            case Failure(ex) =>
+              logger.info(s"Failed to delete thumbnail ${oldFile.getName}: ${ex.getMessage}")
+          }
+        }
+      },
+      false
+    );
   }
 
   private def generateThumbnailsForExistingImages(): Future[Seq[Option[Path]]] = {
