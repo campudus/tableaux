@@ -95,14 +95,14 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     val maxExecuteTime = 2;
     val maxExecuteTimeUnit = TimeUnit.MINUTES;
 
+    logger.info(s"Creating thumbnail worker pool with poolSize: $poolSize (cpuCount: $cpuCount)")
+
     workerExecutor = vertx.createSharedWorkerExecutor(
       "thumbnail-worker-pool",
       poolSize,
       maxExecuteTime,
       maxExecuteTimeUnit
     );
-
-    logger.info(s"Creating thumbnail worker pool with poolSize: $poolSize (cpuCount: $cpuCount)")
 
     fileModel = FileModel(dbConnection)
 
