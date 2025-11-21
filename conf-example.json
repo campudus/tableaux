@@ -26,7 +26,7 @@
   "thumbnails": {
     "resizeFilter": 3,
     "enableCacheWarmup": true,
-    "cacheWarmupWidths": [200, 400],
+    "cacheWarmupWidths": [40, 200],
     "cacheWarmupChunkSize": 100,
     "cacheMaxAge": 2592000,
     "cacheClearPollingInterval": 21600000,
