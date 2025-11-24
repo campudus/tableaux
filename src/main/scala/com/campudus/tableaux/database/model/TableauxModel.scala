@@ -1615,15 +1615,31 @@ class TableauxModel(
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
+      rowsSeq <- table.tableType match {
+        case UnionTable => {
+          val unionColumns = Seq(column).collect({ case uc: UnionColumn => uc })
+          for {
+            rowSeq <- retrieveUnionTableRows(
+              table,
+              unionColumns,
+              finalFlagOpt,
+              archivedFlagOpt,
+              pagination,
+              ColumnFilter(None, None)
+            )
+          } yield rowSeq
+        }
 
-      // In case of a ConcatColumn we need to retrieve the
-      // other values too, so the ConcatColumn can be build.
-      columns = column match {
-        case c: ConcatenateColumn => c.columns.+:(c)
-        case _ => Seq(column)
+        case _ => {
+          // In case of a ConcatColumn we need to retrieve the
+          // other values too, so the ConcatColumn can be build.
+          val columns = column match {
+            case c: ConcatenateColumn => c.columns.+:(c)
+            case _ => Seq(column)
+          }
+          retrieveRows(table, columns, finalFlagOpt, archivedFlagOpt, pagination, ColumnFilter(None, None))
+        }
       }
-
-      rowsSeq <- retrieveRows(table, columns, finalFlagOpt, archivedFlagOpt, pagination, ColumnFilter(None, None))
     } yield {
       copyFirstColumnOfRowsSeq(rowsSeq)
     }

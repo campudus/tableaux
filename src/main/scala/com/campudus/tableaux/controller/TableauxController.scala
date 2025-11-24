@@ -434,9 +434,7 @@ class TableauxController(
       finalFlagOpt: Option[Boolean] = None,
       archivedFlagOpt: Option[Boolean] = None,
       pagination: Pagination = Pagination(None, None)
-  )(
-      implicit user: TableauxUser
-  ): Future[RowSeq] = {
+  )(implicit user: TableauxUser): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), pagination.check)
     logger.info(
       s"retrieveRowsOfFirstColumn $tableId for first column, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt"
@@ -444,7 +442,6 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ = UnionTableHelper.notImplemented(table)
       columns <- repository.retrieveColumns(table)
       rows <- repository.retrieveRows(table, columns.head.id, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
