@@ -540,6 +540,7 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
     val expectedException = TestCustomException(
       "com.campudus.tableaux.InvalidJsonException: "
+        + "At least one CreateColumn contains originColumns for tables which are not defined in originTables of the union table. Invalid tableIds: (77), "
         + "Column '1' in table '2' and CreateColumn 'name' have different values in field kind: text != numeric, "
         + "Column '2' in table '2' and CreateColumn 'color' have different values in field languageType: language != neutral, "
         + "Column '99' not found in table '2', "
