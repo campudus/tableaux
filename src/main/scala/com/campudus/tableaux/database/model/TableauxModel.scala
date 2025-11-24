@@ -1501,7 +1501,12 @@ class TableauxModel(
       columnFilter: ColumnFilter
   )(implicit user: TableauxUser): Future[RowSeq] = {
 
-    def retrieveAndProcessTableRows(originTableId: TableId, acc: RowSeq, totalSize: Long): Future[(RowSeq, Long)] = {
+    def retrieveAndProcessTableRows(
+        originTableId: TableId,
+        acc: RowSeq,
+        totalSize: Long,
+        originPagination: Pagination
+    ): Future[(RowSeq, Long)] = {
       for {
         originTable <- retrieveTable(originTableId)
         columns <- retrieveColumns(originTable)
@@ -1516,7 +1521,7 @@ class TableauxModel(
           relevantFilteredColumns,
           finalFlagOpt,
           archivedFlagOpt,
-          pagination,
+          originPagination,
           ColumnFilter(None, None),
           true
         )
@@ -1551,19 +1556,19 @@ class TableauxModel(
           foldResult <- originTables.foldLeft(Future.successful((RowSeq(Seq.empty, Page(pagination, Some(0L))), 0L)))(
             (accFuture, originTableId) =>
               for {
-                (acc, accTotalSize) <- accFuture
+                (accRows, accTotalSize) <- accFuture
                 rowCount <- retrieveRowModel.size(originTableId, finalFlagOpt, archivedFlagOpt)
 
                 totalSize = accTotalSize + rowCount
                 tableOffset = Math.max(0, originalOffset - accTotalSize)
                 tableLimit = Math.max(0, originalLimit - Math.max(0, accTotalSize - originalOffset))
-                tablePagination = Pagination(Some(tableOffset), Some(tableLimit))
+                originPagination = Pagination(Some(tableOffset), Some(tableLimit))
 
                 result <-
                   if (rowCount < tableOffset) {
-                    Future.successful((acc, totalSize))
+                    Future.successful((accRows, totalSize))
                   } else {
-                    retrieveAndProcessTableRows(originTableId, acc, totalSize)
+                    retrieveAndProcessTableRows(originTableId, accRows, totalSize, originPagination)
                   }
               } yield result
           )
