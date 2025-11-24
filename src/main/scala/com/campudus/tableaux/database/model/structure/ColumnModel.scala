@@ -1139,16 +1139,18 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
 
+    /**
+      * Convert the column to the actual GroupColumn (fill with values we can't get from the initial query)
+      */
     def fillGroupColumn(mappedColumns: Seq[ColumnType[_]], g: GroupColumn): GroupColumn = {
-      // fill GroupColumn with life!
-      // ... till now GroupColumn only was a placeholder
       val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
       GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns)
     }
 
+    /**
+      * Convert the column to the actual UnionColumn (fill with values we can't get from the initial query)
+      */
     def fillUnionColumn(originTableCache: Map[TableId, Seq[ColumnType[_]]], u: UnionColumn): UnionColumn = {
-      // fill UnionColumn with life!
-      // ... till now GroupColumn only was a placeholder
       val tableToColumnMap = u.originColumns.tableId2ColumnId.map({
         case (originTableId, originColumnId) =>
           val originColumns = originTableCache(originTableId)
@@ -1234,8 +1236,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     for {
-      // we need to retrieve identifiers only...
-      // ... otherwise we will end up in a infinite loop
+      // we need to retrieve identifiers only otherwise we will end up in a infinite loop
       columns <- retrieveColumns(table, depth, identifiersOnly = true)
     } yield {
       val identifierColumns = columns.filter(_.identifier)
@@ -1270,7 +1271,6 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def mapColumn(
-      table: Table,
       depth: Int,
       kind: TableauxDbType,
       languageType: LanguageType,
@@ -1280,21 +1280,12 @@ class ColumnModel(val connection: DatabaseConnection)(
       showMemberColumns: Boolean
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     kind match {
-      case (AttachmentType) =>
-        Future(AttachmentColumn(columnInformation))
-
-      case (StatusType) =>
-        mapStatusColumn(columnInformation, rules)
-
-      case (LinkType) =>
-        mapLinkColumn(depth, columnInformation)
-
-      case (GroupType) =>
-        // placeholder for now, grouped columns will be filled in later
-        Future(GroupColumn(columnInformation, Seq.empty, formatPattern, showMemberColumns))
-
-      case _ =>
-        Future(SimpleValueColumn(kind, languageType, columnInformation))
+      case AttachmentType => Future(AttachmentColumn(columnInformation))
+      case StatusType => mapStatusColumn(columnInformation, rules)
+      case LinkType => mapLinkColumn(depth, columnInformation)
+      // placeholder for now, grouped columns will be filled in later
+      case GroupType => Future(GroupColumn(columnInformation, Seq.empty, formatPattern, showMemberColumns))
+      case _ => Future(SimpleValueColumn(kind, languageType, columnInformation))
     }
   }
 
@@ -1472,7 +1463,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       columnInfo = getBasicColumnInfo(displayInfoSeq)
       column <- table.tableType match {
         case UnionTable => mapUnionColumn(kind, languageType, columnInfo, originColumns)
-        case _ => mapColumn(table, depth, kind, languageType, columnInfo, formatPattern, rules, showMemberColumns)
+        case _ => mapColumn(depth, kind, languageType, columnInfo, formatPattern, rules, showMemberColumns)
       }
     } yield column
 

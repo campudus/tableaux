@@ -1746,9 +1746,7 @@ class TableauxModel(
       columns: Seq[ColumnType[_]],
       rawRows: Seq[RawRow],
       columnFilter: ColumnFilter = ColumnFilter(None, None)
-  )(
-      implicit user: TableauxUser
-  ): Future[Seq[RowLike]] = {
+  )(implicit user: TableauxUser): Future[Seq[RowLike]] = {
     val idsOfFilteredColumnsWithConcats = columns
       .filter(columnFilter.filter)
       .flatMap(c =>
