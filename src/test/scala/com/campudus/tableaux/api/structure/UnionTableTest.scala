@@ -305,7 +305,7 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
   @Test
   def createUnionTable_withoutOriginTables_shouldFail(implicit c: TestContext): Unit =
-    exceptionTest("unprocessable.entity") {
+    exceptionTest("error.arguments") {
       for {
         _ <- sendRequest(
           "POST",
