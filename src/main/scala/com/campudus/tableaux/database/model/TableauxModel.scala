@@ -1285,13 +1285,11 @@ class TableauxModel(
       columns: Seq[ColumnType[_]],
       rowId: RowId,
       columnFilter: ColumnFilter
-  )(
-      implicit user: TableauxUser
-  ): Future[RowLike] = {
+  )(implicit user: TableauxUser): Future[RowLike] = {
     if (table.tableType == UnionTable) {
       for {
         unionTableColumns <- retrieveColumns(table)
-        row <- retrieveUnionTableRow(table, unionTableColumns, rowId)
+        row <- retrieveUnionTableRow(table, unionTableColumns, rowId, columnFilter)
       } yield row
     } else {
       for {
@@ -1437,71 +1435,26 @@ class TableauxModel(
     })
   }
 
-  def retrieveAndProcessTableRows(
-      unionTable: Table,
-      originTableId: TableId,
-      unionTableColumns: Seq[ColumnType[_]],
-      acc: RowSeq,
-      totalSize: Long,
-      tablePagination: Pagination,
-      finalFlagOpt: Option[Boolean],
-      archivedFlagOpt: Option[Boolean]
-  )(implicit user: TableauxUser): Future[(RowSeq, Long)] = {
-
-    for {
-      originTable <- retrieveTable(originTableId)
-      columns <- retrieveColumns(originTable)
-      filteredColumns = filterColumns(originTable, columns)
-
-      unionColumn2originColumn = getColumnMapping(originTable, unionTableColumns)
-
-      // retrieve only relevant columns that we need to return for the union table
-      relevantFilteredColumns = filteredColumns.filter(c => unionColumn2originColumn.values.toSeq.contains(c.id))
-
-      rowSeq <- retrieveRows(
-        originTable,
-        relevantFilteredColumns,
-        finalFlagOpt,
-        archivedFlagOpt,
-        tablePagination,
-        ColumnFilter(None, None),
-        true
-      )
-      resultRows <- filterRows(filteredColumns, rowSeq.rows)
-      filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
-      originColumnValue = originTable.getDisplayNameJson
-
-      unifyColumns = reorderValuesAndAnnotations(
-        originColumnValue,
-        unionColumn2originColumn,
-        relevantFilteredColumns,
-        unionTableColumns
-      )(_)
-
-      rawRows = unifyColumns(filteredRows)
-      mappedRows <- mapRawUnionTableRows(unionTable, originTable, unionTableColumns, rawRows)
-    } yield {
-      val combinedRows = acc.rows ++ mappedRows
-      (RowSeq(combinedRows, rowSeq.page), totalSize)
-    }
-  }
-
   private def mapRawUnionTableRows(
       unionTable: Table,
       originTable: Table,
       unionTableColumns: Seq[ColumnType[_]],
-      rawRows: Seq[RawRow]
+      rawRows: Seq[RawRow],
+      columnFilter: ColumnFilter
   )(implicit user: TableauxUser): Future[Seq[UnionTableRow]] = {
     for {
-      mappedRows <- mapRawRows(unionTable, unionTableColumns, rawRows)
+      mappedRows <- mapRawRows(unionTable, unionTableColumns, rawRows, columnFilter)
       mappedUnionTableRows = mappedRows.map(_.toUnionTableRow(originTable))
     } yield mappedUnionTableRows
 
   }
 
-  def retrieveUnionTableRow(unionTable: Table, unionTableColumns: Seq[ColumnType[_]], compositeId: RowId)(
-      implicit user: TableauxUser
-  ): Future[RowLike] = {
+  def retrieveUnionTableRow(
+      unionTable: Table,
+      unionTableColumns: Seq[ColumnType[_]],
+      compositeId: RowId,
+      columnFilter: ColumnFilter
+  )(implicit user: TableauxUser): Future[RowLike] = {
     val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
 
     unionTable.originTables match {
@@ -1532,7 +1485,7 @@ class TableauxModel(
           )(_)
 
           rawRows = unifyColumns(filteredRows)
-          mappedRows <- mapRawUnionTableRows(unionTable, originTable, unionTableColumns, rawRows)
+          mappedRows <- mapRawUnionTableRows(unionTable, originTable, unionTableColumns, rawRows, columnFilter)
         } yield {
           mappedRows.head
         }
@@ -1544,8 +1497,47 @@ class TableauxModel(
       unionTableColumns: Seq[ColumnType[_]],
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
-      pagination: Pagination
+      pagination: Pagination,
+      columnFilter: ColumnFilter
   )(implicit user: TableauxUser): Future[RowSeq] = {
+
+    def retrieveAndProcessTableRows(originTableId: TableId, acc: RowSeq, totalSize: Long): Future[(RowSeq, Long)] = {
+      for {
+        originTable <- retrieveTable(originTableId)
+        columns <- retrieveColumns(originTable)
+        filteredColumns = filterColumns(originTable, columns)
+        unionColumn2originColumn = getColumnMapping(originTable, unionTableColumns)
+
+        // retrieve only relevant columns that we need to return for the union table
+        relevantFilteredColumns = filteredColumns.filter(c => unionColumn2originColumn.values.toSeq.contains(c.id))
+
+        rowSeq <- retrieveRows(
+          originTable,
+          relevantFilteredColumns,
+          finalFlagOpt,
+          archivedFlagOpt,
+          pagination,
+          ColumnFilter(None, None),
+          true
+        )
+        resultRows <- filterRows(filteredColumns, rowSeq.rows)
+        filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+        originColumnValue = originTable.getDisplayNameJson
+
+        unifyColumns = reorderValuesAndAnnotations(
+          originColumnValue,
+          unionColumn2originColumn,
+          relevantFilteredColumns,
+          unionTableColumns
+        )(_)
+
+        rawRows = unifyColumns(filteredRows)
+        mappedRows <- mapRawUnionTableRows(unionTable, originTable, unionTableColumns, rawRows, columnFilter)
+      } yield {
+        val combinedRows = acc.rows ++ mappedRows
+        (RowSeq(combinedRows, rowSeq.page), totalSize)
+      }
+    }
 
     unionTable.originTables match {
       case None =>
@@ -1571,16 +1563,7 @@ class TableauxModel(
                   if (rowCount < tableOffset) {
                     Future.successful((acc, totalSize))
                   } else {
-                    retrieveAndProcessTableRows(
-                      unionTable,
-                      originTableId,
-                      unionTableColumns,
-                      acc,
-                      totalSize,
-                      tablePagination,
-                      finalFlagOpt,
-                      archivedFlagOpt
-                    )
+                    retrieveAndProcessTableRows(originTableId, acc, totalSize)
                   }
               } yield result
           )
@@ -1601,7 +1584,8 @@ class TableauxModel(
     if (table.tableType == UnionTable) {
       for {
         unionTableColumns <- retrieveColumns(table)
-        rowSeq <- retrieveUnionTableRows(table, unionTableColumns, finalFlagOpt, archivedFlagOpt, pagination)
+        rowSeq <-
+          retrieveUnionTableRows(table, unionTableColumns, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
       } yield rowSeq
     } else {
       for {
@@ -1622,9 +1606,7 @@ class TableauxModel(
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination
-  )(
-      implicit user: TableauxUser
-  ): Future[RowSeq] = {
+  )(implicit user: TableauxUser): Future[RowSeq] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
@@ -1650,9 +1632,7 @@ class TableauxModel(
       pagination: Pagination,
       columnFilter: ColumnFilter,
       skipRetrieveSize: Boolean = false
-  )(
-      implicit user: TableauxUser
-  ): Future[RowSeq] = {
+  )(implicit user: TableauxUser): Future[RowSeq] = {
     for {
       totalSizeOpt <-
         if (skipRetrieveSize) Future.successful(None)

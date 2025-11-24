@@ -412,9 +412,7 @@ class TableauxController(
       archivedFlagOpt: Option[Boolean] = None,
       pagination: Pagination = Pagination(None, None),
       columnFilter: ColumnFilter = ColumnFilter(None, None)
-  )(
-      implicit user: TableauxUser
-  ): Future[RowSeq] = {
+  )(implicit user: TableauxUser): Future[RowSeq] = {
     checkArguments(
       greaterZero(tableId),
       pagination.check,

@@ -846,6 +846,29 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   }
 
   @Test
+  def unionTable_retrieveRowsWithColumnFilter_ok(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createUnionTable(true)
+
+      retrieveRowFilteredByColumns <- sendRequest("GET", s"/tables/$tableId/rows/2000001?columnIds=1,3")
+      retrieveRowsFilteredByColumns <-
+        sendRequest("GET", s"/tables/$tableId/rows?columnNames=originTable,color").map(_.getJsonArray("rows"))
+    } yield {
+      val expectedValues = """[{"de":"table2_de","en":"table2_en"},{"de":"Rot","en":"Red"}]"""
+      val rowById = retrieveRowFilteredByColumns.getJsonArray("values")
+      val rowsByHead = retrieveRowsFilteredByColumns.asScala.headOption
+        .map(row => row.asInstanceOf[JsonObject].getJsonArray("values"))
+        .getOrElse(null)
+
+      assertEquals(2, rowById.size())
+      assertJSONEquals(expectedValues, rowById)
+
+      assertEquals(2, rowsByHead.size())
+      assertJSONEquals(expectedValues, rowsByHead)
+    }
+  }
+
+  @Test
   def unionTable_retrieveAllRows_haveColumnOrderingOfUnionTable(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- createUnionTable(true)
