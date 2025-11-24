@@ -1384,7 +1384,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   private def generateProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
-      // values are generated in post-processing when when we fetch the rows of the origin table
+      // values are generated in post-processing when we fetch the rows of the origin table
       case c if c.table.tableType == UnionTable => "NULL"
 
       case _: ConcatColumn | _: AttachmentColumn | _: GroupColumn =>

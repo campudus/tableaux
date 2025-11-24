@@ -13,12 +13,6 @@ object ResultChecker {
     jsonArrayToSeq(json.getJsonArray("results")).map(_.asInstanceOf[JsonArray])
   }
 
-  // def resultObjectToSingleObject(json: JsonObject): Option[JsonObject] = {
-  //   jsonArrayToSeq(json.getJsonArray("results")).map(_.asInstanceOf[JsonArray]).headOption.map(
-  //     _.asInstanceOf[JsonObject]
-  //   )
-  // }
-
   def jsonArrayToSeq(json: JsonArray): Seq[Any] = {
     import scala.collection.JavaConverters._
     Option(json).map(_.asScala.toSeq.asInstanceOf[Seq[Any]]).getOrElse(Seq.empty)

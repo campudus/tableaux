@@ -144,5 +144,4 @@ case class CreatedColumnInformation(
     columnId: ColumnId,
     ordering: Ordering,
     displayInfos: Seq[DisplayInfo] = List()
-    // originColumns: Option[OriginColumns] = None
 )
