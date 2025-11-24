@@ -373,7 +373,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
-  private def checkCreateUnionColumns(table: Table, createColumns: Seq[CreateColumn])(
+  private def checkCreateUnionColumns(unionTable: Table, createColumns: Seq[CreateColumn])(
       implicit user: TableauxUser
   ): Future[Seq[String]] = {
 
@@ -408,6 +408,18 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
     }
 
+    val unionTableOriginTables = unionTable.originTables.getOrElse(Seq.empty).toSet
+    val missingOriginTableIds = table2CreateColumn.keys.filterNot(unionTableOriginTables.contains).toList
+    val originTableError =
+      if (missingOriginTableIds.nonEmpty) {
+        Seq(
+          s"At least one CreateColumn contains originColumns for tables which are not defined in originTables "
+            + s"of the union table. Invalid tableIds: (${missingOriginTableIds.mkString(", ")})"
+        )
+      } else {
+        Seq.empty
+      }
+
     for {
       validationErrors <- Future.sequence(table2CreateColumn.toSeq.map({
         case (originTableId, createColumn2OriginColumnIds) =>
@@ -441,7 +453,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           })
       }))
     } yield {
-      initialErrors ++ validationErrors.flatten
+      initialErrors ++ originTableError ++ validationErrors.flatten
     }
   }
 

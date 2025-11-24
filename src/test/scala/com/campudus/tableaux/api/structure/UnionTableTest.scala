@@ -374,6 +374,65 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
         )
       } yield ()
     }
+
+  @Test
+  def createUnionTable_addColumnWithInvalidOriginTableColumn_shouldFail(implicit c: TestContext): Unit =
+    okTest {
+      val expectedException = TestCustomException(
+        "com.campudus.tableaux.InvalidJsonException: "
+          + "At least one CreateColumn contains originColumns for tables which are not defined in "
+          + "originTables of the union table. Invalid tableIds: (3)",
+        "error.json.unionTable",
+        400
+      )
+
+      val createColumnName = createTextColumnJson("name")
+      val createColumnColor = createMultilangTextColumnJson("color")
+      val createColumnPrio = createNumberColumnJson("prio")
+
+      for {
+        tableId1 <- sendRequest("POST", "/tables", createTableJson("table2")).map(_.getLong("id"))
+        tableId2 <- sendRequest("POST", "/tables", createTableJson("table3")).map(_.getLong("id"))
+        tableId3 <- sendRequest("POST", "/tables", createTableJson("table4")).map(_.getLong("id"))
+
+        table1Columns = Columns(createColumnName, createColumnColor, createColumnPrio)
+        table2Columns = Columns(createColumnName, createColumnColor, createColumnPrio)
+        table3Columns = Columns(createColumnColor, createColumnPrio, createColumnName)
+
+        // create columns with different ordering in each table
+        _ <- sendRequest("POST", s"/tables/$tableId1/columns", table1Columns)
+        _ <- sendRequest("POST", s"/tables/$tableId2/columns", table2Columns)
+        _ <- sendRequest("POST", s"/tables/$tableId3/columns", table3Columns)
+
+        payload = Json.obj(
+          "name" -> "union",
+          "type" -> "union",
+          "displayName" -> Json.obj("de" -> "Union Table"),
+          "originTables" -> Json.arr(tableId1, tableId2)
+        )
+        unionTableId <- sendRequest("POST", "/tables", payload).map(_.getLong("id"))
+
+        unionTableColPayload = Json.obj(
+          "columns" -> Json.arr(
+            Json.obj(
+              "name" -> "name",
+              "kind" -> "text",
+              "ordering" -> 1,
+              "originColumns" -> Json.arr(
+                Json.obj("tableId" -> 1, "columnId" -> 1),
+                Json.obj("tableId" -> 2, "columnId" -> 1),
+                Json.obj("tableId" -> 3, "columnId" -> 3) // tableId4 is not defined in originTables
+              )
+            )
+          )
+        )
+
+        exception <- sendRequest("POST", s"/tables/$unionTableId/columns", unionTableColPayload).toException()
+
+      } yield {
+        assertEquals(expectedException, exception)
+      }
+    }
 }
 
 @RunWith(classOf[VertxUnitRunner])
