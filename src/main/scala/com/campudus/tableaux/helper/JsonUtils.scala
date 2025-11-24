@@ -116,8 +116,8 @@ object JsonUtils extends LazyLogging {
             val originColumnsJson = json.getJsonArray(CreateOriginColumns.fieldName, Json.emptyArr())
             val originColumns = Try(CreateOriginColumns.parseJson(originColumnsJson)).toOption
 
-            (tableType, dbType) match {
-              case (UnionTable, _) =>
+            (tableType) match {
+              case (UnionTable) =>
                 CreateSimpleColumn(
                   name,
                   ordering,
@@ -134,125 +134,130 @@ object JsonUtils extends LazyLogging {
                   originColumns
                 )
 
-              case (_, AttachmentType) =>
-                CreateAttachmentColumn(name, ordering, identifier, displayInfos, attributes, hidden)
+              case (_) => {
+                dbType match {
 
-              case (_, LinkType) =>
-                // link specific fields
-                val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
-                val toTableId = hasLong("toTable", json).get
+                  case (AttachmentType) =>
+                    CreateAttachmentColumn(name, ordering, identifier, displayInfos, attributes, hidden)
 
-                // bi-directional information for foreign link column (backlink)
-                val toName = Try(Option(json.getString("toName"))).toOption.flatten
-                val toDisplayInfos =
-                  Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.fromJson)
-                val toOrdering = hasLong("toOrdering", json).toOption
+                  case (LinkType) =>
+                    // link specific fields
+                    val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
+                    val toTableId = hasLong("toTable", json).get
 
-                val createBackLinkColumn = CreateBackLinkColumn(
-                  name = toName,
-                  displayInfos = toDisplayInfos,
-                  ordering = toOrdering
-                )
+                    // bi-directional information for foreign link column (backlink)
+                    val toName = Try(Option(json.getString("toName"))).toOption.flatten
+                    val toDisplayInfos =
+                      Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.fromJson)
+                    val toOrdering = hasLong("toOrdering", json).toOption
 
-                // constraints = cardinality and/or deleteCascade
-                val constraint =
-                  for {
-                    (cardinalityFrom, cardinalityTo) <- Try[(Int, Int)]({
-                      val cardinality = json
-                        .getJsonObject("constraint")
-                        .getJsonObject("cardinality", new JsonObject())
+                    val createBackLinkColumn = CreateBackLinkColumn(
+                      name = toName,
+                      displayInfos = toDisplayInfos,
+                      ordering = toOrdering
+                    )
 
-                      (cardinality.getInteger("from", 0).intValue(), cardinality.getInteger("to", 0).intValue())
-                    }).orElse(Success((0, 0)))
+                    // constraints = cardinality and/or deleteCascade
+                    val constraint =
+                      for {
+                        (cardinalityFrom, cardinalityTo) <- Try[(Int, Int)]({
+                          val cardinality = json
+                            .getJsonObject("constraint")
+                            .getJsonObject("cardinality", new JsonObject())
 
-                    deleteCascade <- Try[Boolean](
-                      json
-                        .getJsonObject("constraint")
-                        .getBoolean("deleteCascade")
-                    ).orElse(Success(false))
+                          (cardinality.getInteger("from", 0).intValue(), cardinality.getInteger("to", 0).intValue())
+                        }).orElse(Success((0, 0)))
 
-                    archiveCascade <- Try[Boolean](
-                      json
-                        .getJsonObject("constraint")
-                        .getBoolean("archiveCascade")
-                    ).orElse(Success(false))
+                        deleteCascade <- Try[Boolean](
+                          json
+                            .getJsonObject("constraint")
+                            .getBoolean("deleteCascade")
+                        ).orElse(Success(false))
 
-                    finalCascade <- Try[Boolean](
-                      json
-                        .getJsonObject("constraint")
-                        .getBoolean("finalCascade")
-                    ).orElse(Success(false))
-                  } yield Constraint(
-                    Cardinality(cardinalityFrom, cardinalityTo),
-                    deleteCascade,
-                    archiveCascade,
-                    finalCascade
-                  )
+                        archiveCascade <- Try[Boolean](
+                          json
+                            .getJsonObject("constraint")
+                            .getBoolean("archiveCascade")
+                        ).orElse(Success(false))
 
-                CreateLinkColumn(
-                  name,
-                  ordering,
-                  toTableId,
-                  singleDirection,
-                  identifier,
-                  displayInfos,
-                  constraint.getOrElse(DefaultConstraint),
-                  createBackLinkColumn,
-                  attributes,
-                  hidden
-                )
+                        finalCascade <- Try[Boolean](
+                          json
+                            .getJsonObject("constraint")
+                            .getBoolean("finalCascade")
+                        ).orElse(Success(false))
+                      } yield Constraint(
+                        Cardinality(cardinalityFrom, cardinalityTo),
+                        deleteCascade,
+                        archiveCascade,
+                        finalCascade
+                      )
 
-              case (_, GroupType) =>
-                // group specific fields
+                    CreateLinkColumn(
+                      name,
+                      ordering,
+                      toTableId,
+                      singleDirection,
+                      identifier,
+                      displayInfos,
+                      constraint.getOrElse(DefaultConstraint),
+                      createBackLinkColumn,
+                      attributes,
+                      hidden
+                    )
 
-                val groups = checked(hasArray("groups", json)).asScala
-                  .map(_.asInstanceOf[Int])
-                  .map(_.toLong)
-                  .toSeq
+                  case (GroupType) =>
+                    // group specific fields
 
-                val formatPattern = Try(notNull(json.getString("formatPattern"), "formatPattern").get).toOption
-                val showMemberColumns = json.getBoolean("showMemberColumns", false)
+                    val groups = checked(hasArray("groups", json)).asScala
+                      .map(_.asInstanceOf[Int])
+                      .map(_.toLong)
+                      .toSeq
 
-                CreateGroupColumn(
-                  name,
-                  ordering,
-                  identifier,
-                  formatPattern,
-                  displayInfos,
-                  groups,
-                  attributes,
-                  hidden,
-                  showMemberColumns
-                )
+                    val formatPattern = Try(notNull(json.getString("formatPattern"), "formatPattern").get).toOption
+                    val showMemberColumns = json.getBoolean("showMemberColumns", false)
 
-              case (_, StatusType) =>
-                val rules = json.getJsonArray("rules", new JsonArray())
-                CreateStatusColumn(
-                  name,
-                  ordering,
-                  dbType,
-                  displayInfos,
-                  attributes,
-                  rules,
-                  hidden
-                )
+                    CreateGroupColumn(
+                      name,
+                      ordering,
+                      identifier,
+                      formatPattern,
+                      displayInfos,
+                      groups,
+                      attributes,
+                      hidden,
+                      showMemberColumns
+                    )
 
-              case _ =>
-                CreateSimpleColumn(
-                  name,
-                  ordering,
-                  dbType,
-                  languageType,
-                  identifier,
-                  displayInfos,
-                  separator,
-                  attributes,
-                  hidden,
-                  maxLength,
-                  minLength,
-                  decimalDigits,
-                  originColumns
-                )
+                  case (StatusType) =>
+                    val rules = json.getJsonArray("rules", new JsonArray())
+                    CreateStatusColumn(
+                      name,
+                      ordering,
+                      dbType,
+                      displayInfos,
+                      attributes,
+                      rules,
+                      hidden
+                    )
+
+                  case _ =>
+                    CreateSimpleColumn(
+                      name,
+                      ordering,
+                      dbType,
+                      languageType,
+                      identifier,
+                      displayInfos,
+                      separator,
+                      attributes,
+                      hidden,
+                      maxLength,
+                      minLength,
+                      decimalDigits,
+                      originColumns
+                    )
+                }
+              }
             }
           }
         }

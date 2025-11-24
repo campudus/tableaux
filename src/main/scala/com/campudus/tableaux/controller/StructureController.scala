@@ -174,7 +174,7 @@ class StructureController(
       concatFormatPattern: Option[String],
       originTables: Option[Seq[TableId]]
   )(implicit user: TableauxUser): Future[Table] = {
-    checkArguments(notNull(tableName, "name"))
+    checkArguments(notNull(tableName, "name"), originTablesCheck(tableType, originTables))
     logger.info(
       s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId $concatFormatPattern $originTables"
     )

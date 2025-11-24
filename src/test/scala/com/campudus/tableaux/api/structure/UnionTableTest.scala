@@ -358,6 +358,22 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
         )
       } yield ()
     }
+
+  @Test
+  def createGenericTable_withOriginTables_shouldFail(implicit c: TestContext): Unit =
+    exceptionTest("error.arguments") {
+      for {
+        _ <- sendRequest(
+          "POST",
+          "/tables",
+          Json.obj(
+            "name" -> "second_union_table",
+            "type" -> "generic",
+            "originTables" -> Json.arr(1, 2, 3)
+          )
+        )
+      } yield ()
+    }
 }
 
 @RunWith(classOf[VertxUnitRunner])

@@ -1,5 +1,7 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.database.domain.UnionTable
+
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
 import scala.util.{Failure, Success, Try}
@@ -180,7 +182,18 @@ object ArgumentChecker {
 
   def tryMap[A, B](tryFn: A => B, ex: => CustomException)(a: A): ArgumentCheck[B] = {
     Try(OkArg(tryFn(a))).getOrElse(FailArg[B](ex))
+  }
 
+  def originTablesCheck[A](tableType: A, originTables: Option[Seq[_]]): ArgumentCheck[Unit] = {
+    (tableType == UnionTable && originTables.isDefined) || (tableType != UnionTable && originTables.isEmpty) match {
+      case true => OkArg(())
+      case false =>
+        FailArg(
+          UnprocessableEntityException(
+            s"originTables can only be provided when tableType is UnionTable"
+          )
+        )
+    }
   }
 
   def checkArguments(args: ArgumentCheck[_]*): Unit = {
