@@ -9,7 +9,7 @@ import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import com.campudus.tableaux.testtools.TestCustomException
 
-import io.vertx.core.json.JsonObject
+import io.vertx.core.json._
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
@@ -736,7 +736,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       deleteAttachment <-
         sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/attachment/$anyUuid").toException()
       deleteLink <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1/link/1").toException()
-      retrieveRowsOfColumn <- sendRequest("GET", s"/tables/$tableId/columns/1/rows").toException()
     } yield {
       assertEquals(expectedException, postCell)
       assertEquals(expectedException, patchCell)
@@ -756,13 +755,23 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       assertEquals(expectedException, deleteRow)
       assertEquals(expectedException, deleteAttachment)
       assertEquals(expectedException, deleteLink)
-      assertEquals(expectedException, retrieveRowsOfColumn)
     }
   }
 }
 
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
+
+  def getRowValuesAt(rows: JsonArray, index: Int): Seq[Any] = {
+    rows.asScala.map(row =>
+      row.asInstanceOf[JsonObject].getJsonArray("values").getValue(index)
+    ).toSeq
+  }
+
+  def getRowValueCount(rows: JsonArray): Int =
+    rows.asScala.headOption.map(row =>
+      row.asInstanceOf[JsonObject].getJsonArray("values").size()
+    ).getOrElse(0)
 
   /**
     * Tables have the following number of rows:
@@ -884,10 +893,8 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
 
       assertEquals("2,2,2,4,4,4,4,4,4,4,4,3,3,3,3,3", concatTableIds)
 
-      val concatStringColumn1 =
-        rows.asScala.map(row =>
-          row.asInstanceOf[JsonObject].getJsonArray("values").getJsonObject(0).getString("de")
-        ).mkString(",")
+      val concatStringColumn1 = getRowValuesAt(rows, 0)
+        .map(_.asInstanceOf[JsonObject].getString("de")).mkString(",")
 
       assertEquals(
         List(
@@ -898,36 +905,27 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
         concatStringColumn1
       )
 
-      val concatStringColumn2 =
-        rows.asScala.map(row =>
-          row.asInstanceOf[JsonObject].getJsonArray("values").getString(1)
-        ).mkString(",")
+      val concatStringColumn2 = getRowValuesAt(rows, 1).map(_.toString).mkString(",")
 
       assertEquals(
         "color1,color2,color3,color4,color5,color6,color7,color8,color9,color10,color11,color12,color13,color14,color15,color16",
         concatStringColumn2
       )
 
-      val concatStringColumn3 =
-        rows.asScala.map(row =>
-          row.asInstanceOf[JsonObject].getJsonArray("values").getJsonObject(2).getString("de")
-        ).mkString(",")
+      val concatStringColumn3 = getRowValuesAt(rows, 2)
+        .map(_.asInstanceOf[JsonObject].getString("de")).mkString(",")
 
       assertEquals(
         "Rot,Blau,Grün,Rot,Blau,Grün,Gelb,Schwarz,Weiß,Rosa,Lila,Rot,Blau,Grün,Gelb,Schwarz",
         concatStringColumn3
       )
-      val concatStringColumn4 =
-        rows.asScala.map(row =>
-          row.asInstanceOf[JsonObject].getJsonArray("values").getInteger(3)
-        ).mkString(",")
+      val concatStringColumn4 = getRowValuesAt(rows, 3).map(_.toString).mkString(",")
 
       assertEquals("1,2,3,1,2,3,4,5,6,7,8,1,2,3,4,5", concatStringColumn4)
 
-      val concatStringColumn5 =
-        rows.asScala.map(row =>
-          row.asInstanceOf[JsonObject].getJsonArray("values").getJsonArray(4)
-            .asScala.map(link => link.asInstanceOf[JsonObject].getInteger("id")).mkString(",")
+      val concatStringColumn5 = getRowValuesAt(rows, 4)
+        .map(v =>
+          v.asInstanceOf[JsonArray].asScala.map(link => link.asInstanceOf[JsonObject].getInteger("id")).mkString(",")
         ).mkString(",")
 
       assertEquals("1,2,1,1,,2,,2,,1,2,1,,1,,1", concatStringColumn5)
@@ -945,14 +943,9 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
       assertEquals(16, rowsResult.getJsonArray("rows").size())
 
       val rows = rowsResult.getJsonArray("rows")
-      val rowValueCount =
-        rows.asScala.headOption.map(row =>
-          row.asInstanceOf[JsonObject].getJsonArray("values").size()
-        ).getOrElse(0)
-
       val columnsCount = columnsResult.getJsonArray("columns").size()
       assertEquals(1, columnsCount)
-      assertEquals(1, rowValueCount)
+      assertEquals(1, getRowValueCount(rows))
     }
   }
 
@@ -988,38 +981,85 @@ class RetrieveRowsUnionTableTest extends TableauxTestBase with UnionTableTestHel
   @Test
   def unionTablePlain_retrieveRowsOfFirstColumn_ok(implicit c: TestContext): Unit = okTest {
     for {
-      tableId <- createUnionTable(true, false)
+      tableId <- createUnionTable(true, true)
       rowsResult <- sendRequest("GET", s"/tables/$tableId/columns/first/rows")
       rowsResultPaginated <- sendRequest("GET", s"/tables/$tableId/columns/first/rows?offset=10&limit=2")
     } yield {
-      assertEquals(16, rowsResult.getJsonArray("rows").size())
-
       val rows = rowsResult.getJsonArray("rows")
-      val rowValueCount =
-        rows.asScala.headOption.map(row =>
-          row.asInstanceOf[JsonObject].getJsonArray("values").size()
-        ).getOrElse(0)
 
-      assertEquals(1, rowValueCount)
-      val firstColumnValues = rows.asScala.map(row =>
-        row.asInstanceOf[JsonObject].getJsonArray("values").getValue(0)
-      ).toSeq
+      assertEquals(16, rows.size())
+      assertEquals(1, getRowValueCount(rows))
       val valueTable2 = Json.obj("de" -> "table2_de", "en" -> "table2_en")
       val valueTable3 = Json.obj("de" -> "table3_de", "en" -> "table3_en")
       val valueTable4 = Json.obj("de" -> "table4_de", "en" -> "table4_en")
+
       val expectedValues =
         Seq.fill(3)(valueTable2) ++
           Seq.fill(8)(valueTable4) ++
           Seq.fill(5)(valueTable3)
-      assertEquals(expectedValues, firstColumnValues)
+
+      assertEquals(expectedValues, getRowValuesAt(rows, 0))
 
       // paginated
-      assertEquals(2, rowsResultPaginated.getJsonArray("rows").size())
-      val paginatedValues = rowsResultPaginated.getJsonArray("rows").asScala.map(row =>
-        row.asInstanceOf[JsonObject].getJsonArray("values").getValue(0)
-      ).toSeq
+      val rowsPaginated = rowsResultPaginated.getJsonArray("rows")
+      assertEquals(1, getRowValueCount(rowsPaginated))
+      assertEquals(2, rowsPaginated.size())
+
       val expectedPaginatedValues = Seq(valueTable4, valueTable3) // one row from table4 and one from table3
-      assertEquals(expectedPaginatedValues, paginatedValues)
+      assertEquals(expectedPaginatedValues, getRowValuesAt(rowsPaginated, 0))
+    }
+  }
+
+  @Test
+  def unionTablePlain_retrieveRowsOfSpecificColumn_ok(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createUnionTable(true, true)
+      rowsResultColumn1 <- sendRequest("GET", s"/tables/$tableId/columns/1/rows")
+      rowsResultColumn2 <- sendRequest("GET", s"/tables/$tableId/columns/2/rows")
+      rowsResultPaginatedColumn1 <- sendRequest("GET", s"/tables/$tableId/columns/1/rows?offset=10&limit=2")
+      rowsResultPaginatedColumn2 <- sendRequest("GET", s"/tables/$tableId/columns/2/rows?offset=10&limit=2")
+    } yield {
+      val rowsColumn1 = rowsResultColumn1.getJsonArray("rows")
+      val rowsColumn2 = rowsResultColumn2.getJsonArray("rows")
+
+      assertEquals(16, rowsColumn1.size())
+      assertEquals(16, rowsColumn2.size())
+      assertEquals(1, getRowValueCount(rowsColumn1))
+      assertEquals(1, getRowValueCount(rowsColumn2))
+
+      val value1Table2 = Json.obj("de" -> "table2_de", "en" -> "table2_en")
+      val value1Table3 = Json.obj("de" -> "table3_de", "en" -> "table3_en")
+      val value1Table4 = Json.obj("de" -> "table4_de", "en" -> "table4_en")
+
+      val expectedValues1 =
+        Seq.fill(3)(value1Table2) ++
+          Seq.fill(8)(value1Table4) ++
+          Seq.fill(5)(value1Table3)
+
+      assertEquals(expectedValues1, getRowValuesAt(rowsColumn1, 0))
+
+      println(s"###LOG###: rowsColumn1: ${rowsColumn1}")
+      println(s"###LOG###: rowsColumn2: ${rowsColumn2}")
+
+      val expectedValues2 =
+        Seq("color1", "color2", "color3", "color4", "color5", "color6", "color7", "color8") ++
+          Seq("color9", "color10", "color11", "color12", "color13", "color14", "color15", "color16")
+
+      assertEquals(expectedValues2, getRowValuesAt(rowsColumn2, 0))
+
+      // paginated
+      val rowsPaginatedColumn1 = rowsResultPaginatedColumn1.getJsonArray("rows")
+      val rowsPaginatedColumn2 = rowsResultPaginatedColumn2.getJsonArray("rows")
+
+      assertEquals(2, rowsPaginatedColumn1.size())
+      assertEquals(2, rowsPaginatedColumn2.size())
+      assertEquals(1, getRowValueCount(rowsPaginatedColumn1))
+      assertEquals(1, getRowValueCount(rowsPaginatedColumn2))
+      val expectedPaginatedValues1 = Seq(value1Table4, value1Table3) // one row from table4 and one from table3
+      assertEquals(expectedPaginatedValues1, getRowValuesAt(rowsPaginatedColumn1, 0))
+
+      val expectedPaginatedValues2 = Seq("color11", "color12") // one row from table4 and one from table3
+      assertEquals(expectedPaginatedValues2, getRowValuesAt(rowsPaginatedColumn2, 0))
     }
   }
 }
