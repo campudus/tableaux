@@ -514,7 +514,6 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ = UnionTableHelper.notImplemented(table)
       _ <- roleModel.checkAuthorization(ViewTable, ComparisonObjects(table))
       dependentRows <- repository.retrieveDependentRows(table, rowId)
     } yield dependentRows

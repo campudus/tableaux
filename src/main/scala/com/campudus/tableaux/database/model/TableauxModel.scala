@@ -188,10 +188,27 @@ class TableauxModel(
       .map(dependentRows => (linkDirection.to, dependentRows))
   }
 
-  def retrieveDependentRows(table: Table, rowId: RowId)(
+  def retrieveDependentRows(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[DependentRowsSeq] = {
+    val retrieveFn = table.tableType match {
+      case UnionTable => retrieveUnionTableDependentRows _
+      case _ => retrieveDependentRowsInternal _
+    }
+    retrieveFn(table, rowId)
+  }
+
+  def retrieveUnionTableDependentRows(table: Table, compositeId: RowId)(
       implicit user: TableauxUser
   ): Future[DependentRowsSeq] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+    for {
+      originTable <- retrieveTable(originTableId, isInternalCall = true)
+      dependentRows <- retrieveDependentRowsInternal(originTable, originRowId)
+    } yield dependentRows
+  }
 
+  private def retrieveDependentRowsInternal(table: Table, rowId: RowId)(
+      implicit user: TableauxUser
+  ): Future[DependentRowsSeq] = {
     for {
       links <- retrieveDependentLinks(table)
       result <- {

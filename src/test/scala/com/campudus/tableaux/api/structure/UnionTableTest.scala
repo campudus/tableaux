@@ -714,7 +714,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       patchCell <- sendRequest("PATCH", s"/tables/$tableId/columns/1/rows/1", cellPayload).toException()
       deleteCell <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1").toException()
       retrieveAnnotationsTable <- sendRequest("GET", s"/tables/$tableId/annotations").toException()
-      retrieveDependentRows <- sendRequest("GET", s"/tables/$tableId/rows/1/dependent").toException()
       addRowPermissions <-
         sendRequest("PATCH", s"/tables/$tableId/rows/1/permissions", permissionsPayload).toException()
       deleteRowPermissions <- sendRequest("DELETE", s"/tables/$tableId/rows/1/permissions").toException()
@@ -739,7 +738,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       assertEquals(expectedException, patchCell)
       assertEquals(expectedException, deleteCell)
       assertEquals(expectedException, retrieveAnnotationsTable)
-      assertEquals(expectedException, retrieveDependentRows)
       assertEquals(expectedException, addRowPermissions)
       assertEquals(expectedException, deleteRowPermissions)
       assertEquals(expectedException, replaceRowPermissions)
@@ -1451,6 +1449,31 @@ class RetrieveLinksUnionTableTest extends TableauxTestBase with UnionTableTestHe
       )
       assertJSONEquals(Json.emptyArr(), foreignRowsEmpty)
       assertJSONEquals(expectedRows, foreignRowsAvailable)
+    }
+  }
+
+  @Test
+  def unionTable_retrieveDependentRows_ok(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createUnionTable(true)
+      dependentRowsAvailable1 <- sendRequest("GET", s"/tables/4/rows/1/dependent").map(_.getJsonArray("dependentRows"))
+      dependentRowsAvailable2 <-
+        sendRequest("GET", s"/tables/$tableId/rows/4000001/dependent").map(_.getJsonArray("dependentRows"))
+      dependentRowsEmpty1 <- sendRequest("GET", s"/tables/4/rows/2/dependent").map(_.getJsonArray("dependentRows"))
+      dependentRowsEmpty2 <-
+        sendRequest("GET", s"/tables/$tableId/rows/4000002/dependent").map(_.getJsonArray("dependentRows"))
+    } yield {
+      val expectedDependentRows = Json.arr(
+        Json.obj(
+          "table" -> Json.obj("id" -> 1, "name" -> "glossLink"),
+          "column" -> Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text"),
+          "rows" -> Json.arr(Json.obj("id" -> 1, "value" -> "table1row1"))
+        )
+      )
+      assertJSONEquals(expectedDependentRows, dependentRowsAvailable1)
+      assertJSONEquals(expectedDependentRows, dependentRowsAvailable2)
+      assertJSONEquals(Json.emptyArr(), dependentRowsEmpty1)
+      assertJSONEquals(Json.emptyArr(), dependentRowsEmpty2)
     }
   }
 }
