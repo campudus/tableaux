@@ -478,7 +478,6 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ = UnionTableHelper.notImplemented(table)
       rows <- repository.retrieveForeignRows(table, columnId, rowId, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
   }

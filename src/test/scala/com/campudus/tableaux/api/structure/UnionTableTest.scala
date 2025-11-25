@@ -714,8 +714,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       patchCell <- sendRequest("PATCH", s"/tables/$tableId/columns/1/rows/1", cellPayload).toException()
       deleteCell <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1").toException()
       retrieveAnnotationsTable <- sendRequest("GET", s"/tables/$tableId/annotations").toException()
-      retrieveForeignRows <-
-        sendRequest("GET", s"/tables/$tableId/columns/1/rows/1/foreignRows").toException()
       retrieveDependentRows <- sendRequest("GET", s"/tables/$tableId/rows/1/dependent").toException()
       addRowPermissions <-
         sendRequest("PATCH", s"/tables/$tableId/rows/1/permissions", permissionsPayload).toException()
@@ -741,7 +739,6 @@ class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestH
       assertEquals(expectedException, patchCell)
       assertEquals(expectedException, deleteCell)
       assertEquals(expectedException, retrieveAnnotationsTable)
-      assertEquals(expectedException, retrieveForeignRows)
       assertEquals(expectedException, retrieveDependentRows)
       assertEquals(expectedException, addRowPermissions)
       assertEquals(expectedException, deleteRowPermissions)
@@ -1432,6 +1429,28 @@ class RetrieveCellUnionTableTest extends TableauxTestBase with UnionTableTestHel
     } yield {
       assertJSONEquals(valueTable2, cellValueRow21)
       assertJSONEquals(valueTable4, cellValueRow41)
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveLinksUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
+
+  @Test
+  def unionTable_retrieveForeignRows_ok(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createUnionTable(true)
+      foreignRowsEmpty <-
+        sendRequest("GET", s"/tables/$tableId/columns/5/rows/4000001/foreignRows").map(_.getJsonArray("rows"))
+      foreignRowsAvailable <-
+        sendRequest("GET", s"/tables/$tableId/columns/5/rows/4000002/foreignRows").map(_.getJsonArray("rows"))
+    } yield {
+      val expectedRows = Json.arr(
+        Json.obj("id" -> 1, "values" -> Json.arr("table1row1")),
+        Json.obj("id" -> 2, "values" -> Json.arr("table1row2"))
+      )
+      assertJSONEquals(Json.emptyArr(), foreignRowsEmpty)
+      assertJSONEquals(expectedRows, foreignRowsAvailable)
     }
   }
 }

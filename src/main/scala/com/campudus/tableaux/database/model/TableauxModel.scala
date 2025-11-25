@@ -1311,7 +1311,45 @@ class TableauxModel(
     }
   }
 
+  def retrieveUnionTableForeignRows(
+      unionTable: Table,
+      columnId: ColumnId,
+      compositeId: RowId,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  )(implicit user: TableauxUser): Future[RowSeq] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+
+    for {
+      originTable <- retrieveTable(originTableId)
+      unionColumn <- retrieveColumn(unionTable, columnId).flatMap({
+        case unionColumn: UnionColumn => Future.successful(unionColumn)
+        case column => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
+      })
+      originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
+      originColumn <- retrieveColumn(originTable, originColumnId)
+      foreignRows <-
+        retrieveForeignRowsInternal(originTable, originColumnId, originRowId, finalFlagOpt, archivedFlagOpt, pagination)
+    } yield foreignRows
+  }
+
   def retrieveForeignRows(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  )(implicit user: TableauxUser): Future[RowSeq] = {
+    val retrieveFn = table.tableType match {
+      case UnionTable => retrieveUnionTableForeignRows _
+      case _ => retrieveForeignRowsInternal _
+    }
+    retrieveFn(table, columnId, rowId, finalFlagOpt, archivedFlagOpt, pagination)
+  }
+
+  private def retrieveForeignRowsInternal(
       table: Table,
       columnId: ColumnId,
       rowId: RowId,
@@ -1335,10 +1373,8 @@ class TableauxModel(
           // In case of a ConcatColumn we need to retrieve the
           // other values too, so the ConcatColumn can be built.
           firstForeignColumn match {
-            case c: ConcatColumn =>
-              c.columns.+:(c)
-            case _ =>
-              Seq(firstForeignColumn)
+            case c: ConcatColumn => c.columns.+:(c)
+            case _ => Seq(firstForeignColumn)
           }
         })
 
