@@ -1419,4 +1419,19 @@ class RetrieveCellUnionTableTest extends TableauxTestBase with UnionTableTestHel
       assertEquals(1L, cellValue2)
     }
   }
+
+  @Test
+  def unionTable_retrieveCellFromOriginTableColumn_ok(implicit c: TestContext): Unit = okTest {
+    val valueTable2 = Json.obj("de" -> "table2_de", "en" -> "table2_en")
+    val valueTable4 = Json.obj("de" -> "table4_de", "en" -> "table4_en")
+
+    for {
+      tableId <- createUnionTable(true)
+      cellValueRow21 <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/2000001").map(_.getJsonObject("value"))
+      cellValueRow41 <- sendRequest("GET", s"/tables/$tableId/columns/1/rows/4000001").map(_.getJsonObject("value"))
+    } yield {
+      assertJSONEquals(valueTable2, cellValueRow21)
+      assertJSONEquals(valueTable4, cellValueRow41)
+    }
+  }
 }

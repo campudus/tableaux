@@ -1019,14 +1019,26 @@ class TableauxModel(
       implicit user: TableauxUser
   ): Future[Cell[Any]] = {
     val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
-    val originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
 
-    for {
-      originTable <- retrieveTable(originTableId)
-      originColumn <- retrieveColumn(originTable, originColumnId)
-      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn), isInternalCall)
-      cell <- retrieveCell(originColumn, originRowId, isInternalCall)
-    } yield cell
+    unionColumn.kind match {
+      // there is no persisted value for column type origintable, get display name of origin table instead
+      case OriginTableType => {
+        for {
+          originTable <- retrieveTable(originTableId)
+        } yield {
+          Cell(unionColumn, compositeId, originTable.getDisplayNameJson, RowLevelAnnotations(false, false))
+        }
+      }
+      case _ => {
+        val originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
+        for {
+          originTable <- retrieveTable(originTableId)
+          originColumn <- retrieveColumn(originTable, originColumnId)
+          _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn), isInternalCall)
+          cell <- retrieveCell(originColumn, originRowId, isInternalCall)
+        } yield cell
+      }
+    }
   }
 
   def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId, isInternalCall: Boolean = false)(
