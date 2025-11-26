@@ -566,8 +566,8 @@ class TableauxController(
       tableId: TableId,
       columnId: ColumnId,
       rowId: RowId,
-      toId: RowId,
-      locationType: LocationType
+      toId: LinkId,
+      locationType: LocationType[_]
   )(implicit user: TableauxUser): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
     logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $locationType")
@@ -575,6 +575,27 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       _ = UnionTableHelper.notImplemented(table)
       filled <- repository.updateCellLinkOrder(table, columnId, rowId, toId, locationType)
+    } yield filled
+  }
+
+  def updateAttachmentOrder(
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      attachmentId: UUID,
+      locationType: LocationType[_]
+  )(implicit user: TableauxUser): Future[Cell[_]] = {
+    checkArguments(
+      greaterZero(tableId),
+      greaterZero(columnId),
+      greaterZero(rowId),
+      notNull(attachmentId, "attachmentId")
+    )
+    logger.info(s"updateAttachmentOrder $tableId $columnId $rowId $attachmentId $locationType")
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
+      filled <- repository.updateAttachmentOrder(table, columnId, rowId, attachmentId, locationType)
     } yield filled
   }
 

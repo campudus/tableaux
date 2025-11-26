@@ -284,6 +284,13 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
+  // TODO implement
+  def updateAttachments(
+      table: Table,
+      attachmentColumn: AttachmentColumn,
+      rowIds: Seq[RowId]
+  ): Future[Unit] = ???
+
   private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId, rowExists: Boolean)(
       implicit user: TableauxUser
   ): Future[Unit] = {
