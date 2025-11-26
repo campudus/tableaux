@@ -1006,6 +1006,36 @@
         }
       }
     },
+    "/tables/{tableId}/order": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        }
+      ],
+      "post": {
+        "summary": "Updates the table ordering",
+        "description": "Updates the ordering of the table in the list of tables.",
+        "tags": [
+          "structure"
+        ],
+        "operationId": "reorder-table",
+        "parameters": [
+          {
+            "name": "ordering",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/LocationType"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
     "/tables/{tableId}/columns": {
       "parameters": [
         {
