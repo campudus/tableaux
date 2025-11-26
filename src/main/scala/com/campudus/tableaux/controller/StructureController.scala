@@ -602,7 +602,7 @@ class StructureController(
     }
   }
 
-  def changeTableOrder(tableId: TableId, locationType: LocationType)(
+  def changeTableOrder(tableId: TableId, locationType: LocationType[Long])(
       implicit user: TableauxUser
   ): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))

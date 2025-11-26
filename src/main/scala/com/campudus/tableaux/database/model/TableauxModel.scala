@@ -685,8 +685,8 @@ class TableauxModel(
       table: Table,
       columnId: ColumnId,
       rowId: RowId,
-      toId: RowId,
-      locationType: LocationType
+      toId: LinkId,
+      locationType: LocationType[_]
   )(implicit user: TableauxUser): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
@@ -702,6 +702,33 @@ class TableauxModel(
           } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
+      }
+
+      updatedCell <- retrieveCell(column, rowId, true)
+    } yield updatedCell
+  }
+
+  def updateAttachmentOrder(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      attachmentId: UUID,
+      locationType: LocationType[_]
+  )(implicit user: TableauxUser): Future[Cell[_]] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+      _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
+
+      _ <- column match {
+        case attachmentColumn: AttachmentColumn => {
+          for {
+            _ <- createHistoryModel.createCellsInit(table, rowId, Seq((attachmentColumn, Seq(rowId))))
+            _ <- updateRowModel.updateAttachmentOrder(table, attachmentColumn, rowId, attachmentId, locationType)
+            _ <- invalidateCellAndDependentColumns(column, rowId)
+            _ <- createHistoryModel.updateAttachments(table, attachmentColumn, Seq(rowId))
+          } yield Future.successful(())
+        }
+        case _ => Future.failed(WrongColumnKindException(column, classOf[AttachmentColumn]))
       }
 
       updatedCell <- retrieveCell(column, rowId, true)

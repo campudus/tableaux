@@ -2346,6 +2346,40 @@
         }
       }
     },
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/attachment/{attachmentId}/order": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/attachmentId"
+        }
+      ],
+      "put": {
+        "summary": "Changes the order of the attachment.",
+        "description": "Changes the order of the attachments by reordering the specified attachment to the beginning, end or in front of another relative attachment.",
+        "tags": [
+          "content"
+        ],
+        "operationId": "update-cell-attachment-order",
+        "parameters": [
+          {
+            "name": "location",
+            "in": "body",
+            "type": "object",
+            "schema": {
+              "$ref": "#/definitions/LocationType"
+            }
+          }
+        ]
+      }
+    },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/link/{linkId}": {
       "parameters": [
         {
@@ -3221,9 +3255,16 @@
           ]
         },
         "id": {
-          "description": "If using \"before\", we need to provide the id of a relative entity, so the referenced entity can be put before this.",
-          "type": "integer",
-          "format": "int64"
+          "description": "If using \"before\", we need to provide the id of a relative entity, so the referenced entity can be put before this.\nFor links, this id has to be a integer, for attachments it has to be a UUID string.",
+          "oneOf": [
+            {
+              "type": "integer",
+              "format": "int64"
+            },
+            {
+              "type": "string"
+            }
+          ]
         }
       },
       "required": [

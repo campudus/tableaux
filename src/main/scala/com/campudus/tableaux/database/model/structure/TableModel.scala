@@ -540,7 +540,7 @@ class TableModel(val connection: DatabaseConnection)(
     }
   }
 
-  def changeOrder(tableId: TableId, locationType: LocationType): Future[Unit] = {
+  def changeOrder(tableId: TableId, locationType: LocationType[Long]): Future[Unit] = {
     val listOfStatements: List[(String, JsonArray)] = locationType match {
       case LocationStart =>
         List(

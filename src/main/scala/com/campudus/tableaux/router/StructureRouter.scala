@@ -286,7 +286,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         context,
         asyncEmptyReply {
           val json = getJson(context)
-          controller.changeTableOrder(tableId, toLocationType(json))
+          controller.changeTableOrder(tableId, toLocationType[Long](json))
         }
       )
     }

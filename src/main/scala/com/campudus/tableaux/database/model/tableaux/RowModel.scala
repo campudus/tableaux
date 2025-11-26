@@ -444,7 +444,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       column: LinkColumn,
       rowId: RowId,
       toId: LinkId,
-      locationType: LocationType
+      locationType: LocationType[_]
   ): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
     val toIdColumn = column.linkDirection.toSql
@@ -568,6 +568,15 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       _ <- t.commit()
     } yield ()
   }
+
+  // TODO implement
+  def updateAttachmentOrder(
+      table: Table,
+      column: AttachmentColumn,
+      rowId: RowId,
+      attachmentId: UUID,
+      locationType: LocationType[_]
+  ): Future[Unit] = ???
 
   def updateRow(
       table: Table,
