@@ -1013,8 +1013,8 @@
         }
       ],
       "post": {
-        "summary": "Updates the table ordering",
-        "description": "Updates the ordering of the table in the list of tables.",
+        "summary": "Changes the order of the table.",
+        "description": "Changes the order of the table by reordering the specified table to the beginning, end or in front of another specified table.",
         "tags": [
           "structure"
         ],
