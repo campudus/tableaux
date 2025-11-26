@@ -443,7 +443,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       column: LinkColumn,
       rowId: RowId,
-      toId: RowId,
+      toId: LinkId,
       locationType: LocationType
   ): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
@@ -455,25 +455,65 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       case LocationStart =>
         List(
           (
-            s"UPDATE $linkTable SET $orderColumn = (SELECT MIN($orderColumn) - 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn > (SELECT MIN($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)",
+            s"""|UPDATE $linkTable
+                |SET $orderColumn = (
+                |  SELECT MIN($orderColumn) - 1
+                |  FROM $linkTable
+                |  WHERE $rowIdColumn = ?
+                |)
+                |WHERE $rowIdColumn = ?
+                |AND $toIdColumn = ?
+                |AND $orderColumn > (SELECT MIN($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)
+                |""".stripMargin,
             Json.arr(rowId, rowId, toId, rowId)
           )
         )
       case LocationEnd =>
         List(
           (
-            s"UPDATE $linkTable SET $orderColumn = (SELECT MAX($orderColumn) + 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn < (SELECT MAX($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)",
+            s"""|UPDATE $linkTable
+                |SET $orderColumn = (
+                |  SELECT MAX($orderColumn) + 1
+                |  FROM $linkTable
+                |  WHERE $rowIdColumn = ?
+                |)
+                |WHERE $rowIdColumn = ?
+                |AND $toIdColumn = ?
+                |AND $orderColumn < (SELECT MAX($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)
+                |""".stripMargin,
             Json.arr(rowId, rowId, toId, rowId)
           )
         )
       case LocationBefore(relativeTo) =>
         List(
           (
-            s"UPDATE $linkTable SET $orderColumn = (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ?",
+            // first set the moved item's order to the order of the item it is moved before
+            s"""|UPDATE $linkTable
+                |SET $orderColumn = (
+                |  SELECT $orderColumn
+                |  FROM $linkTable
+                |  WHERE $rowIdColumn = ?
+                |  AND $toIdColumn = ?
+                |)
+                |WHERE $rowIdColumn = ?
+                |AND $toIdColumn = ?
+                |""".stripMargin,
             Json.arr(rowId, relativeTo, rowId, toId)
           ),
           (
-            s"UPDATE $linkTable SET $orderColumn = $orderColumn + 1 WHERE ($orderColumn >= (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) AND ($rowIdColumn = ? AND $toIdColumn != ?))",
+            // then increase the order of all items that were after the moved item
+            s"""|UPDATE $linkTable
+                |SET $orderColumn = $orderColumn + 1
+                |WHERE (
+                |  $orderColumn >= (
+                |  SELECT $orderColumn
+                |  FROM $linkTable
+                |  WHERE $rowIdColumn = ?
+                |  AND $toIdColumn = ?
+                |)
+                |AND $rowIdColumn = ?
+                |AND $toIdColumn != ?)
+                |""".stripMargin,
             Json.arr(rowId, relativeTo, rowId, toId)
           )
         )
@@ -496,9 +536,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       (t, result) <- t.query(s"SELECT id FROM user_table_${table.id} WHERE id = ?", Json.arr(rowId))
       _ = selectNotNull(result)
 
-      // Check if row exists
-      (t, result) <- t.query(s"SELECT id FROM user_table_${column.to.table.id} WHERE id = ?", Json.arr(toId))
-      _ = selectNotNull(result)
+      // TODO remove duplicate code
+      // // Check if row exists
+      // (t, result) <- t.query(s"SELECT id FROM user_table_${column.to.table.id} WHERE id = ?", Json.arr(toId))
+      // _ = selectNotNull(result)
 
       t <- locationType match {
         case LocationBefore(relativeTo) =>
@@ -513,8 +554,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
                 t
             })
 
-        case _ =>
-          Future.successful(t)
+        case _ => Future.successful(t)
       }
 
       (t, _) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
