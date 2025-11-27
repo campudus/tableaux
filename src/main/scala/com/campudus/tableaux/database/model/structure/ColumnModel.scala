@@ -32,6 +32,7 @@ import com.google.common.cache.CacheBuilder
 import com.typesafe.scalalogging.LazyLogging
 import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit
+import org.checkerframework.checker.units.qual
 import scalacache._
 import scalacache.guava._
 import scalacache.modes.scalaFuture._
@@ -145,6 +146,15 @@ class CachedColumnModel(
   ): Future[Seq[ColumnType[_]]] = {
     for {
       r <- super.createColumns(table, createColumns)
+      _ <- removeCache(table.id, None)
+    } yield r
+  }
+
+  override def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
+      implicit user: TableauxUser
+  ): Future[Seq[ColumnType[_]]] = {
+    for {
+      r <- super.createUnionTableColumns(table, createColumns)
       _ <- removeCache(table.id, None)
     } yield r
   }
@@ -297,9 +307,9 @@ class ColumnModel(val connection: DatabaseConnection)(
         } else {
           Future { Unit }
         }
-      columnCreate <- createColumn match {
+      columnCreated <- createColumn match {
         case simpleColumnInfo: CreateSimpleColumn =>
-          createValueColumn(table.id, simpleColumnInfo)
+          createValueColumn(table, simpleColumnInfo)
             .map({
               case CreatedColumnInformation(_, id, ordering, displayInfos) =>
                 SimpleValueColumn(
@@ -325,7 +335,6 @@ class ColumnModel(val connection: DatabaseConnection)(
             })
 
         case groupColumnInfo: CreateGroupColumn => {
-          println("groupColumnInfo: " + groupColumnInfo)
           createGroupColumn(table, groupColumnInfo)
             .map({
               case CreatedColumnInformation(_, id, ordering, displayInfos) =>
@@ -359,6 +368,145 @@ class ColumnModel(val connection: DatabaseConnection)(
             statusColumn
           }
       }
+    } yield {
+      columnCreated
+    }
+  }
+
+  private def checkCreateUnionColumns(unionTable: Table, createColumns: Seq[CreateColumn])(
+      implicit user: TableauxUser
+  ): Future[Seq[String]] = {
+
+    val initialErrors = createColumns.foldLeft(Seq.empty[String]) {
+      case (errors, createColumn) =>
+        createColumn.originColumns match {
+          case Some(_) => errors
+          case None =>
+            errors :+ s"CreateColumn '${createColumn.name}' has no valid field originColumns"
+        }
+    }
+
+    val table2CreateColumn = createColumns.foldLeft(Map.empty[TableId, Map[CreateColumn, Set[ColumnId]]]) {
+      case (acc, createColumn) =>
+        createColumn.originColumns match {
+          case Some(CreateOriginColumns(tableToColumnMap)) =>
+            tableToColumnMap.foldLeft(acc) {
+              case (innerAcc, (tableId, columnId)) =>
+                val updatedCreateColumns = innerAcc.get(tableId) match {
+                  case Some(colMap) =>
+                    val updatedSet = colMap.get(createColumn) match {
+                      case Some(colSet) => colSet + columnId
+                      case None => Set(columnId)
+                    }
+                    colMap + (createColumn -> updatedSet)
+                  case None =>
+                    Map(createColumn -> Set(columnId))
+                }
+                innerAcc + (tableId -> updatedCreateColumns)
+            }
+          case None => acc
+        }
+    }
+
+    val unionTableOriginTables = unionTable.originTables.getOrElse(Seq.empty).toSet
+    val missingOriginTableIds = table2CreateColumn.keys.filterNot(unionTableOriginTables.contains).toList
+    val originTableError =
+      if (missingOriginTableIds.nonEmpty) {
+        Seq(
+          s"At least one CreateColumn contains originColumns for tables which are not defined in originTables "
+            + s"of the union table. Invalid tableIds: (${missingOriginTableIds.mkString(", ")})"
+        )
+      } else {
+        Seq.empty
+      }
+
+    for {
+      validationErrors <- Future.sequence(table2CreateColumn.toSeq.map({
+        case (originTableId, createColumn2OriginColumnIds) =>
+          (for {
+            originTable <- tableStruc.retrieve(originTableId)
+            originColumns <- retrieveAll(originTable)
+          } yield {
+            createColumn2OriginColumnIds.flatMap {
+              case (createColumn, columnIds) =>
+                columnIds.flatMap { columnId =>
+                  val matchingOriginColumnOpt = originColumns.find(_.id == columnId)
+                  matchingOriginColumnOpt match {
+                    case Some(originColumn) =>
+                      val errorPrefix = s"Column '${originColumn.id}' in table '$originTableId' and " +
+                        s"CreateColumn '${createColumn.name}' have different values in field"
+                      val errors = Seq.newBuilder[String]
+                      if (originColumn.kind != createColumn.kind) {
+                        errors += s"$errorPrefix kind: ${originColumn.kind} != ${createColumn.kind}"
+                      }
+                      if (originColumn.languageType != createColumn.languageType) {
+                        errors += s"$errorPrefix languageType: ${originColumn.languageType} != ${createColumn.languageType}"
+                      }
+                      errors.result()
+                    case None =>
+                      Seq(s"Column '${columnId}' not found in table '$originTableId'")
+                  }
+                }
+            }
+          }).recover({
+            case ex => Seq(s"Table '$originTableId' could not be checked, possibly it does not exist")
+          })
+      }))
+    } yield {
+      initialErrors ++ originTableError ++ validationErrors.flatten
+    }
+  }
+
+  def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
+      implicit user: TableauxUser
+  ): Future[Seq[ColumnType[_]]] = {
+    for {
+      errors <- checkCreateUnionColumns(table, createColumns)
+      _ <- {
+        if (errors.nonEmpty) {
+          Future.failed(InvalidJsonException(errors.mkString(", "), "unionTable"))
+        } else {
+          Future.successful(())
+        }
+      }
+
+      result <- createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
+        case (future, next) =>
+          for {
+            createdColumns <- future
+            createdColumn <- createUnionTableColumn(table, next)
+          } yield {
+            createdColumns :+ createdColumn
+          }
+      }
+    } yield result
+  }
+
+  def createUnionTableColumn(table: Table, createColumn: CreateColumn)(
+      implicit user: TableauxUser
+  ): Future[ColumnType[_]] = {
+    val attributes = createColumn.attributes
+    val validator = EventClient(Vertx.currentContext().get.owner())
+
+    def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
+      BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
+
+    for {
+
+      columnCreate <- createUnionColumn(table, createColumn)
+        .map({
+          case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+            val tableId2ColumnId = createColumn.originColumns match {
+              case Some(CreateOriginColumns(tableToColumnMap)) => tableToColumnMap
+              case None => Map.empty[TableId, ColumnId]
+            }
+            UnionColumn(
+              createColumn.kind,
+              createColumn.languageType,
+              applyColumnInformation(id, ordering, displayInfos),
+              OriginColumns(tableId2ColumnId)
+            )
+        })
     } yield {
       columnCreate
     }
@@ -424,24 +572,83 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
+  private def insertSystemUnionColumn(
+      t: DbTransaction,
+      table: Table,
+      createColumn: CreateColumn,
+      columnId: ColumnId
+  ): Future[(DbTransaction, JsonObject)] = {
+    val tableId = table.id
+    val originColumns = createColumn.originColumns
+
+    originColumns match {
+      case Some(CreateOriginColumns(tableToColumnMap)) =>
+        // Create INSERT statement for each origin column mapping
+        val insertPlaceholder = tableToColumnMap.map(_ => "(?, ?, ?, ?)").mkString(", ")
+        val values = tableToColumnMap.flatMap { case (originTableId, originColumnId) =>
+          Seq(tableId, columnId, originTableId, originColumnId)
+        }.toSeq
+
+        for {
+          (t, _) <- t.query(
+            s"INSERT INTO system_union_column(table_id, column_id, origin_table_id, origin_column_id) VALUES $insertPlaceholder",
+            Json.arr(values: _*)
+          )
+        } yield (t, Json.obj())
+
+      case None =>
+        // No origin columns specified, return empty result
+        Future.successful((t, Json.obj()))
+    }
+  }
+
+  private def insertColumnInUserTable(
+      t: DbTransaction,
+      table: Table,
+      simpleColumnInfo: CreateSimpleColumn,
+      columnId: ColumnId
+  ): Future[(DbTransaction, JsonObject)] = {
+    val tableId = table.id
+
+    val tableSql = simpleColumnInfo.languageType match {
+      case MultiLanguage | _: MultiCountry => s"user_table_lang_$tableId"
+      case LanguageNeutral => s"user_table_$tableId"
+    }
+
+    simpleColumnInfo.kind match {
+      case BooleanType => t.query(s"ALTER TABLE $tableSql ADD column_${columnId} BOOLEAN DEFAULT false")
+      case _ => t.query(s"ALTER TABLE $tableSql ADD column_${columnId} ${simpleColumnInfo.kind.toDbType}")
+    }
+  }
+
   private def createValueColumn(
-      tableId: TableId,
+      table: Table,
       simpleColumnInfo: CreateSimpleColumn
   ): Future[CreatedColumnInformation] = {
+    val tableId = table.id
     connection.transactional { t =>
       for {
         (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None, None, false)
-        tableSql = simpleColumnInfo.languageType match {
-          case MultiLanguage | _: MultiCountry => s"user_table_lang_$tableId"
-          case LanguageNeutral => s"user_table_$tableId"
-        }
 
-        (t, _) <- simpleColumnInfo.kind match {
-          case BooleanType =>
-            t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} BOOLEAN DEFAULT false")
-          case _ =>
-            t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
+        (t, _) <- table.tableType match {
+          case UnionTable => insertSystemUnionColumn(t, table, simpleColumnInfo, columnInfo.columnId)
+          case _ => insertColumnInUserTable(t, table, simpleColumnInfo, columnInfo.columnId)
         }
+      } yield {
+        (t, columnInfo)
+      }
+    }
+  }
+
+  private def createUnionColumn(
+      table: Table,
+      createColumn: CreateColumn
+  ): Future[CreatedColumnInformation] = {
+    val tableId = table.id
+    connection.transactional { t =>
+      for {
+        (t, columnInfo) <- insertSystemColumn(t, tableId, createColumn, None, None, false)
+        (t, _) <- insertSystemUnionColumn(t, table, createColumn, columnInfo.columnId)
       } yield {
         (t, columnInfo)
       }
@@ -887,7 +1094,12 @@ class ColumnModel(val connection: DatabaseConnection)(
        |  max_length,
        |  min_length,
        |  show_member_columns,
-       |  decimal_digits
+       |  decimal_digits,
+       |  (
+       |    SELECT json_agg(json_build_object('tableId', origin_table_id, 'columnId', origin_column_id))
+       |    FROM system_union_column
+       |    WHERE table_id = c.table_id AND column_id = c.column_id
+       |  ) AS origin_columns
        |""".stripMargin
 
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int)(
@@ -910,6 +1122,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         case g: GroupColumn =>
           // if requested column is a GroupColumn we need to get all columns
           // ... because only retrieveColumns can handle GroupColumns
+          // TODO: performance: optimize this query if we have multiple GroupColumns
           retrieveAll(table)
             .map(_.find(_.id == g.id).get)
 
@@ -925,29 +1138,67 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def retrieveColumns(table: Table, depth: Int, identifiersOnly: Boolean)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
+
+    /**
+      * Convert the column to the actual GroupColumn (fill with values we can't get from the initial query)
+      */
+    def fillGroupColumn(mappedColumns: Seq[ColumnType[_]], g: GroupColumn): GroupColumn = {
+      val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
+      GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns)
+    }
+
+    /**
+      * Convert the column to the actual UnionColumn (fill with values we can't get from the initial query)
+      */
+    def fillUnionColumn(originTableCache: Map[TableId, Seq[ColumnType[_]]], u: UnionColumn): UnionColumn = {
+      val tableToColumnMap = u.originColumns.tableId2ColumnId.map({
+        case (originTableId, originColumnId) =>
+          val originColumns = originTableCache(originTableId)
+          val matchingOriginColumnOpt = originColumns.find(_.id == originColumnId)
+          val matchingOriginColumn = matchingOriginColumnOpt match {
+            case Some(originColumn) => originColumn
+            case None =>
+              throw DatabaseException(
+                s"Origin column '${originColumnId}' not found in table '$originTableId' for UnionColumn",
+                "missing-origin-column"
+              )
+          }
+          (originTableId, matchingOriginColumn)
+      })
+
+      val filledOriginColumns = OriginColumns(u.originColumns.tableId2ColumnId, tableToColumnMap)
+      UnionColumn(u.kind, u.languageType, u.columnInformation, filledOriginColumns)
+    }
+
+    def getOriginTableCache(mappedColumns: Seq[ColumnType[_]]): Future[Map[TableId, Seq[ColumnType[_]]]] = {
+      // Pre-fetch all required origin tables and their columns for UnionColumns
+      // Build a cache: Map[TableId, Seq[ColumnType[_]]] to avoid fetching the same table multiple times
+      val originTableIds = mappedColumns
+        .collect({ case u: UnionColumn => u.originColumns.tableId2ColumnId.keys })
+        .flatten
+        .toSet
+
+      Future.sequence(
+        originTableIds.map(tableId =>
+          for {
+            originTable <- tableStruc.retrieve(tableId)
+            originColumns <- retrieveAll(originTable)
+          } yield (tableId, originColumns)
+        )
+      ).map(_.toMap)
+    }
+
     for {
       result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
-
-      mappedColumns <- {
-        val futures = resultObjectToJsonArray(result)
-          .map(mapRowResultToColumnType(table, _, depth))
-
-        Future.sequence(futures)
-      }
-    } yield {
-      val columns = mappedColumns
-        .map({
-          case g: GroupColumn =>
-            // fill GroupColumn with life!
-            // ... till now GroupColumn only was a placeholder
-            val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
-            GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns)
-
-          case c => c
-        })
-
-      prependConcatColumnIfNecessary(table, columns)
-    }
+      mappedColumns <- Future.sequence(resultObjectToJsonArray(result)
+        .map(mapRowResultToColumnType(table, _, depth)))
+      originTableCache <- getOriginTableCache(mappedColumns)
+      filledColumns = mappedColumns.map({
+        case g: GroupColumn => fillGroupColumn(mappedColumns, g)
+        case u: UnionColumn => fillUnionColumn(originTableCache, u)
+        case other => other
+      })
+    } yield prependConcatColumnIfNecessary(table, filledColumns)
   }
 
   private def generateRetrieveColumnsQuery(identifiersOnly: Boolean): String = {
@@ -985,8 +1236,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     for {
-      // we need to retrieve identifiers only...
-      // ... otherwise we will end up in a infinite loop
+      // we need to retrieve identifiers only otherwise we will end up in a infinite loop
       columns <- retrieveColumns(table, depth, identifiersOnly = true)
     } yield {
       val identifierColumns = columns.filter(_.identifier)
@@ -1030,22 +1280,28 @@ class ColumnModel(val connection: DatabaseConnection)(
       showMemberColumns: Boolean
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     kind match {
-      case AttachmentType =>
-        Future(AttachmentColumn(columnInformation))
-
-      case StatusType =>
-        mapStatusColumn(columnInformation, rules)
-
-      case LinkType =>
-        mapLinkColumn(depth, columnInformation)
-
-      case GroupType =>
-        // placeholder for now, grouped columns will be filled in later
-        Future(GroupColumn(columnInformation, Seq.empty, formatPattern, showMemberColumns))
-
-      case _ =>
-        Future(SimpleValueColumn(kind, languageType, columnInformation))
+      case AttachmentType => Future(AttachmentColumn(columnInformation))
+      case StatusType => mapStatusColumn(columnInformation, rules)
+      case LinkType => mapLinkColumn(depth, columnInformation)
+      // placeholder for now, grouped columns will be filled in later
+      case GroupType => Future(GroupColumn(columnInformation, Seq.empty, formatPattern, showMemberColumns))
+      case _ => Future(SimpleValueColumn(kind, languageType, columnInformation))
     }
+  }
+
+  private def mapUnionColumn(
+      kind: TableauxDbType,
+      languageType: LanguageType,
+      columnInformation: ColumnInformation,
+      originColumns: Option[OriginColumns]
+  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
+    Future(UnionColumn(
+      kind,
+      languageType,
+      columnInformation,
+      // we have no origin columns in the first union table column (OriginTableColumn)
+      originColumns.getOrElse(OriginColumns(Map()))
+    ))
   }
 
   private def mapStatusColumn(columnInformation: ColumnInformation, rules: JsonArray)(
@@ -1183,28 +1439,34 @@ class ColumnModel(val connection: DatabaseConnection)(
     val minLength = Option(row.get[Int](14))
     val showMemberColumns = row.get[Boolean](15)
     val decimalDigits = Option(row.get[Int](16))
+    val originColumns = Option(row.get[String](17))
+      .map(str => OriginColumns.parseJson(Json.fromArrayString(str)))
+
+    val getBasicColumnInfo = BasicColumnInformation(
+      table,
+      columnId,
+      columnName,
+      ordering,
+      identifier,
+      _: Seq[DisplayInfo],
+      groupColumnIds,
+      separator,
+      attributes,
+      hidden,
+      maxLength,
+      minLength,
+      decimalDigits
+    )
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
-
-      columnInformation = BasicColumnInformation(
-        table,
-        columnId,
-        columnName,
-        ordering,
-        identifier,
-        displayInfoSeq,
-        groupColumnIds,
-        separator,
-        attributes,
-        hidden,
-        maxLength,
-        minLength,
-        decimalDigits
-      )
-
-      column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
+      columnInfo = getBasicColumnInfo(displayInfoSeq)
+      column <- table.tableType match {
+        case UnionTable => mapUnionColumn(kind, languageType, columnInfo, originColumns)
+        case _ => mapColumn(depth, kind, languageType, columnInfo, formatPattern, rules, showMemberColumns)
+      }
     } yield column
+
   }
 
   private def retrieveDisplayInfo(table: Table, columnId: ColumnId): Future[Seq[DisplayInfo]] = {
@@ -1337,6 +1599,8 @@ class ColumnModel(val connection: DatabaseConnection)(
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
           case c: LinkColumn => deleteLink(c, bothDirections)
           case c: AttachmentColumn => deleteAttachment(c)
+          case c: UnionColumn if c.kind == OriginTableType =>
+            Future.failed(DatabaseException("Column origintable can't be deleted", "delete-column-origintable"))
           case c: ColumnType[_] => deleteSimpleColumn(c)
         }
       }
@@ -1453,6 +1717,17 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t) <- deleteSystemColumn(t, tableId, columnId)
       (t) <- deleteAnnotations(t, tableId, columnId)
 
+      _ <- t.commit()
+    } yield ()
+  }
+
+  private def deleteUnionSimpleColumn(column: ColumnType[_]): Future[Unit] = {
+    val tableId = column.table.id
+    val columnId = column.id
+
+    for {
+      t <- connection.begin()
+      (t) <- deleteSystemColumn(t, tableId, columnId)
       _ <- t.commit()
     } yield ()
   }

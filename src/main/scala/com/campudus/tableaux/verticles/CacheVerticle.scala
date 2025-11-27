@@ -1,5 +1,6 @@
 package com.campudus.tableaux.verticles
 
+import com.campudus.tableaux.Starter
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.verticles.EventClient._
@@ -36,7 +37,7 @@ object CacheVerticle {
   val NOT_FOUND_FAILURE: Int = 404
   val INVALID_MESSAGE: Int = 400
 
-  val TIMEOUT_AFTER_MILLISECONDS: Int = 400
+  var cacheTimeoutMillis: Int = Starter.DEFAULT_VERTX_CACHE_TIMEOUT_MILLIS
 
   def apply(tableauxConfig: TableauxConfig): CacheVerticle = {
     new CacheVerticle(tableauxConfig)
@@ -60,7 +61,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
   override def startFuture(): Future[_] = {
     logger.info(
       s"CacheVerticle initialized: DEFAULT_MAXIMUM_SIZE: $DEFAULT_MAXIMUM_SIZE, DEFAULT_EXPIRE_AFTER_ACCESS: "
-        + s"$DEFAULT_EXPIRE_AFTER_ACCESS TIMEOUT_AFTER_MILLISECONDS: $TIMEOUT_AFTER_MILLISECONDS"
+        + s"$DEFAULT_EXPIRE_AFTER_ACCESS TIMEOUT_AFTER_MILLISECONDS: ${CacheVerticle.cacheTimeoutMillis}"
     )
     registerOnEventBus()
   }

@@ -175,6 +175,10 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         )
         val tableGroupId = booleanToValueOption(json.containsKey("group"), json.getLong("group")).map(_.toLong)
         val concatFormatPattern = Option(json.getString("concatFormatPattern"))
+        val originTables = booleanToValueOption(
+          json.containsKey("originTables"),
+          json.getJsonArray("originTables")
+        ).map(_.asScala.map(_.toString.toLong).toSeq)
 
         controller.createTable(
           name,
@@ -184,7 +188,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
           tableType,
           tableGroupId,
           attributes,
-          concatFormatPattern
+          concatFormatPattern,
+          originTables
         )
       }
     )
@@ -192,14 +197,15 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 
   private def createColumn(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
+    val json = getJson(context)
+
     for {
       tableId <- getTableId(context)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          val json = getJson(context)
-          controller.createColumns(tableId, toCreateColumnSeq(json))
+          controller.createColumns(tableId, json)
         }
       )
     }
@@ -245,6 +251,16 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             Option(json.getLong("group")).map(_.toLong)
           )
           val concatFormatPattern = Option(json.getString("concatFormatPattern"))
+
+          val originTables = booleanToValueOption(
+            json.containsKey("originTables"),
+            json.getJsonArray("originTables")
+          ).map(_.asScala.map(_.toString.toLong).toSeq)
+          originTables match {
+            case Some(tableIds) =>
+              throw InvalidJsonException("Field originTables can not be changed after table creation.", "originTables")
+            case _ =>
+          }
 
           controller.changeTable(
             tableId,

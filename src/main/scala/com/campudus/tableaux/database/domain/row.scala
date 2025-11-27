@@ -1,9 +1,15 @@
 package com.campudus.tableaux.database.domain
 
+import com.campudus.tableaux.Starter
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.UnionTableHelper
 
 import org.vertx.scala.core.json._
+
+object UnionTableRow {
+  var rowOffset: Long = Starter.DEFAULT_UNION_TABLE_ROW_OFFSET
+}
 
 case class RawRow(
     id: RowId,
@@ -13,16 +19,15 @@ case class RawRow(
     values: Seq[_]
 )
 
-case class Row(
-    table: Table,
-    id: RowId,
-    rowLevelAnnotations: RowLevelAnnotations,
-    rowPermissions: RowPermissions,
-    cellLevelAnnotations: CellLevelAnnotations,
-    values: Seq[_]
-) extends DomainObject {
+trait RowLike extends DomainObject {
+  val table: Table
+  val id: RowId
+  val rowLevelAnnotations: RowLevelAnnotations
+  val rowPermissions: RowPermissions
+  val cellLevelAnnotations: CellLevelAnnotations
+  val values: Seq[_]
 
-  override def getJson: JsonObject = {
+  protected def buildBaseJson: JsonObject = {
     val json = Json.obj(
       "id" -> id,
       "values" -> compatibilityGet(values)
@@ -38,9 +43,48 @@ case class Row(
 
     json
   }
+
+  override def getJson: JsonObject = buildBaseJson
 }
 
-case class RowSeq(rows: Seq[Row], page: Page = Page(Pagination(None, None), None)) extends DomainObject {
+object RowLike {
+
+  implicit class RowLikeOps(row: RowLike) {
+
+    def toUnionTableRow(table: Table): UnionTableRow = {
+      UnionTableRow(table, row.id, row.rowLevelAnnotations, row.rowPermissions, row.cellLevelAnnotations, row.values)
+    }
+  }
+}
+
+case class Row(
+    table: Table,
+    id: RowId,
+    rowLevelAnnotations: RowLevelAnnotations,
+    rowPermissions: RowPermissions,
+    cellLevelAnnotations: CellLevelAnnotations,
+    values: Seq[_]
+) extends RowLike
+
+case class UnionTableRow(
+    table: Table,
+    id: RowId,
+    rowLevelAnnotations: RowLevelAnnotations,
+    rowPermissions: RowPermissions,
+    cellLevelAnnotations: CellLevelAnnotations,
+    values: Seq[_]
+) extends RowLike {
+
+  override def getJson: JsonObject = {
+    val json = buildBaseJson
+    json.mergeIn(Json.obj(
+      "tableId" -> table.id
+    ))
+    json.put("id", UnionTableHelper.calcRowId(table.id, id, UnionTableRow.rowOffset))
+  }
+}
+
+case class RowSeq(rows: Seq[RowLike], page: Page = Page(Pagination(None, None), None)) extends DomainObject {
 
   override def getJson: JsonObject = {
     Json.obj(

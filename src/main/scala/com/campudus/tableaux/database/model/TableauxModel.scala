@@ -6,6 +6,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.helper.UnionTableHelper
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
@@ -27,6 +28,8 @@ object TableauxModel {
   type TableGroupId = Long
   type TableId = Long
   type ColumnId = Long
+  type OriginColumnId = Long
+  type UnionColumnId = Long
   type RowId = Long
 
   type Ordering = Long
@@ -74,7 +77,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   protected[this] implicit def roleModel: RoleModel
 
   def createTable(name: String, hidden: Boolean)(implicit user: TableauxUser): Future[Table] = {
-    structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None, None, None)
+    structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None, None, None, None)
   }
 
   def retrieveTable(tableId: TableId, isInternalCall: Boolean = false)(
@@ -185,10 +188,27 @@ class TableauxModel(
       .map(dependentRows => (linkDirection.to, dependentRows))
   }
 
-  def retrieveDependentRows(table: Table, rowId: RowId)(
+  def retrieveDependentRows(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[DependentRowsSeq] = {
+    val retrieveFn = table.tableType match {
+      case UnionTable => retrieveUnionTableDependentRows _
+      case _ => retrieveDependentRowsInternal _
+    }
+    retrieveFn(table, rowId)
+  }
+
+  def retrieveUnionTableDependentRows(table: Table, compositeId: RowId)(
       implicit user: TableauxUser
   ): Future[DependentRowsSeq] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+    for {
+      originTable <- retrieveTable(originTableId, isInternalCall = true)
+      dependentRows <- retrieveDependentRowsInternal(originTable, originRowId)
+    } yield dependentRows
+  }
 
+  private def retrieveDependentRowsInternal(table: Table, rowId: RowId)(
+      implicit user: TableauxUser
+  ): Future[DependentRowsSeq] = {
     for {
       links <- retrieveDependentLinks(table)
       result <- {
@@ -400,7 +420,7 @@ class TableauxModel(
 
   }
 
-  def createRow(table: Table, rowPermissionsOpt: Option[Seq[String]])(implicit user: TableauxUser): Future[Row] = {
+  def createRow(table: Table, rowPermissionsOpt: Option[Seq[String]])(implicit user: TableauxUser): Future[RowLike] = {
     for {
       rowId <- createRowModel.createRow(table, Seq.empty, rowPermissionsOpt)
       _ <- createHistoryModel.createRow(table, rowId, rowPermissionsOpt)
@@ -414,42 +434,43 @@ class TableauxModel(
     for {
       allColumns <- retrieveColumns(table)
       columns = roleModel.filterDomainObjects(ViewColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
-      rows <- rows.foldLeft(Future.successful(Vector[Row]())) { (futureRows, row) => // replace ColumnId with ColumnType
-        // TODO fail nice if columnid doesn't exist
-        {
-          val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
+      rows <-
+        rows.foldLeft(Future.successful(Vector[RowLike]())) { (futureRows, row) => // replace ColumnId with ColumnType
+          // TODO fail nice if columnid doesn't exist
+          {
+            val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
 
-          futureRows.flatMap { rows =>
-            for {
+            futureRows.flatMap { rows =>
+              for {
 
-              // TODO add more checks like unique etc. for all tables depending on column configuration
-              _ <- table.tableType match {
-                case SettingsTable => {
+                // TODO add more checks like unique etc. for all tables depending on column configuration
+                _ <- table.tableType match {
+                  case SettingsTable => {
 
-                  val keyColumn = columns.find(_.id == 1).orNull
-                  val keyName = row
-                    .find({ case (id, _) => id == 1 })
-                    .flatMap({ case (_, colName) => Option(colName) })
+                    val keyColumn = columns.find(_.id == 1).orNull
+                    val keyName = row
+                      .find({ case (id, _) => id == 1 })
+                      .flatMap({ case (_, colName) => Option(colName) })
 
-                  for {
-                    _ <- checkForEmptyKey(table, keyName)
-                    _ <- checkForDuplicateKey(table, keyColumn, keyName)
-                  } yield ()
+                    for {
+                      _ <- checkForEmptyKey(table, keyName)
+                      _ <- checkForDuplicateKey(table, keyColumn, keyName)
+                    } yield ()
+                  }
+                  case _ => Future.successful(())
                 }
-                case _ => Future.successful(())
+
+                rowId <- createRowModel.createRow(table, columnValuePairs, rowPermissionsOpt)
+                _ <- createHistoryModel.createRow(table, rowId, rowPermissionsOpt)
+                _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
+
+                newRow <- retrieveRow(table, columns, rowId, ColumnFilter(None, None))
+              } yield {
+                rows ++ Seq(newRow)
               }
-
-              rowId <- createRowModel.createRow(table, columnValuePairs, rowPermissionsOpt)
-              _ <- createHistoryModel.createRow(table, rowId, rowPermissionsOpt)
-              _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
-
-              newRow <- retrieveRow(table, columns, rowId, ColumnFilter(None, None))
-            } yield {
-              rows ++ Seq(newRow)
             }
           }
         }
-      }
     } yield RowSeq(rows)
   }
 
@@ -580,7 +601,7 @@ class TableauxModel(
 
   def updateRowAnnotations(table: Table, rowId: RowId, finalFlagOpt: Option[Boolean], archivedFlagOpt: Option[Boolean])(
       implicit user: TableauxUser
-  ): Future[Row] = {
+  ): Future[RowLike] = {
 
     for {
       _ <- finalFlagOpt match {
@@ -623,7 +644,7 @@ class TableauxModel(
   }
 
   def retrieveTablesWithCellAnnotationCount(tables: Seq[Table]): Future[Seq[TableWithCellAnnotationCount]] = {
-    val tableIds = tables.map({ case Table(id, _, _, _, _, _, _, _, _) => id })
+    val tableIds = tables.map({ case Table(id, _, _, _, _, _, _, _, _, _) => id })
 
     for {
       annotationCountMap <- retrieveRowModel.retrieveCellAnnotationCount(tableIds)
@@ -968,6 +989,24 @@ class TableauxModel(
     } yield ()
   }
 
+  def retrieveUnionTableCellAnnotations(
+      unionTable: Table,
+      unionColumn: UnionColumn,
+      compositeId: RowId,
+      isInternalCall: Boolean = true
+  )(implicit user: TableauxUser): Future[CellLevelAnnotations] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+    val originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
+
+    for {
+      originTable <- retrieveTable(originTableId)
+      originColumn <- retrieveColumn(originTable, originColumnId)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn), isInternalCall)
+      (_, _, cellLevelAnnotations) <-
+        retrieveRowModel.retrieveAnnotations(originTable.id, originRowId, Seq(originColumn))
+    } yield cellLevelAnnotations
+  }
+
   def retrieveCellAnnotations(
       table: Table,
       columnId: ColumnId,
@@ -977,20 +1016,62 @@ class TableauxModel(
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column), isInternalCall)
-      (_, _, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
+
+      cellLevelAnnotations <- table.tableType match {
+        case UnionTable =>
+          column match {
+            case unionColumn: UnionColumn =>
+              retrieveUnionTableCellAnnotations(table, unionColumn, rowId, isInternalCall)
+            case _ => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
+          }
+        case _ =>
+          for {
+            (_, _, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
+          } yield cellLevelAnnotations
+      }
     } yield cellLevelAnnotations
   }
 
-  def retrieveCell(
-      table: Table,
-      columnId: ColumnId,
-      rowId: RowId,
-      isInternalCall: Boolean = false
-  )(implicit user: TableauxUser): Future[Cell[Any]] = {
+  def retrieveUnionTableCell(unionColumn: UnionColumn, compositeId: RowId, isInternalCall: Boolean = false)(
+      implicit user: TableauxUser
+  ): Future[Cell[Any]] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+
+    unionColumn.kind match {
+      // there is no persisted value for column type origintable, get display name of origin table instead
+      case OriginTableType => {
+        for {
+          originTable <- retrieveTable(originTableId)
+        } yield {
+          Cell(unionColumn, compositeId, originTable.getDisplayNameJson, RowLevelAnnotations(false, false))
+        }
+      }
+      case _ => {
+        val originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
+        for {
+          originTable <- retrieveTable(originTableId)
+          originColumn <- retrieveColumn(originTable, originColumnId)
+          _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn), isInternalCall)
+          cell <- retrieveCell(originColumn, originRowId, isInternalCall)
+        } yield cell
+      }
+    }
+  }
+
+  def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId, isInternalCall: Boolean = false)(
+      implicit user: TableauxUser
+  ): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column), isInternalCall)
-      cell <- retrieveCell(column, rowId, isInternalCall)
+      cell <- table.tableType match {
+        case UnionTable =>
+          column match {
+            case unionColumn: UnionColumn => retrieveUnionTableCell(unionColumn, rowId, isInternalCall)
+            case _ => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
+          }
+        case _ => retrieveCell(column, rowId, isInternalCall)
+      }
     } yield cell
   }
 
@@ -1079,9 +1160,9 @@ class TableauxModel(
 
   private def removeUnauthorizedForeignValuesFromRows(
       columns: Seq[ColumnType[_]],
-      rows: Seq[Row],
+      rows: Seq[RowLike],
       shouldHideValuesByRowPermissions: Boolean = true
-  )(implicit user: TableauxUser): Future[Seq[Row]] = {
+  )(implicit user: TableauxUser): Future[Seq[RowLike]] = {
     Future.sequence(rows map {
       case row => removeUnauthorizedLinkAndConcatValuesFromRow(columns, row, shouldHideValuesByRowPermissions)
     })
@@ -1089,9 +1170,9 @@ class TableauxModel(
 
   private def removeUnauthorizedLinkAndConcatValuesFromRow(
       columns: Seq[ColumnType[_]],
-      row: Row,
+      row: RowLike,
       shouldHideValuesByRowPermissions: Boolean = true
-  )(implicit user: TableauxUser): Future[Row] = {
+  )(implicit user: TableauxUser): Future[RowLike] = {
     val rowValues = row.values
     val rowLevelAnnotations = row.rowLevelAnnotations
     val rowPermissions = row.rowPermissions
@@ -1211,16 +1292,10 @@ class TableauxModel(
       table: Table,
       rowId: RowId,
       columnFilter: ColumnFilter = ColumnFilter(None, None)
-  )(implicit user: TableauxUser): Future[Row] = {
+  )(implicit user: TableauxUser): Future[RowLike] = {
     for {
       columns <- retrieveColumns(table)
-      filteredColumns = roleModel
-        .filterDomainObjects[ColumnType[_]](
-          ViewCellValue,
-          columns,
-          ComparisonObjects(table),
-          isInternalCall = false
-        )
+      filteredColumns = filterColumns(table, columns)
       row <- retrieveRow(table, filteredColumns, rowId, columnFilter)
       resultRow <-
         if (config.isRowPermissionCheckEnabled) {
@@ -1239,16 +1314,59 @@ class TableauxModel(
       columns: Seq[ColumnType[_]],
       rowId: RowId,
       columnFilter: ColumnFilter
-  )(
-      implicit user: TableauxUser
-  ): Future[Row] = {
+  )(implicit user: TableauxUser): Future[RowLike] = {
+    if (table.tableType == UnionTable) {
+      for {
+        unionTableColumns <- retrieveColumns(table)
+        row <- retrieveUnionTableRow(table, unionTableColumns, rowId, columnFilter)
+      } yield row
+    } else {
+      for {
+        rawRow <- retrieveRowModel.retrieve(table.id, rowId, columns)
+        rowSeq <- mapRawRows(table, columns, Seq(rawRow), columnFilter)
+      } yield rowSeq.head
+    }
+  }
+
+  def retrieveUnionTableForeignRows(
+      unionTable: Table,
+      columnId: ColumnId,
+      compositeId: RowId,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  )(implicit user: TableauxUser): Future[RowSeq] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+
     for {
-      rawRow <- retrieveRowModel.retrieve(table.id, rowId, columns)
-      rowSeq <- mapRawRows(table, columns, Seq(rawRow), columnFilter)
-    } yield rowSeq.head
+      originTable <- retrieveTable(originTableId)
+      unionColumn <- retrieveColumn(unionTable, columnId).flatMap({
+        case unionColumn: UnionColumn => Future.successful(unionColumn)
+        case column => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
+      })
+      originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
+      originColumn <- retrieveColumn(originTable, originColumnId)
+      foreignRows <-
+        retrieveForeignRowsInternal(originTable, originColumnId, originRowId, finalFlagOpt, archivedFlagOpt, pagination)
+    } yield foreignRows
   }
 
   def retrieveForeignRows(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  )(implicit user: TableauxUser): Future[RowSeq] = {
+    val retrieveFn = table.tableType match {
+      case UnionTable => retrieveUnionTableForeignRows _
+      case _ => retrieveForeignRowsInternal _
+    }
+    retrieveFn(table, columnId, rowId, finalFlagOpt, archivedFlagOpt, pagination)
+  }
+
+  private def retrieveForeignRowsInternal(
       table: Table,
       columnId: ColumnId,
       rowId: RowId,
@@ -1272,10 +1390,8 @@ class TableauxModel(
           // In case of a ConcatColumn we need to retrieve the
           // other values too, so the ConcatColumn can be built.
           firstForeignColumn match {
-            case c: ConcatColumn =>
-              c.columns.+:(c)
-            case _ =>
-              Seq(firstForeignColumn)
+            case c: ConcatColumn => c.columns.+:(c)
+            case _ => Seq(firstForeignColumn)
           }
         })
 
@@ -1291,12 +1407,7 @@ class TableauxModel(
         linkDirection
       )
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
-      resultRowSeq <-
-        if (config.isRowPermissionCheckEnabled) {
-          removeUnauthorizedForeignValuesFromRows(representingColumns, rowSeq)
-        } else {
-          Future.successful(rowSeq)
-        }
+      resultRowSeq <- filterRows(representingColumns, rowSeq)
     } yield {
       val filteredForeignRows = roleModel.filterDomainObjects(ViewRow, resultRowSeq, ComparisonObjects(), false)
       val rowsSeq = RowSeq(filteredForeignRows, Page(pagination, Some(totalSize)))
@@ -1304,8 +1415,233 @@ class TableauxModel(
     }
   }
 
-  private def copyFirstColumnOfRowsSeq(rowsSeq: RowSeq): RowSeq = {
-    rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
+  private def copyFirstColumnOfRowsSeq(rowsSeq: RowSeq): RowSeq =
+    rowsSeq.copy(rows = rowsSeq.rows.map({
+      case row: Row => row.copy(values = row.values.take(1))
+      case row: UnionTableRow => row.copy(values = row.values.take(1))
+    }))
+
+  private def filterColumns(table: Table, columns: Seq[ColumnType[_]])(
+      implicit user: TableauxUser
+  ): Seq[ColumnType[_]] = {
+    roleModel.filterDomainObjects[ColumnType[_]](
+      ViewCellValue,
+      columns,
+      ComparisonObjects(table),
+      isInternalCall = false
+    )
+  }
+
+  private def filterRows(columns: Seq[ColumnType[_]], rows: Seq[RowLike])(implicit
+  user: TableauxUser): Future[Seq[RowLike]] = {
+    if (config.isRowPermissionCheckEnabled) {
+      removeUnauthorizedForeignValuesFromRows(columns, rows)
+    } else {
+      Future.successful(rows)
+    }
+  }
+
+  private def getColumnMapping(
+      originTable: Table,
+      unionTableColumns: Seq[ColumnType[_]]
+  ): Map[UnionColumnId, OriginColumnId] = {
+    unionTableColumns.collect({ case utc: UnionColumn => utc })
+      .flatMap { utc =>
+        if (utc.originColumns.tableId2ColumnId.contains(originTable.id)) {
+          Seq((utc.id, utc.originColumns.tableId2ColumnId(originTable.id)))
+        } else {
+          Seq.empty
+        }
+      }.toMap
+  }
+
+  private def reorderValuesAndAnnotations(
+      originColumnValue: JsonObject,
+      unionColumn2OriginColumnMapping: Map[UnionColumnId, OriginColumnId],
+      originColumns: Seq[ColumnType[_]],
+      unionTableColumns: Seq[ColumnType[_]]
+  )(rows: Seq[RowLike]): Seq[RawRow] = {
+    val unionColumnOrdering = unionTableColumns.map(c => c.id)
+    val originColumnOrdering = originColumns.map(c => c.id)
+
+    rows.map({ row =>
+      // column with id 0 is always the identifier concat column
+      // if we have a concat column in the union table, we need to insert the "magic" origin column
+      // value at index 1 not at 0. Otherwise we would overwrite the concat column value.
+      val indexOfOriginColumnInUnionTable = if (unionColumnOrdering.contains(0L)) 1 else 0
+      val reorderedValues = unionColumn2OriginColumnMapping.foldLeft(
+        Vector.fill(unionColumnOrdering.size)(null: Any).updated(indexOfOriginColumnInUnionTable, originColumnValue)
+      ) { case (acc, (unionColumnId, originColumnId)) =>
+        val originColumnIndex = originColumnOrdering.indexOf(originColumnId)
+        val unionColumnIndex = unionColumnOrdering.indexOf(unionColumnId)
+
+        val theValue = row.values(originColumnIndex.toInt)
+        acc.updated(unionColumnIndex.toInt, theValue)
+      }
+
+      // we get the annotations in the origin column order,
+      // so we need to reorder them so that they fit to the union table column ordering
+      val unionTableAnnotationMapping: Map[ColumnId, Seq[CellLevelAnnotation]] =
+        unionColumn2OriginColumnMapping
+          .map({ case (unionColumnId, originColumnId) =>
+            val annotationsForOriginColumn = row.cellLevelAnnotations.annotations
+              .getOrElse(originColumnId, Seq.empty)
+            (unionColumnId, annotationsForOriginColumn)
+          })
+      val reorderedAnnotations = new CellLevelAnnotations(unionTableColumns, unionTableAnnotationMapping)
+
+      RawRow(
+        row.id,
+        row.rowLevelAnnotations,
+        row.rowPermissions,
+        reorderedAnnotations,
+        reorderedValues
+      )
+    })
+  }
+
+  private def mapRawUnionTableRows(
+      unionTable: Table,
+      originTable: Table,
+      unionTableColumns: Seq[ColumnType[_]],
+      rawRows: Seq[RawRow],
+      columnFilter: ColumnFilter
+  )(implicit user: TableauxUser): Future[Seq[UnionTableRow]] = {
+    for {
+      mappedRows <- mapRawRows(unionTable, unionTableColumns, rawRows, columnFilter)
+      mappedUnionTableRows = mappedRows.map(_.toUnionTableRow(originTable))
+    } yield mappedUnionTableRows
+
+  }
+
+  def retrieveUnionTableRow(
+      unionTable: Table,
+      unionTableColumns: Seq[ColumnType[_]],
+      compositeId: RowId,
+      columnFilter: ColumnFilter
+  )(implicit user: TableauxUser): Future[RowLike] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(compositeId, UnionTableRow.rowOffset)
+
+    unionTable.originTables match {
+      case None => Future.failed(InvalidRequestException("Union table has no origin tables defined"))
+
+      case Some(originTables) =>
+        logger.info(s"retrieveRow from originTable $originTableId $originRowId")
+        for {
+          originTable <- retrieveTable(originTableId)
+          columns <- retrieveColumns(originTable)
+          filteredColumns = filterColumns(originTable, columns)
+
+          unionColumn2originColumn = getColumnMapping(originTable, unionTableColumns)
+
+          // retrieve only relevant columns that we need to return for the union table
+          relevantFilteredColumns =
+            filteredColumns.filter(c => unionColumn2originColumn.values.toSeq.contains(c.id))
+
+          row <- retrieveRow(originTable, relevantFilteredColumns, originRowId, ColumnFilter(None, None))
+          filteredRows = roleModel.filterDomainObjects(ViewRow, Seq(row), ComparisonObjects(), false)
+          originColumnValue = originTable.getDisplayNameJson
+
+          unifyColumns = reorderValuesAndAnnotations(
+            originColumnValue,
+            unionColumn2originColumn,
+            relevantFilteredColumns,
+            unionTableColumns
+          )(_)
+
+          rawRows = unifyColumns(filteredRows)
+          mappedRows <- mapRawUnionTableRows(unionTable, originTable, unionTableColumns, rawRows, columnFilter)
+        } yield {
+          mappedRows.head
+        }
+    }
+  }
+
+  def retrieveUnionTableRows(
+      unionTable: Table,
+      unionTableColumns: Seq[ColumnType[_]],
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination,
+      columnFilter: ColumnFilter
+  )(implicit user: TableauxUser): Future[RowSeq] = {
+
+    def retrieveAndProcessTableRows(
+        originTableId: TableId,
+        acc: RowSeq,
+        totalSize: Long,
+        originPagination: Pagination
+    ): Future[(RowSeq, Long)] = {
+      for {
+        originTable <- retrieveTable(originTableId)
+        columns <- retrieveColumns(originTable)
+        filteredColumns = filterColumns(originTable, columns)
+        unionColumn2originColumn = getColumnMapping(originTable, unionTableColumns)
+
+        // retrieve only relevant columns that we need to return for the union table
+        relevantFilteredColumns = filteredColumns.filter(c => unionColumn2originColumn.values.toSeq.contains(c.id))
+
+        rowSeq <- retrieveRows(
+          originTable,
+          relevantFilteredColumns,
+          finalFlagOpt,
+          archivedFlagOpt,
+          originPagination,
+          ColumnFilter(None, None),
+          true
+        )
+        resultRows <- filterRows(filteredColumns, rowSeq.rows)
+        filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+        originColumnValue = originTable.getDisplayNameJson
+
+        unifyColumns = reorderValuesAndAnnotations(
+          originColumnValue,
+          unionColumn2originColumn,
+          relevantFilteredColumns,
+          unionTableColumns
+        )(_)
+
+        rawRows = unifyColumns(filteredRows)
+        mappedRows <- mapRawUnionTableRows(unionTable, originTable, unionTableColumns, rawRows, columnFilter)
+      } yield {
+        val combinedRows = acc.rows ++ mappedRows
+        (RowSeq(combinedRows, rowSeq.page), totalSize)
+      }
+    }
+
+    unionTable.originTables match {
+      case None =>
+        Future.failed(InvalidRequestException("Union table has no origin tables defined"))
+
+      case Some(originTables) =>
+        val originalOffset = pagination.offset.getOrElse(0L).toInt
+        val originalLimit = pagination.limit.getOrElse((Int.MaxValue).toLong).toInt
+
+        for {
+          foldResult <- originTables.foldLeft(Future.successful((RowSeq(Seq.empty, Page(pagination, Some(0L))), 0L)))(
+            (accFuture, originTableId) =>
+              for {
+                (accRows, accTotalSize) <- accFuture
+                rowCount <- retrieveRowModel.size(originTableId, finalFlagOpt, archivedFlagOpt)
+
+                totalSize = accTotalSize + rowCount
+                tableOffset = Math.max(0, originalOffset - accTotalSize)
+                tableLimit = Math.max(0, originalLimit - Math.max(0, accTotalSize - originalOffset))
+                originPagination = Pagination(Some(tableOffset), Some(tableLimit))
+
+                result <-
+                  if (rowCount < tableOffset) {
+                    Future.successful((accRows, totalSize))
+                  } else {
+                    retrieveAndProcessTableRows(originTableId, accRows, totalSize, originPagination)
+                  }
+              } yield result
+          )
+        } yield {
+          val (rowSeq, totalSize) = foldResult
+          RowSeq(rowSeq.rows, Page(pagination, Some(totalSize)))
+        }
+    }
   }
 
   def retrieveRows(
@@ -1313,27 +1649,24 @@ class TableauxModel(
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination,
-      columnFilter: ColumnFilter = ColumnFilter(None, None)
+      columnFilter: ColumnFilter
   )(implicit user: TableauxUser): Future[RowSeq] = {
-    for {
-      columns <- retrieveColumns(table)
-      filteredColumns = roleModel
-        .filterDomainObjects[ColumnType[_]](
-          ViewCellValue,
-          columns,
-          ComparisonObjects(table),
-          isInternalCall = false
-        )
-      rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
-      resultRows <-
-        if (config.isRowPermissionCheckEnabled) {
-          removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
-        } else {
-          Future.successful(rowSeq.rows)
-        }
-    } yield {
-      val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
-      RowSeq(filteredRows, rowSeq.page)
+    if (table.tableType == UnionTable) {
+      for {
+        unionTableColumns <- retrieveColumns(table)
+        rowSeq <-
+          retrieveUnionTableRows(table, unionTableColumns, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
+      } yield rowSeq
+    } else {
+      for {
+        columns <- retrieveColumns(table)
+        filteredColumns = filterColumns(table, columns)
+        rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
+        resultRows <- filterRows(filteredColumns, rowSeq.rows)
+      } yield {
+        val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+        RowSeq(filteredRows, rowSeq.page)
+      }
     }
   }
 
@@ -1343,21 +1676,35 @@ class TableauxModel(
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination
-  )(
-      implicit user: TableauxUser
-  ): Future[RowSeq] = {
+  )(implicit user: TableauxUser): Future[RowSeq] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
+      rowsSeq <- table.tableType match {
+        case UnionTable => {
+          val unionColumns = Seq(column).collect({ case uc: UnionColumn => uc })
+          for {
+            rowSeq <- retrieveUnionTableRows(
+              table,
+              unionColumns,
+              finalFlagOpt,
+              archivedFlagOpt,
+              pagination,
+              ColumnFilter(None, None)
+            )
+          } yield rowSeq
+        }
 
-      // In case of a ConcatColumn we need to retrieve the
-      // other values too, so the ConcatColumn can be build.
-      columns = column match {
-        case c: ConcatenateColumn => c.columns.+:(c)
-        case _ => Seq(column)
+        case _ => {
+          // In case of a ConcatColumn we need to retrieve the
+          // other values too, so the ConcatColumn can be build.
+          val columns = column match {
+            case c: ConcatenateColumn => c.columns.+:(c)
+            case _ => Seq(column)
+          }
+          retrieveRows(table, columns, finalFlagOpt, archivedFlagOpt, pagination, ColumnFilter(None, None))
+        }
       }
-
-      rowsSeq <- retrieveRows(table, columns, finalFlagOpt, archivedFlagOpt, pagination, ColumnFilter(None, None))
     } yield {
       copyFirstColumnOfRowsSeq(rowsSeq)
     }
@@ -1369,21 +1716,22 @@ class TableauxModel(
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination,
-      columnFilter: ColumnFilter
-  )(
-      implicit user: TableauxUser
-  ): Future[RowSeq] = {
+      columnFilter: ColumnFilter,
+      skipRetrieveSize: Boolean = false
+  )(implicit user: TableauxUser): Future[RowSeq] = {
     for {
-      totalSize <- retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt)
+      totalSizeOpt <-
+        if (skipRetrieveSize) Future.successful(None)
+        else retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt).map(Some(_))
       rawRows <- retrieveRowModel.retrieveAll(table.id, columns, finalFlagOpt, archivedFlagOpt, pagination)
       rowSeq <- mapRawRows(table, columns, rawRows, columnFilter)
     } yield {
-      RowSeq(rowSeq, Page(pagination, Some(totalSize)))
+      RowSeq(rowSeq, Page(pagination, totalSizeOpt))
     }
   }
 
   def duplicateRow(table: Table, rowId: RowId, options: Option[DuplicateRowOptions])(implicit
-  user: TableauxUser): Future[Row] = {
+  user: TableauxUser): Future[RowLike] = {
     val isConstrainedLink = (link: LinkColumn) => link.linkDirection.constraint.cardinality.from > 0
     val shouldAnnotateSkipped = options.fold(false)(_.annotateSkipped)
     val shouldSkipConstrained = options.fold(false)(_.skipConstrainedFrom)
@@ -1464,9 +1812,7 @@ class TableauxModel(
       columns: Seq[ColumnType[_]],
       rawRows: Seq[RawRow],
       columnFilter: ColumnFilter = ColumnFilter(None, None)
-  )(
-      implicit user: TableauxUser
-  ): Future[Seq[Row]] = {
+  )(implicit user: TableauxUser): Future[Seq[RowLike]] = {
     val idsOfFilteredColumnsWithConcats = columns
       .filter(columnFilter.filter)
       .flatMap(c =>
@@ -1485,14 +1831,10 @@ class TableauxModel(
         concatenateColumn: ConcatenateColumn,
         linkedRows: JsonArray
     ): Future[List[JsonObject]] = {
-      import scala.collection.JavaConverters._
-
-      // Iterate over each linked row and
-      // replace json's value with ConcatColumn value
+      // Iterate over each linked row and replace json's value with ConcatColumn value
       linkedRows.asScala.map(_.asInstanceOf[JsonObject]).foldLeft(Future.successful(List.empty[JsonObject])) {
         case (futureList, linkedRow: JsonObject) =>
-          // ConcatColumn's value is always a
-          // json array with the linked row ids
+          // ConcatColumn's value is always a json array with the linked row ids
           val rowId = linkedRow.getLong("id").longValue()
 
           for {
@@ -1653,6 +1995,26 @@ class TableauxModel(
     retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt)
   }
 
+  def retrieveUnionTableCellHistory(
+      unionColumn: UnionColumn,
+      rowId: RowId,
+      langtagOpt: Option[String],
+      typeOpt: Option[String],
+      includeDeleted: Boolean
+  )(implicit user: TableauxUser): Future[Seq[History]] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(rowId, UnionTableRow.rowOffset)
+    val originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
+
+    for {
+      originTable <- retrieveTable(originTableId)
+      originColumn <- retrieveColumn(originTable, originColumnId)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn))
+      cellHistorySeq <-
+        retrieveHistoryModel.retrieveCell(originTable, originColumn, originRowId, langtagOpt, typeOpt, includeDeleted)
+      remappedCellHistorySeq = cellHistorySeq.map(_.toUnionTableHistory(rowId, Map(unionColumn.id -> originColumnId)))
+    } yield remappedCellHistorySeq
+  }
+
   def retrieveCellHistory(
       table: Table,
       columnId: ColumnId,
@@ -1674,8 +2036,51 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
-      cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt, includeDeleted)
+      cellHistorySeq <- table.tableType match {
+        case UnionTable =>
+          column match {
+            case unionColumn: UnionColumn =>
+              retrieveUnionTableCellHistory(unionColumn, rowId, langtagOpt, typeOpt, includeDeleted)
+            case _ => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
+          }
+        case _ => retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt, includeDeleted)
+      }
     } yield cellHistorySeq
+  }
+
+  def retrieveUnionTableColumnHistory(
+      unionTable: Table,
+      unionColumn: UnionColumn,
+      langtagOpt: Option[String],
+      typeOpt: Option[String],
+      includeDeleted: Boolean
+  )(implicit user: TableauxUser): Future[Seq[History]] = {
+    unionTable.originTables match {
+      case None =>
+        Future.failed(InvalidRequestException("Union table has no origin tables defined"))
+
+      case Some(originTables) =>
+        for {
+          foldResult <- originTables.foldLeft(Future.successful(Seq.empty[History]))((accFuture, originTableId) =>
+            for {
+              (acc) <- accFuture
+              originTable <- retrieveTable(originTableId)
+              originColumnId = unionColumn.originColumns.tableId2ColumnId(originTableId)
+              originColumn <- retrieveColumn(originTable, originColumnId)
+              _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(originTable, originColumn))
+              rawHistoryResult <-
+                retrieveHistoryModel.retrieveColumn(originTable, originColumn, langtagOpt, typeOpt, includeDeleted)
+              remappedHistorySeq =
+                rawHistoryResult.map(history => {
+                  val unionTableRowId =
+                    UnionTableHelper.calcRowId(originTableId, history.rowId, UnionTableRow.rowOffset)
+                  history.toUnionTableHistory(unionTableRowId, Map(unionColumn.id -> originColumnId))
+                })
+
+            } yield acc ++ remappedHistorySeq
+          )
+        } yield foldResult
+    }
   }
 
   def retrieveColumnHistory(
@@ -1689,8 +2094,35 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
-      columnHistorySeq <- retrieveHistoryModel.retrieveColumn(table, column, langtagOpt, typeOpt, includeDeleted)
+      columnHistorySeq <- table.tableType match {
+        case UnionTable =>
+          column match {
+            case unionColumn: UnionColumn =>
+              retrieveUnionTableColumnHistory(table, unionColumn, langtagOpt, typeOpt, includeDeleted)
+            case _ => Future.failed(WrongColumnKindException(column, classOf[UnionColumn]))
+          }
+        case _ => retrieveHistoryModel.retrieveColumn(table, column, langtagOpt, typeOpt, includeDeleted)
+      }
     } yield columnHistorySeq
+  }
+
+  def retrieveUnionTableRowHistory(
+      unionColumns: Seq[UnionColumn],
+      rowId: RowId,
+      langtagOpt: Option[String],
+      typeOpt: Option[String],
+      includeDeleted: Boolean
+  )(implicit user: TableauxUser): Future[Seq[History]] = {
+    val (originTableId, originRowId) = UnionTableHelper.extractTableIdAndRowId(rowId, UnionTableRow.rowOffset)
+
+    for {
+      originTable <- retrieveTable(originTableId)
+      originColumns <- retrieveColumns(originTable)
+      unionColumn2originColumn = getColumnMapping(originTable, unionColumns)
+      cellHistorySeq <- retrieveHistoryModel.retrieveRow(originTable, originRowId, langtagOpt, typeOpt, includeDeleted)
+      filteredHistorySeq = filterHistoriesForColumns(cellHistorySeq, originColumns)
+      remappedHistorySeq = filteredHistorySeq.map(_.toUnionTableHistory(rowId, unionColumn2originColumn))
+    } yield remappedHistorySeq
   }
 
   def retrieveRowHistory(
@@ -1711,9 +2143,55 @@ class TableauxModel(
           Future.successful(())
         }
       columns <- retrieveColumns(table)
-      cellHistorySeq <- retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt, includeDeleted)
-      filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
-    } yield filteredCellHistorySeq
+
+      cellHistorySeq <- table.tableType match {
+        case UnionTable =>
+          val unionColumns = columns.collect({ case uc: UnionColumn => uc })
+          retrieveUnionTableRowHistory(unionColumns, rowId, langtagOpt, typeOpt, includeDeleted)
+        case _ => retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt, includeDeleted)
+      }
+
+      filteredHistorySeq = filterHistoriesForColumns(cellHistorySeq, columns)
+    } yield filteredHistorySeq
+  }
+
+  def retrieveUnionTableHistory(
+      unionTable: Table,
+      unionColumns: Seq[UnionColumn],
+      langtagOpt: Option[String],
+      typeOpt: Option[String],
+      includeDeleted: Boolean
+  )(
+      implicit user: TableauxUser
+  ): Future[Seq[History]] = {
+    unionTable.originTables match {
+      case None =>
+        Future.failed(InvalidRequestException("Union table has no origin tables defined"))
+
+      case Some(originTables) =>
+        for {
+          foldResult <- originTables.foldLeft(Future.successful(Seq.empty[History]))((accFuture, originTableId) =>
+            for {
+              (acc) <- accFuture
+              originTable <- retrieveTable(originTableId)
+              originColumns <- retrieveColumns(originTable)
+              unionColumn2originColumn = getColumnMapping(originTable, unionColumns)
+              originColumnIds = unionColumn2originColumn.values.toSeq
+              rawHistoryResult <- retrieveHistoryModel.retrieveTable(originTable, langtagOpt, typeOpt, includeDeleted)
+              remappedHistorySeq =
+                rawHistoryResult.filter(history =>
+                  history.columnIdOpt.forall(historyColumnId => originColumnIds.contains(historyColumnId))
+                )
+                  .map(history => {
+                    val unionTableRowId =
+                      UnionTableHelper.calcRowId(originTableId, history.rowId, UnionTableRow.rowOffset)
+                    history.toUnionTableHistory(unionTableRowId, unionColumn2originColumn)
+                  })
+
+            } yield acc ++ remappedHistorySeq
+          )
+        } yield foldResult
+    }
   }
 
   def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String], includeDeleted: Boolean)(
@@ -1721,12 +2199,17 @@ class TableauxModel(
   ): Future[Seq[History]] = {
     for {
       columns <- retrieveColumns(table)
-      cellHistorySeq <- retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt, includeDeleted)
-      filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
-    } yield filteredCellHistorySeq
+      historySeq <- table.tableType match {
+        case UnionTable =>
+          val unionColumns = columns.collect({ case uc: UnionColumn => uc })
+          retrieveUnionTableHistory(table, unionColumns, langtagOpt, typeOpt, includeDeleted)
+        case _ => retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt, includeDeleted)
+      }
+      filteredHistorySeq = filterHistoriesForColumns(historySeq, columns)
+    } yield filteredHistorySeq
   }
 
-  private def filterCellHistoriesForColumns(cellHistorySeq: Seq[History], columns: Seq[ColumnType[_]]) = {
+  private def filterHistoriesForColumns(cellHistorySeq: Seq[History], columns: Seq[ColumnType[_]]) = {
     cellHistorySeq.filter(history => {
       val columnIds: Seq[ColumnId] = columns.map(_.id)
       history.columnIdOpt.forall(historyColumnId => columnIds.contains(historyColumnId))

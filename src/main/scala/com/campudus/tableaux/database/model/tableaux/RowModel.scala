@@ -819,18 +819,21 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  def addRowPermissions(table: Table, row: Row, rowPermissions: RowPermissionSeq): Future[Option[RowPermissionSeq]] = {
+  def addRowPermissions(
+      table: Table,
+      row: RowLike,
+      rowPermissions: RowPermissionSeq
+  ): Future[Option[RowPermissionSeq]] = {
     val mergedSeq = (row.rowPermissions.value ++ rowPermissions).distinct
     updateRowPermissions(table.id, row.id, Some(mergedSeq))
   }
 
-  def deleteRowPermissions(table: Table, row: Row): Future[Option[RowPermissionSeq]] = {
+  def deleteRowPermissions(table: Table, row: RowLike): Future[Option[RowPermissionSeq]] =
     updateRowPermissions(table.id, row.id, None)
-  }
 
   def replaceRowPermissions(
       table: Table,
-      row: Row,
+      row: RowLike,
       rowPermissions: RowPermissionSeq
   ): Future[Option[RowPermissionSeq]] =
     updateRowPermissions(table.id, row.id, Some(rowPermissions))
@@ -985,7 +988,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   ): Future[Seq[TableWithCellAnnotations]] = {
     val query = tables
       .map({
-        case Table(id, _, _, _, _, _, _, _, _) =>
+        case Table(id, _, _, _, _, _, _, _, _, _) =>
           s"""SELECT
              |$id::bigint as table_id,
              |ua.row_id,
@@ -1246,15 +1249,12 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
     val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
-
+    val stmt = s"""|SELECT $projection
+                   |FROM $fromClause
+                   |WHERE TRUE $rowAnnotationFilter
+                   |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin
     for {
-      result <-
-        connection.query(
-          s"""|SELECT $projection
-              |FROM $fromClause
-              |WHERE TRUE $rowAnnotationFilter
-              |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin
-        )
+      result <- connection.query(stmt)
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(columns))
     }
@@ -1384,6 +1384,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   private def generateProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
+      // values are generated in post-processing when we fetch the rows of the origin table
+      case c if c.table.tableType == UnionTable => "NULL"
+
       case _: ConcatColumn | _: AttachmentColumn | _: GroupColumn =>
         // Values will be generated/fetched while post-processing raw rows
         // see TableauxModel.mapRawRows

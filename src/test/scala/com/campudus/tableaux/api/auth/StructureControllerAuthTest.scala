@@ -155,7 +155,8 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
         tableType = GenericTable,
         tableGroupId = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
     } yield {
       assertEquals(1: Long, table.id)
@@ -178,7 +179,8 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
           tableType = GenericTable,
           tableGroupId = None,
           attributes = None,
-          concatFormatPattern = None
+          concatFormatPattern = None,
+          originTables = None
         )
       } yield ()
     }

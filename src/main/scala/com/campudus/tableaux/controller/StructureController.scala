@@ -1,6 +1,12 @@
 package com.campudus.tableaux.controller
 
-import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig, UnprocessableEntityException}
+import com.campudus.tableaux.{
+  ForbiddenException,
+  InvalidJsonException,
+  NotFoundInDatabaseException,
+  TableauxConfig,
+  UnprocessableEntityException
+}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{CreateColumn, _}
@@ -8,6 +14,8 @@ import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
+import com.campudus.tableaux.helper.JsonUtils.toCreateColumnSeq
+import com.campudus.tableaux.helper.JsonUtils.toJsonObjectSeq
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 import com.campudus.tableaux.verticles.ValidatorKeys
@@ -53,10 +61,16 @@ class StructureController(
     }
   }
 
-  def createColumns(tableId: TableId, columns: Seq[CreateColumn])(
-      implicit user: TableauxUser
-  ): Future[ColumnSeq] = {
-    checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
+  def createColumns(tableId: TableId, json: JsonObject)(implicit user: TableauxUser): Future[ColumnSeq] = {
+    val columnObjects = toJsonObjectSeq("columns", json).get
+    checkArguments(greaterZero(tableId), nonEmpty(columnObjects, "columns"))
+    for {
+      table <- retrieveTable(tableId)
+      columns <- createColumns(table.id, toCreateColumnSeq(table.tableType, json))
+    } yield columns
+  }
+
+  def createColumns(tableId: TableId, columns: Seq[CreateColumn])(implicit user: TableauxUser): Future[ColumnSeq] = {
     logger.info(s"createColumns $tableId columns $columns")
 
     for {
@@ -64,6 +78,7 @@ class StructureController(
       _ <- roleModel.checkAuthorization(CreateColumn, ComparisonObjects(table))
       created <- table.tableType match {
         case SettingsTable => Future.failed(ForbiddenException("can't add a column to a settings table", "column"))
+        case UnionTable => columnStruc.createUnionTableColumns(table, columns)
         case _ => columnStruc.createColumns(table, columns)
       }
 
@@ -156,19 +171,58 @@ class StructureController(
       tableType: TableType,
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject],
-      concatFormatPattern: Option[String]
+      concatFormatPattern: Option[String],
+      originTables: Option[Seq[TableId]]
   )(implicit user: TableauxUser): Future[Table] = {
-    checkArguments(notNull(tableName, "name"))
-    logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId $concatFormatPattern")
+    checkArguments(notNull(tableName, "name"), originTablesCheck(tableType, originTables))
+    logger.info(
+      s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId $concatFormatPattern $originTables"
+    )
 
-    def createTable(anything: Unit): Future[Table] = {
-      val builder = tableType match {
-        case SettingsTable => createSettingsTable
-        case TaxonomyTable => createTaxonomyTable
-        case _ => createGenericTable
+    def createTable(anything: Unit): Future[Table] =
+      tableType match {
+        case SettingsTable => {
+          createSettingsTable.apply(
+            tableName,
+            hidden,
+            langtags,
+            displayInfos,
+            tableGroupId,
+            attributes,
+            concatFormatPattern
+          )
+        }
+        case TaxonomyTable => createTaxonomyTable.apply(
+            tableName,
+            hidden,
+            langtags,
+            displayInfos,
+            tableGroupId,
+            attributes,
+            concatFormatPattern
+          )
+        case UnionTable =>
+          createUnionTable(
+            tableName,
+            hidden,
+            langtags,
+            displayInfos,
+            tableGroupId,
+            attributes,
+            concatFormatPattern,
+            originTables
+          )
+        case _ =>
+          createGenericTable.apply(
+            tableName,
+            hidden,
+            langtags,
+            displayInfos,
+            tableGroupId,
+            attributes,
+            concatFormatPattern
+          )
       }
-      builder.apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
-    }
 
     (attributes match {
       case Some(s) => {
@@ -203,7 +257,8 @@ class StructureController(
           tableType,
           tableGroupId,
           attributes,
-          concatFormatPattern
+          concatFormatPattern,
+          None
         )
         _ <- columns match {
           case None => Future.successful(())
@@ -278,7 +333,6 @@ class StructureController(
       concatFormatPattern: Option[String]
   ) => {
     for {
-
       tableStub <- buildTable(
         TaxonomyTable,
         Some(
@@ -337,6 +391,96 @@ class StructureController(
     } yield table
   }
 
+  private def checkOriginTables(originTables: Option[Seq[TableId]])(implicit user: TableauxUser): Future[Unit] = {
+    originTables match {
+      case Some(tableIds) if tableIds.nonEmpty =>
+        tableIds.foreach(tableId => checkArguments(greaterZero(tableId)))
+
+        Future
+          .sequence(tableIds.map(id =>
+            tableStruc.retrieve(id).map(Option(_)).recover { case _ => None }
+          ))
+          .flatMap { results =>
+            val missingIds = tableIds.zip(results).collect { case (id, None) => id }
+
+            if (missingIds.nonEmpty) {
+              Future.failed(
+                NotFoundInDatabaseException(s"originTables with ids [${missingIds.mkString(", ")}] not found", "table")
+              )
+            } else {
+              val tables = results.flatten
+              tables.find(_.tableType == UnionTable) match {
+                case Some(unionTable) =>
+                  Future.failed(
+                    UnprocessableEntityException(
+                      s"Can not create a union table with origin table '${unionTable.id}' because UnionTable of UnionTable is not allowed"
+                    )
+                  )
+                case None => Future.successful(())
+              }
+            }
+          }
+      case _ => Future.failed(
+          UnprocessableEntityException(
+            s"originTables must be a non-empty sequence of valid table IDs, was: $originTables"
+          )
+        )
+    }
+  }
+
+  private def createUnionTable(
+      tableName: String,
+      hidden: Boolean,
+      langtags: Option[Option[Seq[String]]],
+      displayInfos: Seq[DisplayInfo],
+      tableGroupId: Option[TableGroupId],
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String],
+      originTables: Option[Seq[TableId]]
+  )(implicit user: TableauxUser): Future[Table] = {
+    for {
+      _ <- roleModel.checkAuthorization(CreateTable)
+      _ <- checkOriginTables(originTables)
+      created <- tableStruc.create(
+        tableName,
+        hidden,
+        langtags,
+        displayInfos,
+        UnionTable,
+        tableGroupId,
+        attributes,
+        concatFormatPattern,
+        originTables
+      )
+      _ <- columnStruc.createColumn(
+        created,
+        CreateSimpleColumn(
+          "originTable",
+          None,
+          OriginTableType,
+          MultiLanguage,
+          identifier = true,
+          Seq(
+            NameAndDescription("de", "Ursprungstabelle", "Der Tabellenname, aus der die Daten stammen"),
+            NameAndDescription("en", "Origin Table", "The name of the table from which the data is taken")
+          ),
+          false,
+          Option(Json.obj())
+        )
+      )
+      retrieved <- tableStruc.retrieve(created.id)
+    } yield retrieved
+  }
+
+  private def maybeInvalidateUnionTableCache(tableId: TableId, columnIdOpt: Option[ColumnId] = None): Future[Unit] = {
+    for {
+      unionTableModels <- tableStruc.retrieveDependentUnionTableModels(tableId, columnIdOpt)
+      _ <- Future.sequence(unionTableModels.map(model =>
+        columnStruc.removeCache(model.tableId, None)
+      ))
+    } yield ()
+  }
+
   def deleteTable(tableId: TableId)(implicit user: TableauxUser): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"deleteTable $tableId")
@@ -344,6 +488,7 @@ class StructureController(
     for {
       table <- tableStruc.retrieve(tableId)
       _ <- roleModel.checkAuthorization(DeleteTable, ComparisonObjects(table))
+      _ <- maybeInvalidateUnionTableCache(tableId)
       columns <- columnStruc.retrieveAll(table)
 
       // only delete special column before deleting table;
@@ -380,8 +525,9 @@ class StructureController(
       table <- tableStruc.retrieve(tableId)
       column <- columnStruc.retrieve(table, columnId)
       _ <- roleModel.checkAuthorization(DeleteColumn, ComparisonObjects(table, column))
+      _ <- maybeInvalidateUnionTableCache(tableId, Some(columnId))
       _ <- table.tableType match {
-        case GenericTable => columnStruc.delete(table, columnId)
+        case GenericTable | UnionTable => columnStruc.delete(table, columnId)
         case TaxonomyTable =>
           if (columnId > 4) columnStruc.delete(table, columnId)
           else Future.failed(ForbiddenException("can't delete a default column from a taxonomy table", "column"))
@@ -604,7 +750,7 @@ class StructureController(
         }
 
       changedColumn <- table.tableType match {
-        case GenericTable => performChangeFx(table)
+        case GenericTable | UnionTable => performChangeFx(table)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
         case TaxonomyTable =>
           if (columnId > 4) performChangeFx(table)
