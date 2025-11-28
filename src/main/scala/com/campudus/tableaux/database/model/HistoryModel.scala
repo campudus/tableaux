@@ -275,7 +275,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
           _ <-
             if (rowExists) {
-              updateLinks(table, linkColumn, rowId, rowExists)
+              updateLinks(table, linkColumn, rowId)
             } else {
               Future.successful(())
             }
@@ -284,14 +284,15 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  // TODO implement
   def updateAttachments(
       table: Table,
       attachmentColumn: AttachmentColumn,
-      rowIds: Seq[RowId]
-  ): Future[Unit] = ???
+      rowId: RowId
+  )(implicit user: TableauxUser): Future[_] = {
+    createAttachments(table, rowId, Seq(attachmentColumn))
+  }
 
-  private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId, rowExists: Boolean)(
+  private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId)(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
