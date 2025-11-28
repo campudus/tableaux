@@ -3,6 +3,7 @@ package com.campudus.tableaux.api.media
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
+import com.campudus.tableaux.testtools.JsonTestHelper._
 import com.campudus.tableaux.testtools.RequestCreation.AttachmentCol
 
 import io.vertx.core.buffer.Buffer
@@ -759,7 +760,6 @@ class AttachmentTest extends MediaTestBase {
 
   @Test
   def testChangeOrderingOfAttachments(implicit c: TestContext): Unit = {
-
     okTest {
       val columns = RequestCreation.Columns().add(AttachmentCol("Downloads")).getJson
       val fileName = "Scr$en Shot.pdf"
@@ -772,10 +772,16 @@ class AttachmentTest extends MediaTestBase {
       )
 
       def getOrderedUUIDList(response: JsonObject): List[String] = {
-        response.getJsonArray("value").asScala
-          .map(_.asInstanceOf[JsonObject]).toList
+        getListFromKey[JsonObject](response, "value")
           .sortBy(_.getInteger("ordering"))
           .map(_.getString("uuid"))
+      }
+
+      def getHistoryStringAt(index: Int, historyRows: List[JsonObject]): String = {
+        val history = historyRows(index)
+        getListFromKey[JsonObject](history, "value").map(obj =>
+          (obj.getInteger("ordering", 0), obj.getString("uuid"))
+        ).mkString("-")
       }
 
       for {
@@ -797,7 +803,9 @@ class AttachmentTest extends MediaTestBase {
         resultFile4 <- sendRequest("PATCH", cellUrl, Json.obj("value" -> Json.obj("uuid" -> fileUuid4)))
         resultFile5 <- sendRequest("PATCH", cellUrl, Json.obj("value" -> Json.obj("uuid" -> fileUuid5)))
 
+        historyBeforeReorderingResult <- sendRequest("GET", s"$cellUrl/history?historyType=cell").map(getHistoryRows)
         uuidsBeforeReordering <- sendRequest("GET", cellUrl).map(getOrderedUUIDList)
+
         // we move file 4 to the beginning
         reorderResult1 <- sendRequest(
           "PUT",
@@ -821,11 +829,21 @@ class AttachmentTest extends MediaTestBase {
           Json.obj("location" -> "before", "id" -> fileUuid3)
         ).map(getOrderedUUIDList)
         uuidsAfterReordering3 <- sendRequest("GET", cellUrl).map(getOrderedUUIDList)
+
+        historyAfterReorderingResult <- sendRequest("GET", s"$cellUrl/history?historyType=cell").map(getHistoryRows)
       } yield {
         val expectedOrderBeforeReordering = List(fileUuid1, fileUuid2, fileUuid3, fileUuid4, fileUuid5)
         val expectedOrderAfterReordering1 = List(fileUuid4, fileUuid1, fileUuid2, fileUuid3, fileUuid5)
         val expectedOrderAfterReordering2 = List(fileUuid4, fileUuid1, fileUuid3, fileUuid5, fileUuid2)
         val expectedOrderAfterReordering3 = List(fileUuid4, fileUuid1, fileUuid5, fileUuid3, fileUuid2)
+        val expectedHistoryBeforeReordering =
+          List((1, fileUuid1), (2, fileUuid2), (3, fileUuid3), (4, fileUuid4), (5, fileUuid5)).mkString("-")
+        val expectedHistoryAfterReordering1 =
+          List((1, fileUuid4), (2, fileUuid1), (3, fileUuid2), (4, fileUuid3), (5, fileUuid5)).mkString("-")
+        val expectedHistoryAfterReordering2 =
+          List((1, fileUuid4), (2, fileUuid1), (3, fileUuid3), (4, fileUuid5), (5, fileUuid2)).mkString("-")
+        val expectedHistoryAfterReordering3 =
+          List((1, fileUuid4), (2, fileUuid1), (3, fileUuid5), (4, fileUuid3), (5, fileUuid2)).mkString("-")
 
         assertEquals(expectedOrderBeforeReordering, uuidsBeforeReordering)
         assertEquals(expectedOrderAfterReordering1, uuidsAfterReordering1)
@@ -835,6 +853,19 @@ class AttachmentTest extends MediaTestBase {
         assertEquals(expectedOrderAfterReordering3, uuidsAfterReordering3)
         assertEquals(expectedOrderAfterReordering3, reorderResult3)
 
+        // assert changes in history
+        val historyBeforeReordering = getHistoryStringAt(4, historyBeforeReorderingResult)
+        val historyAfterReordering1 = getHistoryStringAt(5, historyAfterReorderingResult)
+        val historyAfterReordering2 = getHistoryStringAt(6, historyAfterReorderingResult)
+        val historyAfterReordering3 = getHistoryStringAt(7, historyAfterReorderingResult)
+
+        assertEquals(5, historyBeforeReorderingResult.size)
+        assertEquals(8, historyAfterReorderingResult.size)
+
+        assertEquals(expectedHistoryBeforeReordering, historyBeforeReordering)
+        assertEquals(expectedHistoryAfterReordering1, historyAfterReordering1)
+        assertEquals(expectedHistoryAfterReordering2, historyAfterReordering2)
+        assertEquals(expectedHistoryAfterReordering3, historyAfterReordering3)
       }
     }
   }
