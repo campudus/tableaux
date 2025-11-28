@@ -1,18 +1,24 @@
 package com.campudus.tableaux.api.media
 
 import com.campudus.tableaux.database.model.FolderModel.FolderId
+import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
+import com.campudus.tableaux.testtools.JsonTestHelper._
+import com.campudus.tableaux.testtools.RequestCreation.AttachmentCol
 
 import io.vertx.core.buffer.Buffer
+import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.core.http.{HttpClient, HttpClientResponse}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
 
+import java.util.UUID
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,15 +44,48 @@ trait MediaTestBase extends TableauxTestBase {
     } yield uploaded
   }
 
-  protected def replaceFile(uuid: String, langtag: String, file: String, mimeType: String)(
+  protected def replaceFile(uuid: String, langtag: String, filePath: String, mimeType: String)(
       implicit c: TestContext
   ): Future[JsonObject] = {
-    uploadFile("PUT", s"/files/$uuid/$langtag", file, mimeType)
+    uploadFile("PUT", s"/files/$uuid/$langtag", filePath, mimeType)
   }
+
+  protected def createFileAndSetMetadata(
+      langtag: String,
+      filePath: String,
+      mimeType: String,
+      metadata: JsonObject,
+      folder: Option[FolderId] = None
+  )(implicit c: TestContext): Future[String] = {
+    for {
+      (uuid, _) <- createFileAndSetMetadataWithResult(langtag, filePath, mimeType, metadata, folder)
+    } yield uuid
+  }
+
+  protected def createFileAndSetMetadataWithResult(
+      langtag: String,
+      filePath: String,
+      mimeType: String,
+      metadata: JsonObject,
+      folder: Option[FolderId] = None
+  )(implicit c: TestContext): Future[(String, JsonObject)] = {
+    for {
+      file <- createFile(langtag, filePath, mimeType, folder)
+      uuid = file.getString("uuid")
+      metadataResult <- sendRequest("PUT", s"/files/$uuid", metadata)
+    } yield (uuid, metadataResult)
+  }
+
+  protected def getColumnIdAt(index: Int)(json: JsonObject): Int =
+    json.getJsonArray("columns").get[JsonObject](index).getInteger("id")
+
 }
 
 @RunWith(classOf[VertxUnitRunner])
 class AttachmentTest extends MediaTestBase {
+  val fileName = "Scr$en Shot.pdf"
+  val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+  val mimetype = "application/pdf"
 
   @Test
   def testCreateAttachmentColumn(implicit c: TestContext): Unit = {
@@ -78,7 +117,6 @@ class AttachmentTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-
         column <- sendRequest("POST", s"/tables/$tableId/columns", column)
       } yield {
         assertJSONEquals(expectedJson, column)
@@ -98,9 +136,6 @@ class AttachmentTest extends MediaTestBase {
         )
       )
 
-      val fileName = "Scr$en Shot.pdf"
-      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
       val putFile = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF"),
         "description" -> Json.obj("de-DE" -> "A description about that PDF.")
@@ -108,17 +143,12 @@ class AttachmentTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-
-        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
-
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(getColumnIdAt(0))
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
-
-        fileUuid <- createFile("de-DE", filePath, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid", putFile)
+        fileUuid <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
 
         // Add attachment
-        resultFill <- sendRequest(
+        resultFile <- sendRequest(
           "POST",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> fileUuid))
@@ -131,7 +161,7 @@ class AttachmentTest extends MediaTestBase {
       } yield {
         assertEquals(3, columnId)
 
-        val uuid = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
+        val uuid = resultFile.getJsonArray("value").getJsonObject(0).getString("uuid")
         assertNotNull(uuid)
         assertJSONEquals(
           Json.obj(
@@ -144,7 +174,7 @@ class AttachmentTest extends MediaTestBase {
             "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
             "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
-          resultFill.getJsonArray("value").getJsonObject(0)
+          resultFile.getJsonArray("value").getJsonObject(0)
         )
 
         assertEquals(fileUuid, resultRetrieve.getJsonArray("value").get[JsonObject](0).getString("uuid"))
@@ -164,9 +194,6 @@ class AttachmentTest extends MediaTestBase {
         )
       )
 
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
       val putFile = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF"),
         "description" -> Json.obj("de-DE" -> "A description about that PDF.")
@@ -174,21 +201,15 @@ class AttachmentTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-
-        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
-
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(getColumnIdAt(0))
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
-        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
-        fileUuid3 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid3", putFile)
+        fileUuid1 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
+        fileUuid2 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
+        fileUuid3 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
 
         // Add attachment
-        resultFill <- sendRequest(
+        resultFile <- sendRequest(
           "PUT",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> fileUuid1))
@@ -235,7 +256,7 @@ class AttachmentTest extends MediaTestBase {
       } yield {
         assertEquals(3, columnId)
 
-        val uuid1 = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
+        val uuid1 = resultFile.getJsonArray("value").getJsonObject(0).getString("uuid")
         assertNotNull(uuid1)
         assertJSONEquals(
           Json.obj(
@@ -248,14 +269,14 @@ class AttachmentTest extends MediaTestBase {
             "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
             "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
-          resultFill.getJsonArray("value").getJsonObject(0)
+          resultFile.getJsonArray("value").getJsonObject(0)
         )
 
         assertEquals(
           fileUuid1,
           resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1).getJsonObject(0).getString("uuid")
         )
-        assertEquals(resultFill.getJsonArray("value"), resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1))
+        assertEquals(resultFile.getJsonArray("value"), resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1))
 
         assertNotSame(
           resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1),
@@ -299,18 +320,17 @@ class AttachmentTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(getColumnIdAt(0))
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
         // Add attachment with malformed uuid
-        resultFill <- sendRequest(
+        resultFile <- sendRequest(
           "POST",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> "this-is-not-an-uuid"))
         )
       } yield {
-        resultFill
+        resultFile
       }
     }
   }
@@ -327,10 +347,6 @@ class AttachmentTest extends MediaTestBase {
         )
       )
 
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       val putFile = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF"),
         "description" -> Json.obj("de-DE" -> "A description about that PDF.")
@@ -338,25 +354,19 @@ class AttachmentTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-
-        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
-
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(getColumnIdAt(0))
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
-
-        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
+        fileUuid1 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
+        fileUuid2 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
 
         // Add attachments
-        resultFill1 <- sendRequest(
+        resultFile1 <- sendRequest(
           "PATCH",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 1))
         )
-        resultFill2 <- sendRequest(
+        resultFile2 <- sendRequest(
           "PATCH",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> fileUuid2))
@@ -391,8 +401,8 @@ class AttachmentTest extends MediaTestBase {
       } yield {
         assertEquals(3, columnId)
 
-        val uuid1 = resultFill1.getJsonArray("value").getJsonObject(0).getString("uuid")
-        val uuid2 = resultFill2.getJsonArray("value").getJsonObject(0).getString("uuid")
+        val uuid1 = resultFile1.getJsonArray("value").getJsonObject(0).getString("uuid")
+        val uuid2 = resultFile2.getJsonArray("value").getJsonObject(0).getString("uuid")
         assertJSONEquals(
           Json.obj(
             "ordering" -> 1,
@@ -404,7 +414,7 @@ class AttachmentTest extends MediaTestBase {
             "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
             "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
-          resultFill1.getJsonArray("value").getJsonObject(0)
+          resultFile1.getJsonArray("value").getJsonObject(0)
         )
         assertJSONEquals(
           Json.obj(
@@ -416,7 +426,7 @@ class AttachmentTest extends MediaTestBase {
             "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
             "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
-          resultFill2.getJsonArray("value").getJsonObject(0)
+          resultFile2.getJsonArray("value").getJsonObject(0)
         )
 
         assertEquals(fileUuid1, resultRetrieveFill.getJsonArray("value").get[JsonObject](0).getString("uuid"))
@@ -433,14 +443,7 @@ class AttachmentTest extends MediaTestBase {
   @Test
   def testDeleteAllAttachmentsFromCell(implicit c: TestContext): Unit = {
     okTest {
-      val columns = RequestCreation
-        .Columns()
-        .add(RequestCreation.AttachmentCol("Downloads"))
-        .getJson
-
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
+      val columns = RequestCreation.Columns().add(AttachmentCol("Downloads")).getJson
 
       val putFile = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF"),
@@ -449,25 +452,19 @@ class AttachmentTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-
-        columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
-
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns).map(getColumnIdAt(0))
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
-
-        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
+        fileUuid1 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
+        fileUuid2 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
 
         // Add attachments
-        resultFill1 <- sendRequest(
+        resultFile1 <- sendRequest(
           "PATCH",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 1))
         )
-        resultFill2 <- sendRequest(
+        resultFile2 <- sendRequest(
           "PATCH",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> fileUuid2))
@@ -488,8 +485,8 @@ class AttachmentTest extends MediaTestBase {
       } yield {
         assertEquals(3, columnId)
 
-        val uuid1 = resultFill1.getJsonArray("value").getJsonObject(0).getString("uuid")
-        val uuid2 = resultFill2.getJsonArray("value").getJsonObject(0).getString("uuid")
+        val uuid1 = resultFile1.getJsonArray("value").getJsonObject(0).getString("uuid")
+        val uuid2 = resultFile2.getJsonArray("value").getJsonObject(0).getString("uuid")
         assertJSONEquals(
           Json.obj(
             "ordering" -> 1,
@@ -501,7 +498,7 @@ class AttachmentTest extends MediaTestBase {
             "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
             "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
-          resultFill1.getJsonArray("value").getJsonObject(0)
+          resultFile1.getJsonArray("value").getJsonObject(0)
         )
         assertJSONEquals(
           Json.obj(
@@ -513,7 +510,7 @@ class AttachmentTest extends MediaTestBase {
             "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
             "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
-          resultFill2.getJsonArray("value").getJsonObject(0)
+          resultFile2.getJsonArray("value").getJsonObject(0)
         )
 
         assertEquals(fileUuid1, resultRetrieveFill.getJsonArray("value").get[JsonObject](0).getString("uuid"))
@@ -527,14 +524,7 @@ class AttachmentTest extends MediaTestBase {
   @Test
   def testDeleteLinkedFiles(implicit c: TestContext): Unit = {
     okTest {
-      val columns = RequestCreation
-        .Columns()
-        .add(RequestCreation.AttachmentCol("Downloads"))
-        .getJson
-
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
+      val columns = RequestCreation.Columns().add(AttachmentCol("Downloads")).getJson
 
       val putFile = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF"),
@@ -543,25 +533,19 @@ class AttachmentTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-
-        columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns).map(getColumnIdAt(0))
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
-
-        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
-
-        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
+        fileUuid1 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
+        fileUuid2 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
 
         // Add attachments
-        resultFill1 <- sendRequest(
+        resultFile1 <- sendRequest(
           "PATCH",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 1))
         )
-        resultFill2 <- sendRequest(
+        resultFile2 <- sendRequest(
           "PATCH",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> fileUuid2))
@@ -579,8 +563,8 @@ class AttachmentTest extends MediaTestBase {
       } yield {
         assertEquals(3, columnId)
 
-        val uuid1 = resultFill1.getJsonArray("value").getJsonObject(0).getString("uuid")
-        val uuid2 = resultFill2.getJsonArray("value").getJsonObject(0).getString("uuid")
+        val uuid1 = resultFile1.getJsonArray("value").getJsonObject(0).getString("uuid")
+        val uuid2 = resultFile2.getJsonArray("value").getJsonObject(0).getString("uuid")
         assertJSONEquals(
           Json.obj(
             "ordering" -> 1,
@@ -592,7 +576,7 @@ class AttachmentTest extends MediaTestBase {
             "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
             "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
-          resultFill1.getJsonArray("value").getJsonObject(0)
+          resultFile1.getJsonArray("value").getJsonObject(0)
         )
         assertJSONEquals(
           Json.obj(
@@ -604,7 +588,7 @@ class AttachmentTest extends MediaTestBase {
             "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
             "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
-          resultFill2.getJsonArray("value").getJsonObject(0)
+          resultFile2.getJsonArray("value").getJsonObject(0)
         )
 
         assertEquals(fileUuid1, resultRetrieveFill.getJsonArray("value").get[JsonObject](0).getString("uuid"))
@@ -627,9 +611,6 @@ class AttachmentTest extends MediaTestBase {
         )
       )
 
-      val fileName = "Scr$en Shot.pdf"
-      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
       val putFile = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF"),
         "description" -> Json.obj("de-DE" -> "A description about that PDF.")
@@ -641,20 +622,14 @@ class AttachmentTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-
-        // Create attachment column
-        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
-
-        // Create new empty row
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(getColumnIdAt(0))
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
         // Upload file
-        fileUuid <- createFile("de-DE", filePath, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid", putFile)
+        fileUuid <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
 
         // Add attachment
-        resultFill <- sendRequest(
+        resultFile <- sendRequest(
           "POST",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.obj("uuid" -> fileUuid))
@@ -673,7 +648,7 @@ class AttachmentTest extends MediaTestBase {
       } yield {
         assertEquals(3, columnId)
 
-        val uuid = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
+        val uuid = resultFile.getJsonArray("value").getJsonObject(0).getString("uuid")
         assertNotNull(uuid)
         assertJSONEquals(
           Json.obj(
@@ -686,7 +661,7 @@ class AttachmentTest extends MediaTestBase {
             "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
             "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
-          resultFill.getJsonArray("value").getJsonObject(0)
+          resultFile.getJsonArray("value").getJsonObject(0)
         )
 
         val attachment1 = resultRetrieve1.getJsonArray("value").get[JsonObject](0)
@@ -717,9 +692,6 @@ class AttachmentTest extends MediaTestBase {
         )
       )
 
-      val fileName = "Scr$en Shot.pdf"
-      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
       val putFile = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF"),
         "description" -> Json.obj("de-DE" -> "A description about that PDF.")
@@ -727,20 +699,14 @@ class AttachmentTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-
-        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
-
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(getColumnIdAt(0))
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de-DE", filePath, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
-
-        fileUuid2 <- createFile("de-DE", filePath, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
+        fileUuid1 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
+        fileUuid2 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
 
         // Add two attachments with POST
-        resultFillTwo <- sendRequest(
+        resultFileTwo <- sendRequest(
           "POST",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.arr(fileUuid1, fileUuid2))
@@ -749,8 +715,8 @@ class AttachmentTest extends MediaTestBase {
         // Clear cell
         _ <- sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-        // Add two attachments the other way aroung
-        resultFillTwoOtherWayAround <- sendRequest(
+        // Add two attachments the other way around
+        resultFileTwoOtherWayAround <- sendRequest(
           "POST",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.arr(fileUuid2, fileUuid1))
@@ -760,13 +726,13 @@ class AttachmentTest extends MediaTestBase {
         _ <- sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
         // Add one attachment
-        resultFillOne <- sendRequest(
+        resultFileOne <- sendRequest(
           "POST",
           s"/tables/$tableId/columns/$columnId/rows/$rowId",
           Json.obj("value" -> Json.arr(fileUuid1))
         )
 
-        resultFillOnePut <-
+        resultFileOnePut <-
           sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> fileUuid2))
 
         _ <- sendRequest("DELETE", s"/files/$fileUuid1")
@@ -774,20 +740,132 @@ class AttachmentTest extends MediaTestBase {
       } yield {
         assertEquals(3, columnId)
 
-        assertEquals(1, resultFillOne.getJsonArray("value").size())
-        assertEquals(1, resultFillOnePut.getJsonArray("value").size())
+        assertEquals(1, resultFileOne.getJsonArray("value").size())
+        assertEquals(1, resultFileOnePut.getJsonArray("value").size())
 
-        assertEquals(2, resultFillTwo.getJsonArray("value").size())
+        assertEquals(2, resultFileTwo.getJsonArray("value").size())
 
-        assertEquals(fileUuid1, resultFillOne.getJsonArray("value").getJsonObject(0).getString("uuid"))
+        assertEquals(fileUuid1, resultFileOne.getJsonArray("value").getJsonObject(0).getString("uuid"))
 
-        assertEquals(fileUuid2, resultFillOnePut.getJsonArray("value").getJsonObject(0).getString("uuid"))
+        assertEquals(fileUuid2, resultFileOnePut.getJsonArray("value").getJsonObject(0).getString("uuid"))
 
-        assertEquals(fileUuid1, resultFillTwo.getJsonArray("value").getJsonObject(0).getString("uuid"))
-        assertEquals(fileUuid2, resultFillTwo.getJsonArray("value").getJsonObject(1).getString("uuid"))
+        assertEquals(fileUuid1, resultFileTwo.getJsonArray("value").getJsonObject(0).getString("uuid"))
+        assertEquals(fileUuid2, resultFileTwo.getJsonArray("value").getJsonObject(1).getString("uuid"))
 
-        assertEquals(fileUuid2, resultFillTwoOtherWayAround.getJsonArray("value").getJsonObject(0).getString("uuid"))
-        assertEquals(fileUuid1, resultFillTwoOtherWayAround.getJsonArray("value").getJsonObject(1).getString("uuid"))
+        assertEquals(fileUuid2, resultFileTwoOtherWayAround.getJsonArray("value").getJsonObject(0).getString("uuid"))
+        assertEquals(fileUuid1, resultFileTwoOtherWayAround.getJsonArray("value").getJsonObject(1).getString("uuid"))
+      }
+    }
+  }
+
+  @Test
+  def testChangeOrderingOfAttachments(implicit c: TestContext): Unit = {
+    okTest {
+      val columns = RequestCreation.Columns().add(AttachmentCol("Downloads")).getJson
+      val fileName = "Scr$en Shot.pdf"
+      val file = s"/com/campudus/tableaux/uploads/$fileName"
+      val mimetype = "application/pdf"
+
+      val putFile = Json.obj(
+        "title" -> Json.obj("de-DE" -> "Test PDF"),
+        "description" -> Json.obj("de-DE" -> "A description about that PDF.")
+      )
+
+      def getOrderedUUIDList(response: JsonObject): List[String] = {
+        getListFromKey[JsonObject](response, "value")
+          .sortBy(_.getInteger("ordering"))
+          .map(_.getString("uuid"))
+      }
+
+      def getHistoryStringAt(index: Int, historyRows: List[JsonObject]): String = {
+        val history = historyRows(index)
+        getListFromKey[JsonObject](history, "value").map(obj =>
+          (obj.getInteger("ordering", 0), obj.getString("uuid"))
+        ).mkString("-")
+      }
+
+      for {
+        tableId <- createDefaultTable()
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns).map(getColumnIdAt(0))
+        rowId <- sendRequest("POST", s"/tables/$tableId/rows").map(_.getInteger("id"))
+        cellUrl = s"/tables/$tableId/columns/$columnId/rows/$rowId"
+
+        fileUuid1 <- createFileAndSetMetadata("de-DE", file, mimetype, putFile)
+        fileUuid2 <- createFileAndSetMetadata("de-DE", file, mimetype, putFile)
+        fileUuid3 <- createFileAndSetMetadata("de-DE", file, mimetype, putFile)
+        fileUuid4 <- createFileAndSetMetadata("de-DE", file, mimetype, putFile)
+        fileUuid5 <- createFileAndSetMetadata("de-DE", file, mimetype, putFile)
+
+        // Add attachments
+        resultFile1 <- sendRequest("PATCH", cellUrl, Json.obj("value" -> Json.obj("uuid" -> fileUuid1)))
+        resultFile2 <- sendRequest("PATCH", cellUrl, Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
+        resultFile3 <- sendRequest("PATCH", cellUrl, Json.obj("value" -> Json.obj("uuid" -> fileUuid3)))
+        resultFile4 <- sendRequest("PATCH", cellUrl, Json.obj("value" -> Json.obj("uuid" -> fileUuid4)))
+        resultFile5 <- sendRequest("PATCH", cellUrl, Json.obj("value" -> Json.obj("uuid" -> fileUuid5)))
+
+        historyBeforeReorderingResult <- sendRequest("GET", s"$cellUrl/history?historyType=cell").map(getHistoryRows)
+        uuidsBeforeReordering <- sendRequest("GET", cellUrl).map(getOrderedUUIDList)
+
+        // we move file 4 to the beginning
+        reorderResult1 <- sendRequest(
+          "PUT",
+          s"$cellUrl/attachment/$fileUuid4/order",
+          Json.obj("location" -> "start")
+        ).map(getOrderedUUIDList)
+        uuidsAfterReordering1 <- sendRequest("GET", cellUrl).map(getOrderedUUIDList)
+
+        // we move file 2 to the end
+        reorderResult2 <- sendRequest(
+          "PUT",
+          s"$cellUrl/attachment/$fileUuid2/order",
+          Json.obj("location" -> "end")
+        ).map(getOrderedUUIDList)
+        uuidsAfterReordering2 <- sendRequest("GET", cellUrl).map(getOrderedUUIDList)
+
+        // we move file 5 before file 3
+        reorderResult3 <- sendRequest(
+          "PUT",
+          s"$cellUrl/attachment/$fileUuid5/order",
+          Json.obj("location" -> "before", "id" -> fileUuid3)
+        ).map(getOrderedUUIDList)
+        uuidsAfterReordering3 <- sendRequest("GET", cellUrl).map(getOrderedUUIDList)
+
+        historyAfterReorderingResult <- sendRequest("GET", s"$cellUrl/history?historyType=cell").map(getHistoryRows)
+      } yield {
+        val expectedOrderBeforeReordering = List(fileUuid1, fileUuid2, fileUuid3, fileUuid4, fileUuid5)
+        val expectedOrderAfterReordering1 = List(fileUuid4, fileUuid1, fileUuid2, fileUuid3, fileUuid5)
+        val expectedOrderAfterReordering2 = List(fileUuid4, fileUuid1, fileUuid3, fileUuid5, fileUuid2)
+        val expectedOrderAfterReordering3 = List(fileUuid4, fileUuid1, fileUuid5, fileUuid3, fileUuid2)
+        val expectedHistoryBeforeReordering =
+          List((1, fileUuid1), (2, fileUuid2), (3, fileUuid3), (4, fileUuid4), (5, fileUuid5)).mkString("-")
+        val expectedHistoryAfterReordering1 =
+          List((1, fileUuid4), (2, fileUuid1), (3, fileUuid2), (4, fileUuid3), (5, fileUuid5)).mkString("-")
+        val expectedHistoryAfterReordering2 =
+          List((1, fileUuid4), (2, fileUuid1), (3, fileUuid3), (4, fileUuid5), (5, fileUuid2)).mkString("-")
+        val expectedHistoryAfterReordering3 =
+          List((1, fileUuid4), (2, fileUuid1), (3, fileUuid5), (4, fileUuid3), (5, fileUuid2)).mkString("-")
+
+        assertEquals(expectedOrderBeforeReordering, uuidsBeforeReordering)
+        assertEquals(expectedOrderAfterReordering1, uuidsAfterReordering1)
+        assertEquals(expectedOrderAfterReordering1, reorderResult1)
+        assertEquals(expectedOrderAfterReordering2, uuidsAfterReordering2)
+        assertEquals(expectedOrderAfterReordering2, reorderResult2)
+        assertEquals(expectedOrderAfterReordering3, uuidsAfterReordering3)
+        assertEquals(expectedOrderAfterReordering3, reorderResult3)
+
+        // assert changes in history
+        val historyBeforeReordering = getHistoryStringAt(4, historyBeforeReorderingResult)
+        val historyAfterReordering1 = getHistoryStringAt(5, historyAfterReorderingResult)
+        val historyAfterReordering2 = getHistoryStringAt(6, historyAfterReorderingResult)
+        val historyAfterReordering3 = getHistoryStringAt(7, historyAfterReorderingResult)
+
+        assertEquals(5, historyBeforeReorderingResult.size)
+        assertEquals(8, historyAfterReorderingResult.size)
+
+        assertEquals(expectedHistoryBeforeReordering, historyBeforeReordering)
+        assertEquals(expectedHistoryAfterReordering1, historyAfterReordering1)
+        assertEquals(expectedHistoryAfterReordering2, historyAfterReordering2)
+        assertEquals(expectedHistoryAfterReordering3, historyAfterReordering3)
       }
     }
   }
@@ -795,6 +873,9 @@ class AttachmentTest extends MediaTestBase {
 
 @RunWith(classOf[VertxUnitRunner])
 class FolderTest extends MediaTestBase {
+  val fileName = "Scr$en Shot.pdf"
+  val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+  val mimetype = "application/pdf"
 
   @Test
   def testRetrieveRootFolder(implicit c: TestContext): Unit = okTest {
@@ -984,12 +1065,12 @@ class FolderTest extends MediaTestBase {
 
 @RunWith(classOf[VertxUnitRunner])
 class FileTest extends MediaTestBase {
+  val fileName = "Screen Shöt.jpg"
+  val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+  val mimetype = "image/jpeg"
 
   @Test
   def testFileUploadWithUnicodeFilenameAndUnicodeMetaInformation(implicit c: TestContext): Unit = okTest {
-    val filePath = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
-    val mimetype = "image/jpeg"
-
     val meta = Json.obj(
       "title" -> Json.obj(
         "zh_CN" -> "情暮夜告書究"
@@ -1027,9 +1108,6 @@ class FileTest extends MediaTestBase {
   @Test
   def testFileUploadAndFileDownload(implicit c: TestContext): Unit = {
     okTest {
-      val fileName = "Scr$en Shot.pdf"
-      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
       val size = vertx.fileSystem.propsBlocking(getClass.getResource(filePath).toURI.getPath).size()
 
       val meta = Json.obj(
@@ -1096,9 +1174,6 @@ class FileTest extends MediaTestBase {
   @Test
   def testFileUploadAndFileDownloadWithShortLangtags(implicit c: TestContext): Unit = {
     okTest {
-      val fileName = "Scr$en Shot.pdf"
-      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
       val size = vertx.fileSystem.propsBlocking(getClass.getResource(filePath).toURI.getPath).size()
 
       val meta = Json.obj(
@@ -1165,10 +1240,6 @@ class FileTest extends MediaTestBase {
   @Test
   def testFileWithMultiLanguageMetaInformation(implicit c: TestContext): Unit = {
     okTest {
-      val fileName = "Scr$en Shot.pdf"
-      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       val putOne = Json.obj(
         "title" -> Json.obj(
           "de-DE" -> "Ein schöner deutscher Titel."
@@ -1230,11 +1301,8 @@ class FileTest extends MediaTestBase {
   }
 
   @Test
-  def testRecusiveDeleteOfFoldersWithFiles(implicit c: TestContext): Unit = {
+  def testRecursiveDeleteOfFoldersWithFiles(implicit c: TestContext): Unit = {
     okTest {
-      val filePath = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
-      val mimetype = "image/jpeg"
-
       def createFolderPutJson(name: String, parentId: Option[Int] = None): JsonObject = {
         Json.obj("name" -> name, "description" -> "Test Description", "parentId" -> parentId.orNull)
       }
@@ -1320,9 +1388,6 @@ class FileTest extends MediaTestBase {
   @Test
   def testDeletingAlreadyDeletedTmpFile(implicit c: TestContext): Unit = {
     okTest {
-      val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
-      val mimetype = "image/jpeg"
-
       val meta = Json.obj(
         "title" -> Json.obj(
           "en-GB" -> "A beautiful German title."
@@ -1334,7 +1399,7 @@ class FileTest extends MediaTestBase {
 
       for {
         tmpFile <- sendRequest("POST", "/files", meta)
-        uploadedFile <- replaceFile(tmpFile.getString("uuid"), "de-DE", file, mimetype)
+        uploadedFile <- replaceFile(tmpFile.getString("uuid"), "de-DE", filePath, mimetype)
 
         _ <- {
           val uploadsDirectory = tableauxConfig.uploadsDirectoryPath()
@@ -1357,10 +1422,6 @@ class FileTest extends MediaTestBase {
   @Test
   def testMergeFiles(implicit c: TestContext): Unit = {
     okTest {
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       val putFile1 = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF 1"),
         "description" -> Json.obj("de-DE" -> "A description about that PDF. 1")
@@ -1371,18 +1432,12 @@ class FileTest extends MediaTestBase {
       )
 
       for {
-        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        fileAfterPut1 <- sendRequest("PUT", s"/files/$fileUuid1", putFile1)
-
-        fileUuid2 <- createFile("en-GB", file, mimetype, None) map (_.getString("uuid"))
-        fileAfterPut2 <- sendRequest("PUT", s"/files/$fileUuid2", putFile2)
+        (fileUuid1, fileAfterPut1) <- createFileAndSetMetadataWithResult("de-DE", filePath, mimetype, putFile1)
+        (fileUuid2, fileAfterPut2) <- createFileAndSetMetadataWithResult("en-GB", filePath, mimetype, putFile2)
 
         _ <- sendRequest("POST", s"/files/$fileUuid1/merge", Json.obj("mergeWith" -> fileUuid2, "langtag" -> "en-GB"))
-
         fileAfterMerge <- sendRequest("GET", s"/files/$fileUuid1")
-
         files <- sendRequest("GET", s"/folders?langtag=de-DE")
-
         _ <- sendRequest("DELETE", s"/files/$fileUuid1")
       } yield {
         assertEquals(1, files.getJsonArray("files", Json.emptyArr()).size())
@@ -1402,23 +1457,14 @@ class FileTest extends MediaTestBase {
   @Test
   def testFileSorting(implicit c: TestContext): Unit = {
     okTest {
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       val putFileA = Json.obj("externalName" -> Json.obj("de-DE" -> "A.pdf"))
       val putFileB = Json.obj("externalName" -> Json.obj("de-DE" -> "B.pdf"))
       val putFileC = Json.obj("externalName" -> Json.obj("de-DE" -> "C.pdf"))
 
       for {
-        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        fileAfterPut1 <- sendRequest("PUT", s"/files/$fileUuid1", putFileC)
-
-        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        fileAfterPut2 <- sendRequest("PUT", s"/files/$fileUuid2", putFileA)
-
-        fileUuid3 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        fileAfterPut3 <- sendRequest("PUT", s"/files/$fileUuid3", putFileB)
+        (fileUuid1, fileAfterPut1) <- createFileAndSetMetadataWithResult("de-DE", filePath, mimetype, putFileC)
+        (fileUuid2, fileAfterPut2) <- createFileAndSetMetadataWithResult("de-DE", filePath, mimetype, putFileA)
+        (fileUuid3, fileAfterPut3) <- createFileAndSetMetadataWithResult("de-DE", filePath, mimetype, putFileB)
 
         files <- sendRequest("GET", s"/folders?langtag=de-DE")
 
@@ -1460,16 +1506,12 @@ class FileTest extends MediaTestBase {
   @Test
   def testChangeFileMetaInformation(implicit c: TestContext): Unit = {
     okTest {
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       for {
-        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", filePath, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
           (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE"))
         )
-        fileAfterUploadEn <- uploadFile("PUT", s"/files/$fileUuid/en-GB", file, mimetype)
+        fileAfterUploadEn <- uploadFile("PUT", s"/files/$fileUuid/en-GB", filePath, mimetype)
         internalNameEn <- Future.successful(fileAfterUploadEn.getJsonObject("internalName").getString("en-GB"))
         fileAfterChange <- sendRequest(
           "PUT",
@@ -1519,12 +1561,8 @@ class FileTest extends MediaTestBase {
   @Test
   def testFailChangeFileMetaInformationWithPathInFile1(implicit c: TestContext): Unit = {
     exceptionTest("error.request.invalid") {
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       for {
-        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", filePath, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
           (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE"))
         )
@@ -1564,12 +1602,8 @@ class FileTest extends MediaTestBase {
   @Test
   def testFailChangeFileMetaInformationWithPathInFile2(implicit c: TestContext): Unit = {
     exceptionTest("error.request.invalid") {
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       for {
-        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", filePath, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
           (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE"))
         )
@@ -1609,12 +1643,8 @@ class FileTest extends MediaTestBase {
   @Test
   def testFailChangeFileMetaInformationWithInvalidFile1(implicit c: TestContext): Unit = {
     exceptionTest("error.request.invalid") {
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       for {
-        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", filePath, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
           (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE"))
         )
@@ -1654,12 +1684,8 @@ class FileTest extends MediaTestBase {
   @Test
   def testFailChangeFileMetaInformationWithInvalidFile2(implicit c: TestContext): Unit = {
     exceptionTest("error.request.invalid") {
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       for {
-        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", filePath, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
           (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE"))
         )
@@ -1697,14 +1723,10 @@ class FileTest extends MediaTestBase {
   }
 
   @Test
-  def testChangeFileInternalnameToNull(implicit c: TestContext): Unit = {
+  def testChangeFileInternalNameToNull(implicit c: TestContext): Unit = {
     okTest {
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       for {
-        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", filePath, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
           (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE"))
         )
@@ -1742,14 +1764,10 @@ class FileTest extends MediaTestBase {
   }
 
   @Test
-  def testChangeFileInternalnameAndMimeType(implicit c: TestContext): Unit = {
+  def testChangeFileInternalNameAndMimeType(implicit c: TestContext): Unit = {
     okTest {
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
-
       for {
-        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", filePath, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
           (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE"))
         )
@@ -1798,9 +1816,6 @@ class FileTest extends MediaTestBase {
         )
       )
 
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
       val putFile = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF"),
         "description" -> Json.obj("de-DE" -> "A description about that PDF.")
@@ -1808,18 +1823,14 @@ class FileTest extends MediaTestBase {
 
       for {
         tableId <- createDefaultTable()
-
-        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(getColumnIdAt(0))
 
         rowId1 <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
         rowId2 <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
         rowId3 <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
-        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
+        fileUuid1 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
+        fileUuid2 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
 
         // Add attachment to multiple rows
         resultRow1 <- sendRequest(
@@ -1875,9 +1886,6 @@ class FileTest extends MediaTestBase {
         )
       )
 
-      val fileName = "Scr$en Shot.pdf"
-      val file = s"/com/campudus/tableaux/uploads/$fileName"
-      val mimetype = "application/pdf"
       val putFile = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test PDF"),
         "description" -> Json.obj("de-DE" -> "A description about that PDF.")
@@ -1886,21 +1894,16 @@ class FileTest extends MediaTestBase {
       for {
         tableId <- createDefaultTable()
 
-        downloadColumnId <- sendRequest("POST", s"/tables/$tableId/columns", downloadColumn)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
-        imageColumnId <- sendRequest("POST", s"/tables/$tableId/columns", imageColumn)
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
-        idColumnId <- sendRequest("GET", s"/tables/$tableId/columns")
-          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
+        downloadColumnId <- sendRequest("POST", s"/tables/$tableId/columns", downloadColumn).map(getColumnIdAt(0))
+        imageColumnId <- sendRequest("POST", s"/tables/$tableId/columns", imageColumn).map(getColumnIdAt(0))
+        idColumnId <- sendRequest("GET", s"/tables/$tableId/columns").map(getColumnIdAt(0))
 
         rowId1 <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
         rowId2 <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
         rowId3 <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
-        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
-        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
+        fileUuid1 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
+        fileUuid2 <- createFileAndSetMetadata("de-DE", filePath, mimetype, putFile)
 
         // Add attachment to multiple rows
         _ <- sendRequest(

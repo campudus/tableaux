@@ -29,6 +29,9 @@ object TableauxRouter {
 class TableauxRouter(override val config: TableauxConfig, val controller: TableauxController) extends BaseRouter {
 
   private val attachmentOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/attachment/$uuidRegex"
+
+  private val attachmentOrderOfCell: String =
+    s"/tables/$tableId/columns/$columnId/rows/$rowId/attachment/$uuidRegex/order"
   private val linkOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId"
   private val linkOrderOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId/order"
 
@@ -129,6 +132,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.postWithRegex(cell).handler(updateCell)
     router.putWithRegex(cell).handler(replaceCell)
     router.putWithRegex(linkOrderOfCell).handler(changeLinkOrder)
+    router.putWithRegex(attachmentOrderOfCell).handler(changeAttachmentOrder)
     router.putWithRegex(row).handler(setRow)
 
     router.patchWithRegex(rowPermissionsPath).handler(addRowPermissions)
@@ -845,9 +849,29 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           val json = getJson(context)
-          for {
-            updated <- controller.updateCellLinkOrder(tableId, columnId, rowId, linkId, toLocationType(json))
-          } yield updated
+          controller.updateCellLinkOrder(tableId, columnId, rowId, linkId, toLocationType[Long](json))
+        }
+      )
+    }
+  }
+
+  /**
+    * Change order of attachment
+    */
+  private def changeAttachmentOrder(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      rowId <- getRowId(context)
+      uuidString <- getUUID(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+          val uuid = UUID.fromString(uuidString)
+          controller.updateAttachmentOrder(tableId, columnId, rowId, uuid, toLocationType[UUID](json))
         }
       )
     }

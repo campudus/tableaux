@@ -15,6 +15,7 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
+import java.util.UUID
 
 object JsonUtils extends LazyLogging {
 
@@ -474,14 +475,34 @@ object JsonUtils extends LazyLogging {
     rowPermissionsOpt
   }
 
-  def toLocationType(json: JsonObject): LocationType = {
+  trait IdParser[T] {
+    def parse(json: JsonObject): ArgumentCheck[T]
+  }
+
+  object IdParser {
+
+    implicit val longIdParser: IdParser[Long] = new IdParser[Long] {
+
+      def parse(json: JsonObject): ArgumentCheck[Long] =
+        isDefined(Option(json.getLong("id")).map(_.longValue()), "id")
+    }
+
+    implicit val uuidIdParser: IdParser[UUID] = new IdParser[UUID] {
+
+      def parse(json: JsonObject): ArgumentCheck[UUID] = {
+        isDefined(Option(json.getString("id")).map(uuidString => UUID.fromString(uuidString)), "id")
+      }
+    }
+  }
+
+  def toLocationType[T](json: JsonObject)(implicit parser: IdParser[T]): LocationType[T] = {
     (for {
       location <- notNull(json.getString("location"), "location")
       location <- oneOf(location, List("start", "end", "before"), "location")
     } yield {
       val relativeTo =
         if ("before" == location) {
-          isDefined(Option(json.getLong("id")).map(_.longValue()), "id") match {
+          parser.parse(json) match {
             case FailArg(ex) => throw ex
             case OkArg(id) => Some(id)
           }

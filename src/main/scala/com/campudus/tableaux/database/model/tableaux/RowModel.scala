@@ -443,8 +443,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       column: LinkColumn,
       rowId: RowId,
-      toId: RowId,
-      locationType: LocationType
+      toId: LinkId,
+      locationType: LocationType[_]
   ): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
     val toIdColumn = column.linkDirection.toSql
@@ -455,25 +455,65 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       case LocationStart =>
         List(
           (
-            s"UPDATE $linkTable SET $orderColumn = (SELECT MIN($orderColumn) - 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn > (SELECT MIN($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)",
+            s"""|UPDATE $linkTable
+                |SET $orderColumn = (
+                |  SELECT MIN($orderColumn) - 1
+                |  FROM $linkTable
+                |  WHERE $rowIdColumn = ?
+                |)
+                |WHERE $rowIdColumn = ?
+                |AND $toIdColumn = ?
+                |AND $orderColumn > (SELECT MIN($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)
+                |""".stripMargin,
             Json.arr(rowId, rowId, toId, rowId)
           )
         )
       case LocationEnd =>
         List(
           (
-            s"UPDATE $linkTable SET $orderColumn = (SELECT MAX($orderColumn) + 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn < (SELECT MAX($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)",
+            s"""|UPDATE $linkTable
+                |SET $orderColumn = (
+                |  SELECT MAX($orderColumn) + 1
+                |  FROM $linkTable
+                |  WHERE $rowIdColumn = ?
+                |)
+                |WHERE $rowIdColumn = ?
+                |AND $toIdColumn = ?
+                |AND $orderColumn < (SELECT MAX($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)
+                |""".stripMargin,
             Json.arr(rowId, rowId, toId, rowId)
           )
         )
       case LocationBefore(relativeTo) =>
         List(
           (
-            s"UPDATE $linkTable SET $orderColumn = (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ?",
+            // first set the moved item's order to the order of the item it is moved in front of
+            s"""|UPDATE $linkTable
+                |SET $orderColumn = (
+                |  SELECT $orderColumn
+                |  FROM $linkTable
+                |  WHERE $rowIdColumn = ?
+                |  AND $toIdColumn = ?
+                |)
+                |WHERE $rowIdColumn = ?
+                |AND $toIdColumn = ?
+                |""".stripMargin,
             Json.arr(rowId, relativeTo, rowId, toId)
           ),
           (
-            s"UPDATE $linkTable SET $orderColumn = $orderColumn + 1 WHERE ($orderColumn >= (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) AND ($rowIdColumn = ? AND $toIdColumn != ?))",
+            // then increase the order of all items that were after the moved item
+            s"""|UPDATE $linkTable
+                |SET $orderColumn = $orderColumn + 1
+                |WHERE (
+                |  $orderColumn >= (
+                |  SELECT $orderColumn
+                |  FROM $linkTable
+                |  WHERE $rowIdColumn = ?
+                |  AND $toIdColumn = ?
+                |)
+                |AND $rowIdColumn = ?
+                |AND $toIdColumn != ?)
+                |""".stripMargin,
             Json.arr(rowId, relativeTo, rowId, toId)
           )
         )
@@ -481,10 +521,14 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
     val normalize = (
       s"""
-         |UPDATE $linkTable
-         |SET $orderColumn = r.ordering
-         |FROM (SELECT $rowIdColumn, $toIdColumn, row_number() OVER (ORDER BY $rowIdColumn, $orderColumn) AS ordering FROM $linkTable WHERE $rowIdColumn = ?) r
-         |WHERE $linkTable.$rowIdColumn = r.$rowIdColumn AND $linkTable.$toIdColumn = r.$toIdColumn
+         |UPDATE $linkTable lt
+         |SET $orderColumn = gen.ordering
+         |FROM (
+         |  SELECT $rowIdColumn, $toIdColumn, row_number() OVER (ORDER BY $rowIdColumn, $orderColumn) AS ordering
+         |  FROM $linkTable
+         |  WHERE $rowIdColumn = ?) gen
+         |WHERE lt.$rowIdColumn = gen.$rowIdColumn 
+         |AND lt.$toIdColumn = gen.$toIdColumn
        """.stripMargin,
       Json.arr(rowId)
     )
@@ -494,10 +538,6 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
       // Check if row exists
       (t, result) <- t.query(s"SELECT id FROM user_table_${table.id} WHERE id = ?", Json.arr(rowId))
-      _ = selectNotNull(result)
-
-      // Check if row exists
-      (t, result) <- t.query(s"SELECT id FROM user_table_${column.to.table.id} WHERE id = ?", Json.arr(toId))
       _ = selectNotNull(result)
 
       t <- locationType match {
@@ -513,11 +553,155 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
                 t
             })
 
-        case _ =>
-          Future.successful(t)
+        case _ => Future.successful(t)
       }
 
       (t, _) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
+        case (fTuple, (query, bindParams)) =>
+          for {
+            (latestTransaction, results) <- fTuple
+            (lastT, result) <- latestTransaction.query(query, bindParams)
+          } yield (lastT, results :+ result)
+      }
+
+      _ <- t.commit()
+    } yield ()
+  }
+
+  def updateAttachmentOrder(
+      table: Table,
+      column: AttachmentColumn,
+      rowId: RowId,
+      attachmentId: UUID,
+      locationType: LocationType[_]
+  ): Future[Unit] = {
+    val statementWithBinds: List[(String, JsonArray)] = locationType match {
+      case LocationStart =>
+        List(
+          (
+            s"""|UPDATE system_attachment
+                |SET ordering = (
+                |  SELECT min(ordering) - 1
+                |  FROM system_attachment
+                |  WHERE table_id = ?
+                |  AND column_id = ?
+                |  AND row_id = ?
+                |)
+                |WHERE table_id = ?
+                |AND column_id = ?
+                |AND row_id = ?
+                |AND attachment_uuid = ?
+                |""".stripMargin,
+            Json.arr(table.id, column.id, rowId, table.id, column.id, rowId, attachmentId.toString())
+          )
+        )
+
+      case LocationEnd =>
+        List(
+          (
+            s"""|UPDATE system_attachment
+                |SET ordering = (
+                |  SELECT max(ordering) + 1
+                |  FROM system_attachment
+                |  WHERE table_id = ?
+                |  AND column_id = ?
+                |  AND row_id = ?
+                |)
+                |WHERE table_id = ?
+                |AND column_id = ?
+                |AND row_id = ?
+                |AND attachment_uuid = ?
+                |""".stripMargin,
+            Json.arr(table.id, column.id, rowId, table.id, column.id, rowId, attachmentId.toString())
+          )
+        )
+      case LocationBefore(relativeTo) => {
+        val relativeUUID = relativeTo.toString()
+        List(
+          (
+            // first set the moved item's order to the order of the item it is moved in front of
+            s"""|UPDATE system_attachment
+                |SET ordering = (
+                |  SELECT ordering
+                |  FROM system_attachment
+                |  WHERE table_id = ?
+                |  AND column_id = ?
+                |  AND row_id = ?
+                |  AND attachment_uuid = ?
+                |)
+                |WHERE table_id = ?
+                |AND column_id = ?
+                |AND row_id = ?
+                |AND attachment_uuid = ?
+                |""".stripMargin,
+            Json.arr(table.id, column.id, rowId, relativeUUID, table.id, column.id, rowId, attachmentId.toString())
+          ),
+          (
+            // then increase the order of all items that were after the moved item
+            s"""|UPDATE system_attachment
+                |SET ordering = ordering + 1
+                |WHERE ordering >= (
+                |  SELECT ordering
+                |  FROM system_attachment
+                |  WHERE table_id = ?
+                |  AND column_id = ?
+                |  AND row_id = ?
+                |  AND attachment_uuid = ?
+                |)
+                |AND table_id = ?
+                |AND column_id = ?
+                |AND row_id = ?
+                |AND attachment_uuid != ?
+                |""".stripMargin,
+            Json.arr(table.id, column.id, rowId, relativeUUID, table.id, column.id, rowId, attachmentId.toString())
+          )
+        )
+      }
+    }
+
+    val normalize = (
+      s"""
+         |UPDATE system_attachment sa
+         |SET ordering = gen.ordering
+         |FROM (
+         |  SELECT table_id, column_id, row_id, attachment_uuid, row_number() OVER (ORDER BY ordering) AS ordering
+         |  FROM system_attachment
+         |  WHERE table_id = ?
+         |  AND column_id = ?
+         |  AND row_id = ?
+         |) gen
+         |WHERE sa.table_id = gen.table_id
+         |AND sa.row_id = gen.row_id
+         |AND sa.column_id = gen.column_id
+         |AND sa.attachment_uuid = gen.attachment_uuid
+         |""".stripMargin,
+      Json.arr(table.id, column.id, rowId)
+    )
+
+    val checkAttachmentQuery = s"""|SELECT true FROM system_attachment
+                                   |WHERE table_id = ?
+                                   |AND column_id = ?
+                                   |AND row_id = ?
+                                   |AND attachment_uuid = ?""".stripMargin
+    for {
+      t <- connection.begin()
+
+      // Check if attachment to reorder exist
+      (t, result) <- t.query(checkAttachmentQuery, Json.arr(table.id, column.id, rowId, attachmentId.toString()))
+      _ = selectNotNull(result)
+
+      t <- locationType match {
+        case LocationBefore(relativeTo) =>
+          // Check if attachment to relative placement exists
+          t.query(checkAttachmentQuery, Json.arr(table.id, column.id, rowId, relativeTo.toString()))
+            .map({ case (t, result) =>
+              selectNotNull(result)
+              t
+            })
+        case _ => Future.successful(t)
+      }
+
+      (t, _) <- (statementWithBinds :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
         case (fTuple, (query, bindParams)) =>
           for {
             (latestTransaction, results) <- fTuple
