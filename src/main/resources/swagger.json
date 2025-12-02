@@ -3292,7 +3292,8 @@
               "format": "int64"
             },
             {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             }
           ]
         }
