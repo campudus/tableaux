@@ -2393,7 +2393,7 @@
       ],
       "put": {
         "summary": "Changes the order of the attachment.",
-        "description": "Changes the order of the attachments by reordering the specified attachment to the beginning, end or in front of another relative attachment.",
+        "description": "Changes the order of the attachment by reordering the specified attachment to the beginning, end or in front of another relative attachment.",
         "tags": [
           "content"
         ],
@@ -2459,7 +2459,7 @@
       ],
       "put": {
         "summary": "Changes the order of the link.",
-        "description": "Changes the order of the links by reordering the specified link to the beginning, end or in front of another relative link.",
+        "description": "Changes the order of the link by reordering the specified link to the beginning, end or in front of another relative link.",
         "tags": [
           "content"
         ],

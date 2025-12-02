@@ -284,14 +284,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  def updateAttachments(
-      table: Table,
-      attachmentColumn: AttachmentColumn,
-      rowId: RowId
-  )(implicit user: TableauxUser): Future[_] = {
-    createAttachments(table, rowId, Seq(attachmentColumn))
-  }
-
   private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId)(
       implicit user: TableauxUser
   ): Future[Unit] = {
@@ -374,7 +366,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  private def createAttachments(
+  def createAttachments(
       table: Table,
       rowId: RowId,
       columns: Seq[AttachmentColumn]
