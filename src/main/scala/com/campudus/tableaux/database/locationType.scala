@@ -2,8 +2,6 @@ package com.campudus.tableaux.database
 
 import com.campudus.tableaux.database.model.TableauxModel.RowId
 
-import java.util.UUID
-
 sealed trait LocationType[+T]
 
 object LocationType {

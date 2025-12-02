@@ -725,7 +725,7 @@ class TableauxModel(
             _ <- createHistoryModel.createCellsInit(table, rowId, Seq((attachmentColumn, Seq(rowId))))
             _ <- updateRowModel.updateAttachmentOrder(table, attachmentColumn, rowId, attachmentId, locationType)
             _ <- invalidateCellAndDependentColumns(column, rowId)
-            _ <- createHistoryModel.updateAttachments(table, attachmentColumn, rowId)
+            _ <- createHistoryModel.createAttachments(table, rowId, Seq(attachmentColumn))
           } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[AttachmentColumn]))
