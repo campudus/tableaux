@@ -1,0 +1,64 @@
+name: Add Ticket Link to PR
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  add-ticket-link:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Extract ticket number and add link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchName = context.payload.pull_request.head.ref;
+            const prBody = context.payload.pull_request.body || "";
+
+            // Regex patterns for different ticket formats
+            // YouTrack: GRUD_DEV-123, PROJECT.2-456, T-123
+            // Allows underscores, dots, hyphens, and numbers in project name
+            const youtrackPattern = /([A-Z0-9_.-]+-\d+)/i;
+
+            const youtrackMatch = branchName.match(youtrackPattern);
+
+            let ticketLink = "";
+
+            if (youtrackMatch) {
+              const ticketNumber = youtrackMatch[1];
+              // Replace with your YouTrack URL
+              const youtrackUrl = "https://campudus.myjetbrains.com/youtrack";
+              ticketLink = `**Related Ticket:** [${ticketNumber}](${youtrackUrl}/issue/${ticketNumber})`;
+            }
+
+            if (ticketLink && !prBody.includes("Related Ticket:")) {
+              let newBody;
+              
+              // Look for the [TICKET_LINK] placeholder
+              const ticketLinkPlaceholder = /.*\[TICKET_LINK\].*/;
+              
+              if (ticketLinkPlaceholder.test(prBody)) {
+                // Insert the ticket link after the line containing [TICKET_LINK]
+                newBody = prBody.replace(ticketLinkPlaceholder, (match) => {
+                  return `${match}\n\n${ticketLink}`;
+                });
+              } else {
+                // Fallback: add at the top if placeholder not found
+                newBody = `${ticketLink}\n\n---\n\n${prBody}`;
+              }
+
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                body: newBody,
+              });
+
+              console.log(`Added ticket link: ${ticketLink}`);
+            } else if (ticketLink) {
+              console.log("Ticket link already exists in PR body");
+            } else {
+              console.log("No ticket number found in branch name");
+            }
