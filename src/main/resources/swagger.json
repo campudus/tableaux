@@ -3091,32 +3091,43 @@
     },
     "Property:TableGroup": {
       "type": "object",
-      "properties": {
-        "group": {
-          "type": "object",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Property:DisplayName"
-            },
-            {
-              "$ref": "#/definitions/Property:Description"
-            }
-          ]
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:DisplayName"
+        },
+        {
+          "$ref": "#/definitions/Property:Description"
         }
-      },
+      ],
       "required": [
         "displayName"
       ]
     },
     "Property:TableGroupWithId": {
       "type": "object",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Property:Id"
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "example": 423
         },
-        {
-          "$ref": "#/definitions/Property:TableGroup"
+        "displayName": {
+          "type": "object",
+          "example": {
+            "de": "Künstler",
+            "en": "Artist"
+          }
+        },
+        "description": {
+          "type": "object",
+          "example": {
+            "de": "Eine Beschreibung der Entität",
+            "en": "A description of the entity"
+          }
         }
+      },
+      "required": [
+        "id"
       ]
     },
     "Property:Status": {
@@ -3135,7 +3146,8 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "int64",
+          "type": "integer",
+          "format": "int64",
           "example": 423
         }
       },
@@ -3310,9 +3322,6 @@
         },
         {
           "$ref": "#/definitions/Property:DisplayName"
-        },
-        {
-          "$ref": "#/definitions/Property:TableGroupWithId"
         }
       ],
       "required": [
@@ -3332,6 +3341,9 @@
           "type": "string",
           "description": "Pattern for the frontend how to render the content of the concat column",
           "example": "{{1}} | {{2}} | {{3}}"
+        },
+        "group": {
+          "$ref": "#/definitions/Property:TableGroupWithId"
         },
         "originTables": {
           "type": "array",
@@ -4296,9 +4308,6 @@
         {
           "$ref": "#/definitions/Property:TableGroupWithId"
         }
-      ],
-      "required": [
-        "tables"
       ]
     },
     "Request: Create service": {
