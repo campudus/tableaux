@@ -4216,12 +4216,12 @@
           },
           "description": "An array of table IDs to be used to form this UnionTable. The property is only required for tables of type 'union'."
         },
-        "tableGroupId": {
+        "group": {
           "type": "integer",
           "format": "int64",
           "description": "The id of the table group this table belongs to."
         },
-        "tableType": {
+        "type": {
           "type": "string",
           "enum": [
             "generic",
@@ -4259,8 +4259,8 @@
           1,
           2
         ],
-        "tableGroupId": 1,
-        "tableType": "generic"
+        "group": 1,
+        "type": "generic"
       }
     },
     "Request: create update table group": {
