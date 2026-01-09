@@ -1886,6 +1886,28 @@
                     "$ref": "#/parameters/value"
                   }
                 }
+              },
+              "example": {
+                "columns": [
+                  {
+                    "id": 1
+                  },
+                  {
+                    "id": 5
+                  }
+                ],
+                "rows": [
+                  {
+                    "values": [
+                      {
+                        "de": "Column 1 multi language value"
+                      },
+                      {
+                        "de": "Column 5 single language value"
+                      }
+                    ]
+                  }
+                ]
               }
             }
           }
@@ -1936,6 +1958,28 @@
                     "$ref": "#/parameters/value"
                   }
                 }
+              },
+              "example": {
+                "columns": [
+                  {
+                    "id": 1
+                  },
+                  {
+                    "id": 5
+                  }
+                ],
+                "rows": [
+                  {
+                    "values": [
+                      {
+                        "de": "Column 1 multi language value"
+                      },
+                      {
+                        "de": "Column 5 single language value"
+                      }
+                    ]
+                  }
+                ]
               }
             }
           }
