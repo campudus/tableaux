@@ -316,28 +316,28 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
-  def deleteTableSetting(settingKey: String, tableId: Long): Future[Unit] = {
-    val delete = s"DELETE FROM user_settings_table WHERE key = ? AND table_id = ?"
+  def deleteTableSetting(settingKey: String, tableId: Long)(implicit user: TableauxUser): Future[Unit] = {
+    val delete = s"DELETE FROM user_settings_table WHERE key = ? AND table_id = ? AND user_id = ?"
 
     for {
-      result <- connection.query(delete, Json.arr(settingKey, tableId))
+      result <- connection.query(delete, Json.arr(settingKey, tableId, user.name))
       _ <- Future(deleteNotNull(result))
     } yield ()
   }
 
-  def deleteTableSettings(tableId: Long): Future[Unit] = {
-    val delete = s"DELETE FROM user_settings_table WHERE table_id = ?"
+  def deleteTableSettings(tableId: Long)(implicit user: TableauxUser): Future[Unit] = {
+    val delete = s"DELETE FROM user_settings_table WHERE table_id = ? AND user_id = ?"
 
     for {
-      result <- connection.query(delete, Json.arr(tableId))
+      result <- connection.query(delete, Json.arr(tableId, user.name))
     } yield ()
   }
 
-  def deleteFilterSetting(id: Long): Future[Unit] = {
-    val delete = s"DELETE FROM user_settings_filter WHERE id = ?"
+  def deleteFilterSetting(id: Long)(implicit user: TableauxUser): Future[Unit] = {
+    val delete = s"DELETE FROM user_settings_filter WHERE id = ? AND user_id = ?"
 
     for {
-      result <- connection.query(delete, Json.arr(id))
+      result <- connection.query(delete, Json.arr(id, user.name))
       _ <- Future(deleteNotNull(result))
     } yield ()
   }
