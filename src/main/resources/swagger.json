@@ -3924,7 +3924,7 @@
       "example": {
         "name": "Folder 1",
         "description": "This is a folder description",
-        "parent": 1
+        "parentId": 1
       }
     },
     "Response: Folder": {
