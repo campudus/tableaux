@@ -1,6 +1,6 @@
 package com.campudus.tableaux.api.user
 
-import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -12,6 +12,19 @@ import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 class UserSettingsTest extends TableauxTestBase {
+
+  private def generateAccessToken(username: String): Option[String] = {
+    val tokenHelper = TokenHelper(this.vertxAccess())
+
+    Some(tokenHelper.generateToken(
+      Json.obj(
+        "aud" -> "grud-backend",
+        "iss" -> "campudus-test",
+        "preferred_username" -> username,
+        "realm_access" -> Json.obj("roles" -> Json.arr("dev"))
+      )
+    ))
+  }
 
   @Test
   def testCreateGlobalSetting(implicit c: TestContext): Unit = okTest {
@@ -294,6 +307,37 @@ class UserSettingsTest extends TableauxTestBase {
   }
 
   @Test
+  def testDeleteTableSetting_differentUsers(implicit c: TestContext): Unit = okTest {
+    val accessTokenUserOne = this.generateAccessToken("User 1")
+    val accessTokenUserTwo = this.generateAccessToken("User 2")
+
+    for {
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/1/visibleColumns",
+        Json.obj("value" -> Json.arr(1, 2, 3)),
+        accessTokenUserOne
+      )
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/1/visibleColumns",
+        Json.obj("value" -> Json.arr(2, 3, 4)),
+        accessTokenUserTwo
+      )
+      tableSettingsAfterCreateForUserOne <- sendRequest("GET", "/user/settings/table", accessTokenUserOne)
+      tableSettingsAfterCreateForUserTwo <- sendRequest("GET", "/user/settings/table", accessTokenUserTwo)
+      _ <- sendRequest("DELETE", "/user/settings/table/1/visibleColumns", accessTokenUserOne)
+      tableSettingsAfterDeleteForUserOne <- sendRequest("GET", "/user/settings/table", accessTokenUserOne)
+      tableSettingsAfterDeleteForUserTwo <- sendRequest("GET", "/user/settings/table", accessTokenUserTwo)
+    } yield {
+      assertEquals(1, tableSettingsAfterCreateForUserOne.getJsonArray("settings").size())
+      assertEquals(0, tableSettingsAfterDeleteForUserOne.getJsonArray("settings").size())
+      assertEquals(1, tableSettingsAfterCreateForUserTwo.getJsonArray("settings").size())
+      assertEquals(1, tableSettingsAfterDeleteForUserTwo.getJsonArray("settings").size())
+    }
+  }
+
+  @Test
   def testDeleteTableSettings(implicit c: TestContext): Unit = okTest {
     for {
       _ <- sendRequest(
@@ -329,6 +373,37 @@ class UserSettingsTest extends TableauxTestBase {
   }
 
   @Test
+  def testDeleteTableSettings_differentUsers(implicit c: TestContext): Unit = okTest {
+    val accessTokenUserOne = this.generateAccessToken("User 1")
+    val accessTokenUserTwo = this.generateAccessToken("User 2")
+
+    for {
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/1/visibleColumns",
+        Json.obj("value" -> Json.arr(1, 2, 3)),
+        accessTokenUserOne
+      )
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/1/visibleColumns",
+        Json.obj("value" -> Json.arr(2, 3, 4)),
+        accessTokenUserTwo
+      )
+      tableSettingsAfterCreateForUserOne <- sendRequest("GET", "/user/settings/table", accessTokenUserOne)
+      tableSettingsAfterCreateForUserTwo <- sendRequest("GET", "/user/settings/table", accessTokenUserTwo)
+      _ <- sendRequest("DELETE", "/user/settings/table/1", accessTokenUserOne)
+      tableSettingsAfterDeleteForUserOne <- sendRequest("GET", "/user/settings/table", accessTokenUserOne)
+      tableSettingsAfterDeleteForUserTwo <- sendRequest("GET", "/user/settings/table", accessTokenUserTwo)
+    } yield {
+      assertEquals(1, tableSettingsAfterCreateForUserOne.getJsonArray("settings").size())
+      assertEquals(0, tableSettingsAfterDeleteForUserOne.getJsonArray("settings").size())
+      assertEquals(1, tableSettingsAfterCreateForUserTwo.getJsonArray("settings").size())
+      assertEquals(1, tableSettingsAfterDeleteForUserTwo.getJsonArray("settings").size())
+    }
+  }
+
+  @Test
   def testDeleteFilterSetting(implicit c: TestContext): Unit = okTest {
     for {
       settingId <- sendRequest(
@@ -345,6 +420,43 @@ class UserSettingsTest extends TableauxTestBase {
     } yield {
       assertEquals(1, filterSettingsAfterCreate.getJsonArray("settings").size())
       assertEquals(0, filterSettingsAfterDelete.getJsonArray("settings").size())
+    }
+  }
+
+  @Test
+  def testDeleteFilterSetting_differentUsers(implicit c: TestContext): Unit = okTest {
+    val accessTokenUserOne = this.generateAccessToken("User 1")
+    val accessTokenUserTwo = this.generateAccessToken("User 2")
+
+    for {
+      settingIdUserOne <- sendRequest(
+        "PUT",
+        "/user/settings/filter/presetFilter",
+        Json.obj(
+          "name" -> "Simple Filter 1",
+          "value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black"))
+        ),
+        accessTokenUserOne
+      ).map(_.getLong(("id")))
+      settingIdUserTwo <- sendRequest(
+        "PUT",
+        "/user/settings/filter/presetFilter",
+        Json.obj(
+          "name" -> "Simple Filter 1",
+          "value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black"))
+        ),
+        accessTokenUserTwo
+      ).map(_.getLong(("id")))
+      filterSettingsAfterCreateForUserOne <- sendRequest("GET", "/user/settings/filter", accessTokenUserOne)
+      filterSettingsAfterCreateForUserTwo <- sendRequest("GET", "/user/settings/filter", accessTokenUserTwo)
+      _ <- sendRequest("DELETE", s"/user/settings/filter/$settingIdUserOne", accessTokenUserOne)
+      filterSettingsAfterDeleteForUserOne <- sendRequest("GET", "/user/settings/filter", accessTokenUserOne)
+      filterSettingsAfterDeleteForUserTwo <- sendRequest("GET", "/user/settings/filter", accessTokenUserTwo)
+    } yield {
+      assertEquals(1, filterSettingsAfterCreateForUserOne.getJsonArray("settings").size())
+      assertEquals(0, filterSettingsAfterDeleteForUserOne.getJsonArray("settings").size())
+      assertEquals(1, filterSettingsAfterCreateForUserTwo.getJsonArray("settings").size())
+      assertEquals(1, filterSettingsAfterDeleteForUserTwo.getJsonArray("settings").size())
     }
   }
 }
