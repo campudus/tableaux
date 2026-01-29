@@ -1230,6 +1230,29 @@
             "$ref": "#/responses/tableGroup"
           }
         }
+      },
+      "get": {
+        "summary": "Get all table groups",
+        "description": "Returns an array containing all available table groups with their metadata.",
+        "tags": [
+          "structure"
+        ],
+        "operationId": "get-all-table-groups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Metadata for all table groups.",
+            "schema": {
+              "$ref": "#/definitions/Response:TableGroups"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
       }
     },
     "/groups/{groupId}": {
@@ -1238,6 +1261,22 @@
           "$ref": "#/parameters/groupId"
         }
       ],
+      "get": {
+        "summary": "Get table group",
+        "description": "Returns the metadata of a table group.",
+        "tags": [
+          "structure"
+        ],
+        "operationId": "get-table-group",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/tableGroup"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
       "post": {
         "summary": "Change table group",
         "description": "Changes a table group.",
@@ -3149,29 +3188,21 @@
     },
     "Property:TableGroupWithId": {
       "type": "object",
-      "properties": {
-        "id": {
-          "type": "integer",
-          "format": "int64",
-          "example": 423
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Id"
         },
-        "displayName": {
-          "type": "object",
-          "example": {
-            "de": "Künstler",
-            "en": "Artist"
-          }
+        {
+          "$ref": "#/definitions/Property:DisplayName"
         },
-        "description": {
-          "type": "object",
-          "example": {
-            "de": "Eine Beschreibung der Entität",
-            "en": "A description of the entity"
-          }
+        {
+          "$ref": "#/definitions/Property:Description"
         }
-      },
+      ],
       "required": [
-        "id"
+        "id",
+        "displayName",
+        "description"
       ]
     },
     "Property:Status": {
@@ -4352,6 +4383,25 @@
         {
           "$ref": "#/definitions/Property:TableGroupWithId"
         }
+      ]
+    },
+    "Response:TableGroups": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "tableGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Property:TableGroupWithId"
+          }
+        }
+      },
+      "required": [
+        "tableGroups"
       ]
     },
     "Request: Create service": {

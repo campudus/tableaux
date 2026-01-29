@@ -31,3 +31,12 @@ case class TableGroup(id: TableId, displayInfos: Seq[DisplayInfo]) extends Domai
     result
   }
 }
+
+case class TableGroupSeq(tableGroups: Seq[TableGroup]) extends DomainObject {
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      "tableGroups" -> tableGroups.map(_.getJson)
+    )
+  }
+}

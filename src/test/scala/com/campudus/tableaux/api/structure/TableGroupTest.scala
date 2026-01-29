@@ -223,4 +223,62 @@ class TableGroupTest extends TableauxTestBase {
       assertFalse(tables.head.containsKey("group"))
     }
   }
+
+  @Test
+  def retrieveAllTableGroups(implicit c: TestContext): Unit = okTest {
+    val createTableGroupJson1 = Json.obj(
+      "displayName" -> Json.obj("de" -> "table group 1", "en" -> "table group 1"),
+      "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
+    )
+
+    val createTableGroupJson2 = Json.obj(
+      "displayName" -> Json.obj("de" -> "table group 2", "en" -> "table group 2"),
+      "description" -> Json.obj("de" -> "neue Beschreibung", "en" -> "new description")
+    )
+
+    for {
+      createdGroup1 <- sendRequest("POST", "/groups", createTableGroupJson1)
+      groupId1 = createdGroup1.getInteger("id")
+
+      createdGroup2 <- sendRequest("POST", "/groups", createTableGroupJson2)
+      groupId2 = createdGroup2.getInteger("id")
+
+      retrieveGroups <- sendRequest("GET", s"/groups")
+    } yield {
+      import com.campudus.tableaux.helper.JsonUtils._
+      val groups = asCastedList[JsonObject](retrieveGroups.getJsonArray("tableGroups")).get
+
+      assertEquals(2, groups.size)
+
+      val group1 = groups.find(_.getInteger("id") == groupId1).get
+      val group2 = groups.find(_.getInteger("id") == groupId2).get
+
+      assertJSONEquals(Json.obj("id" -> groupId1).mergeIn(createTableGroupJson1), group1)
+      assertJSONEquals(Json.obj("id" -> groupId2).mergeIn(createTableGroupJson2), group2)
+    }
+  }
+
+  @Test
+  def retrieveTableGroup(implicit c: TestContext): Unit = okTest {
+    val createTableGroupJson = Json.obj(
+      "displayName" -> Json.obj("de" -> "table group", "en" -> "table group"),
+      "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
+    )
+
+    for {
+      createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
+      groupId = createdGroup.getInteger("id")
+
+      retrievedGroup <- sendRequest("GET", s"/groups/$groupId")
+    } yield {
+      assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), retrievedGroup)
+    }
+  }
+
+  @Test
+  def retrieveNonExistingTableGroup(implicit c: TestContext): Unit = exceptionTest("NOT FOUND") {
+    for {
+      _ <- sendRequest("GET", s"/groups/9999")
+    } yield ()
+  }
 }
