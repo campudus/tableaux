@@ -771,6 +771,25 @@ class StructureController(
     } yield tableGroup
   }
 
+  def retrieveTableGroups()(implicit user: TableauxUser): Future[TableGroupSeq] = {
+    logger.info(s"retrieveTableGroups")
+
+    for {
+      tableGroups: Seq[TableGroup] <- tableGroupStruc.retrieveAll()
+    } yield TableGroupSeq(tableGroups)
+  }
+
+  def retrieveTableGroup(tableGroupId: TableGroupId)(
+      implicit user: TableauxUser
+  ): Future[TableGroup] = {
+    checkArguments(greaterZero(tableGroupId))
+    logger.info(s"retrieveTableGroup $tableGroupId")
+
+    for {
+      tableGroup <- tableGroupStruc.retrieve(tableGroupId)
+    } yield tableGroup
+  }
+
   def changeTableGroup(tableGroupId: TableGroupId, displayInfos: Option[Seq[DisplayInfo]])(
       implicit user: TableauxUser
   ): Future[TableGroup] = {

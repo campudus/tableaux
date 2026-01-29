@@ -42,6 +42,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     router.getWithRegex(columns).handler(retrieveColumns)
     router.getWithRegex(column).handler(retrieveColumn)
     router.get(structure).handler(retrieveStructure)
+    router.get(groups).handler(retrieveGroups)
+    router.getWithRegex(group).handler(retrieveGroup)
 
     // DELETE
     router.deleteWithRegex(group).handler(deleteGroup)
@@ -360,6 +362,30 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         controller.createTableGroup(displayInfos)
       }
     )
+  }
+
+  private def retrieveGroups(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.retrieveTableGroups()
+      }
+    )
+  }
+
+  private def retrieveGroup(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      groupId <- getGroupId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveTableGroup(groupId)
+        }
+      )
+    }
   }
 
   private def updateGroup(context: RoutingContext): Unit = {
