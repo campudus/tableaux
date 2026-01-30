@@ -92,24 +92,20 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
   }
 
   def delete(tableGroupId: TableGroupId): Future[Unit] = {
-    for {
-      t <- connection.begin()
-
-      (t, result) <- t.query("DELETE FROM system_tablegroup WHERE id = ?", Json.arr(tableGroupId))
-      _ = deleteNotNull(result)
-
-      _ <- t.commit()
-    } yield ()
+    connection.transactional { t =>
+      for {
+        (t, result) <- t.query("DELETE FROM system_tablegroup WHERE id = ?", Json.arr(tableGroupId))
+        _ = deleteNotNull(result)
+      } yield (t, ())
+    }
   }
 
   def change(tableGroupId: TableGroupId, displayInfos: Option[Seq[DisplayInfo]]): Future[Unit] = {
-    for {
-      t <- connection.begin()
-
-      t <- insertOrUpdateTableDisplayInfo(t, tableGroupId, displayInfos)
-
-      _ <- t.commit()
-    } yield ()
+    connection.transactional { t =>
+      for {
+        t <- insertOrUpdateTableDisplayInfo(t, tableGroupId, displayInfos)
+      } yield (t, ())
+    }
   }
 
   private def insertOrUpdateTableDisplayInfo(
