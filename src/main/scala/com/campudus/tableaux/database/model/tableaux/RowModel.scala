@@ -533,39 +533,37 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       Json.arr(rowId)
     )
 
-    for {
-      t <- connection.begin()
+    connection.transactional { t =>
+      for {
+        // Check if row exists
+        (t, result) <- t.query(s"SELECT id FROM user_table_${table.id} WHERE id = ?", Json.arr(rowId))
+        _ = selectNotNull(result)
 
-      // Check if row exists
-      (t, result) <- t.query(s"SELECT id FROM user_table_${table.id} WHERE id = ?", Json.arr(rowId))
-      _ = selectNotNull(result)
+        t <- locationType match {
+          case LocationBefore(relativeTo) =>
+            // Check if row is linked
+            t.query(
+              s"SELECT $toIdColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?",
+              Json.arr(rowId, relativeTo)
+            )
+              .map({
+                case (t, result) =>
+                  selectNotNull(result)
+                  t
+              })
 
-      t <- locationType match {
-        case LocationBefore(relativeTo) =>
-          // Check if row is linked
-          t.query(
-            s"SELECT $toIdColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?",
-            Json.arr(rowId, relativeTo)
-          )
-            .map({
-              case (t, result) =>
-                selectNotNull(result)
-                t
-            })
+          case _ => Future.successful(t)
+        }
 
-        case _ => Future.successful(t)
-      }
-
-      (t, _) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
-        case (fTuple, (query, bindParams)) =>
-          for {
-            (latestTransaction, results) <- fTuple
-            (lastT, result) <- latestTransaction.query(query, bindParams)
-          } yield (lastT, results :+ result)
-      }
-
-      _ <- t.commit()
-    } yield ()
+        (t, _) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
+          case (fTuple, (query, bindParams)) =>
+            for {
+              (latestTransaction, results) <- fTuple
+              (lastT, result) <- latestTransaction.query(query, bindParams)
+            } yield (lastT, results :+ result)
+        }
+      } yield (t, ())
+    }
   }
 
   def updateAttachmentOrder(
@@ -683,34 +681,32 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
                                    |AND column_id = ?
                                    |AND row_id = ?
                                    |AND attachment_uuid = ?""".stripMargin
-    for {
-      t <- connection.begin()
+    connection.transactional { t =>
+      for {
+        // Check if attachment to reorder exist
+        (t, result) <- t.query(checkAttachmentQuery, Json.arr(table.id, column.id, rowId, attachmentId.toString()))
+        _ = selectNotNull(result)
 
-      // Check if attachment to reorder exist
-      (t, result) <- t.query(checkAttachmentQuery, Json.arr(table.id, column.id, rowId, attachmentId.toString()))
-      _ = selectNotNull(result)
+        t <- locationType match {
+          case LocationBefore(relativeTo) =>
+            // Check if attachment to relative placement exists
+            t.query(checkAttachmentQuery, Json.arr(table.id, column.id, rowId, relativeTo.toString()))
+              .map({ case (t, result) =>
+                selectNotNull(result)
+                t
+              })
+          case _ => Future.successful(t)
+        }
 
-      t <- locationType match {
-        case LocationBefore(relativeTo) =>
-          // Check if attachment to relative placement exists
-          t.query(checkAttachmentQuery, Json.arr(table.id, column.id, rowId, relativeTo.toString()))
-            .map({ case (t, result) =>
-              selectNotNull(result)
-              t
-            })
-        case _ => Future.successful(t)
-      }
-
-      (t, _) <- (statementWithBinds :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
-        case (fTuple, (query, bindParams)) =>
-          for {
-            (latestTransaction, results) <- fTuple
-            (lastT, result) <- latestTransaction.query(query, bindParams)
-          } yield (lastT, results :+ result)
-      }
-
-      _ <- t.commit()
-    } yield ()
+        (t, _) <- (statementWithBinds :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
+          case (fTuple, (query, bindParams)) =>
+            for {
+              (latestTransaction, results) <- fTuple
+              (lastT, result) <- latestTransaction.query(query, bindParams)
+            } yield (lastT, results :+ result)
+        }
+      } yield (t, ())
+    }
   }
 
   def updateRow(
