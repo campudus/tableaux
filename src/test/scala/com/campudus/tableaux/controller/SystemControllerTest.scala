@@ -1,5 +1,6 @@
 package com.campudus.tableaux.controller
 
+import com.campudus.tableaux.NotFoundInDatabaseException
 import com.campudus.tableaux.router.SystemRouter
 import com.campudus.tableaux.testtools.TableauxTestBase
 
@@ -24,6 +25,24 @@ class SystemControllerTest extends TableauxTestBase {
       result <- sendRequest("POST", s"/system/reset?nonce=$nonce")
     } yield {
       assertEquals(expectedJson, result)
+    }
+  }
+
+  @Test
+  def resetSystemTablesWithErrorBefore(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok")
+
+    val nonce = SystemRouter.generateNonce()
+
+    for {
+      exception <- sendRequest("DELETE", "/groups/9999").toException()
+      result <- sendRequest("POST", s"/system/reset?nonce=$nonce")
+    } yield {
+      assertEquals(expectedJson, result)
+      assertEquals(
+        NotFoundInDatabaseException("Table group 9999 not found", "tablegroup").id,
+        "error.database.notfound.tablegroup"
+      )
     }
   }
 
