@@ -318,4 +318,143 @@ class GetStructureTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def retrieveSingleTableStructure(implicit c: TestContext): Unit = okTest {
+    val table1Json = Json.obj(
+      "id" -> 1,
+      "name" -> "Test Table 1",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Link 1->2",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        )
+      )
+    )
+
+    val table2Json = Json.obj(
+      "id" -> 2,
+      "name" -> "Test Table 2",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Link 2->3",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        )
+      )
+    )
+
+    val table3Json = Json.obj(
+      "id" -> 3,
+      "name" -> "Test Table 3",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        )
+      )
+    )
+
+    for {
+      _ <- createEmptyDefaultTable("Test Table 1")
+      _ <- createEmptyDefaultTable("Test Table 2")
+      _ <- createEmptyDefaultTable("Test Table 3")
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns",
+        Json.obj("columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Link 1->2",
+            "toTable" -> 2,
+            "kind" -> "link",
+            "singleDirection" -> true
+          )
+        ))
+      )
+      _ <- sendRequest(
+        "POST",
+        "/tables/2/columns",
+        Json.obj("columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Link 2->3",
+            "toTable" -> 3,
+            "kind" -> "link",
+            "singleDirection" -> true
+          )
+        ))
+      )
+
+      structureTable1 <- sendRequest("GET", "/structure/1")
+      structureTable2 <- sendRequest("GET", "/structure/2")
+      structureTable3 <- sendRequest("GET", "/structure/3")
+    } yield {
+      logger.info(s"$structureTable3")
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable1)
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table2Json, table3Json)), structureTable2)
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table3Json)), structureTable3)
+    }
+  }
 }

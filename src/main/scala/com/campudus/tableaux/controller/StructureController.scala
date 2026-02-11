@@ -163,6 +163,44 @@ class StructureController(
     }
   }
 
+  private def collectTablesAndColumns(
+      tableIds: Seq[TableId],
+      tables: Seq[Table] = Seq.empty,
+      columns: Seq[Seq[ColumnType[_]]] = Seq.empty
+  )(implicit user: TableauxUser): Future[(Seq[Table], Seq[Seq[ColumnType[_]]])] = {
+
+    if (tableIds.isEmpty) {
+      Future.successful((tables, columns))
+    } else {
+      for {
+        newTables <- Future.sequence(tableIds.map(id => tableStruc.retrieve(id)))
+        newColumns <- Future.sequence(newTables.map(table => columnStruc.retrieveAll(table)))
+
+        allTables = tables ++ newTables
+        allColumns = columns ++ newColumns
+
+        linkIds = newColumns
+          .flatten
+          .collect { case c: LinkColumn => c.to.table.id }
+          .filterNot(allTables.map(_.id).contains)
+          .distinct
+          .toSeq
+
+        result <- collectTablesAndColumns(linkIds, allTables, allColumns)
+      } yield result
+    }
+  }
+
+  def retrieveTableStructure(tableId: TableId)(implicit user: TableauxUser): Future[TablesStructure] = {
+    for {
+      (tables, columns) <- collectTablesAndColumns(Seq(tableId))
+    } yield {
+      val tableIds = tables.map(_.id)
+      val columnMap = tableIds.zip(columns).toMap
+      TablesStructure(tables.sortBy(_.id), columnMap)
+    }
+  }
+
   def createTable(
       tableName: String,
       hidden: Boolean,
