@@ -2,6 +2,7 @@ package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.testtools.JsonAssertable.JsonObject
 import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.UnionTableTestHelper
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -12,7 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
-class GetStructureTest extends TableauxTestBase {
+class GetStructureTest extends TableauxTestBase with UnionTableTestHelper {
 
   @Test
   def retrieveTable(implicit c: TestContext): Unit = okTest {
@@ -455,6 +456,55 @@ class GetStructureTest extends TableauxTestBase {
       assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable1)
       assertJSONEquals(Json.obj("tables" -> Json.arr(table2Json, table3Json)), structureTable2)
       assertJSONEquals(Json.obj("tables" -> Json.arr(table3Json)), structureTable3)
+    }
+  }
+
+  @Test
+  def retrieveSingleTableStructure_unionTable(implicit c: TestContext): Unit = okTest {
+    val expectedJsonUnion = Json.obj(
+      "tables" -> Json.arr(
+        Json.obj(
+          "id" -> 1 // nested link table
+        ),
+        Json.obj(
+          "id" -> 2
+        ),
+        Json.obj(
+          "id" -> 3
+        ),
+        Json.obj(
+          "id" -> 4
+        ),
+        Json.obj(
+          "id" -> 5,
+          "name" -> "union",
+          "hidden" -> false,
+          "displayName" -> Json.obj("de" -> "Union Table"),
+          "langtags" -> Json.arr("de-DE", "en-GB"),
+          "type" -> "union",
+          "originTables" -> Json.arr(2, 4, 3)
+        )
+      )
+    )
+
+    val expectedJsonNotUnion = Json.obj(
+      "tables" -> Json.arr(
+        Json.obj(
+          "id" -> 6,
+          "name" -> "Test Table Not Union"
+        )
+      )
+    )
+
+    for {
+      unionTableId <- createUnionTable(false, true)
+      notUnionTableId <- createEmptyDefaultTable("Test Table Not Union")
+
+      structureUnionTable <- sendRequest("GET", s"/structure/$unionTableId")
+      structureNotUnionTable <- sendRequest("GET", s"/structure/$notUnionTableId")
+    } yield {
+      assertJSONEquals(expectedJsonUnion, structureUnionTable)
+      assertJSONEquals(expectedJsonNotUnion, structureNotUnionTable)
     }
   }
 }
