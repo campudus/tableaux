@@ -452,10 +452,165 @@ class GetStructureTest extends TableauxTestBase with UnionTableTestHelper {
       structureTable2 <- sendRequest("GET", "/tables/2/structure")
       structureTable3 <- sendRequest("GET", "/tables/3/structure")
     } yield {
-      logger.info(s"$structureTable3")
       assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable1)
       assertJSONEquals(Json.obj("tables" -> Json.arr(table2Json, table3Json)), structureTable2)
       assertJSONEquals(Json.obj("tables" -> Json.arr(table3Json)), structureTable3)
+    }
+  }
+
+  @Test
+  def retrieveSingleTableStructure_withBacklinks(implicit c: TestContext): Unit = okTest {
+    val table1Json = Json.obj(
+      "id" -> 1,
+      "name" -> "Test Table 1",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Link 1->2",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        )
+      )
+    )
+
+    val table2Json = Json.obj(
+      "id" -> 2,
+      "name" -> "Test Table 2",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Test Table 1",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        ),
+        Json.obj(
+          "id" -> 4,
+          "name" -> "Link 2->3",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 4
+        )
+      )
+    )
+
+    val table3Json = Json.obj(
+      "id" -> 3,
+      "name" -> "Test Table 3",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Test Table 2",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        )
+      )
+    )
+
+    for {
+      _ <- createEmptyDefaultTable("Test Table 1")
+      _ <- createEmptyDefaultTable("Test Table 2")
+      _ <- createEmptyDefaultTable("Test Table 3")
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns",
+        Json.obj("columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Link 1->2",
+            "toTable" -> 2,
+            "kind" -> "link",
+            "singleDirection" -> false
+          )
+        ))
+      )
+      _ <- sendRequest(
+        "POST",
+        "/tables/2/columns",
+        Json.obj("columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Link 2->3",
+            "toTable" -> 3,
+            "kind" -> "link",
+            "singleDirection" -> false
+          )
+        ))
+      )
+
+      structureTable1 <- sendRequest("GET", "/tables/1/structure")
+      structureTable2 <- sendRequest("GET", "/tables/2/structure")
+      structureTable3 <- sendRequest("GET", "/tables/3/structure")
+    } yield {
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable1)
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable2)
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable3)
     }
   }
 
