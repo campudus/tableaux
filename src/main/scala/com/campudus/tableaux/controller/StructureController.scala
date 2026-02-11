@@ -181,7 +181,11 @@ class StructureController(
 
         linkIds = newColumns
           .flatten
-          .collect { case c: LinkColumn => c.to.table.id }
+          .flatMap {
+            case c: LinkColumn => Seq(c.to.table.id)
+            case c: UnionColumn => c.originColumns.tableId2ColumnId.keys
+            case _ => Seq.empty
+          }
           .filterNot(allTables.map(_.id).contains)
           .distinct
           .toSeq
