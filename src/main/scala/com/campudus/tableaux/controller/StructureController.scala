@@ -139,7 +139,14 @@ class StructureController(
     def collectColumns(table: Table): Future[IdColumnTuple] = {
       columnStruc
         .retrieveAll(table)
-        .map(columnSeq => (table.id -> columnSeq))
+        .map(columns =>
+          (table.id -> roleModel.filterDomainObjects[ColumnType[_]](
+            ViewColumn,
+            columns,
+            ComparisonObjects(table),
+            false
+          ))
+        )
     }
 
     def toColumnMap =
@@ -174,7 +181,16 @@ class StructureController(
     } else {
       for {
         newTables <- Future.sequence(tableIds.map(id => tableStruc.retrieve(id)))
-        newColumns <- Future.sequence(newTables.map(table => columnStruc.retrieveAll(table)))
+        newColumns <- Future.sequence(newTables.map(table =>
+          columnStruc.retrieveAll(table).map(cols =>
+            roleModel.filterDomainObjects[ColumnType[_]](
+              ViewColumn,
+              cols,
+              ComparisonObjects(table),
+              false
+            )
+          )
+        ))
 
         collectedTables = tables ++ newTables
         collectedColumns = columns ++ newColumns
