@@ -176,8 +176,8 @@ class StructureController(
         newTables <- Future.sequence(tableIds.map(id => tableStruc.retrieve(id)))
         newColumns <- Future.sequence(newTables.map(table => columnStruc.retrieveAll(table)))
 
-        allTables = tables ++ newTables
-        allColumns = columns ++ newColumns
+        collectedTables = tables ++ newTables
+        collectedColumns = columns ++ newColumns
 
         linkIds = newColumns
           .flatten
@@ -186,11 +186,11 @@ class StructureController(
             case c: UnionColumn => c.originColumns.tableId2ColumnId.keys
             case _ => Seq.empty
           }
-          .filterNot(allTables.map(_.id).contains)
+          .filterNot(collectedTables.map(_.id).contains)
           .distinct
           .toSeq
 
-        result <- collectTablesAndColumns(linkIds, allTables, allColumns)
+        result <- collectTablesAndColumns(linkIds, collectedTables, collectedColumns)
       } yield result
     }
   }
