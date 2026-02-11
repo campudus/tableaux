@@ -171,44 +171,50 @@ class StructureController(
   }
 
   private def collectTablesAndColumns(
-      tableIds: Seq[TableId],
-      tables: Seq[Table] = Seq.empty,
-      columns: Seq[Seq[ColumnType[_]]] = Seq.empty
+      tableIds: Seq[TableId]
   )(implicit user: TableauxUser): Future[(Seq[Table], Seq[Seq[ColumnType[_]]])] = {
 
-    if (tableIds.isEmpty) {
-      Future.successful((tables, columns))
-    } else {
-      for {
-        newTables <- Future.sequence(tableIds.map(id => tableStruc.retrieve(id)))
-        newColumns <- Future.sequence(newTables.map(table =>
-          columnStruc.retrieveAll(table).map(cols =>
-            roleModel.filterDomainObjects[ColumnType[_]](
-              ViewColumn,
-              cols,
-              ComparisonObjects(table),
-              false
+    def recursionLoop(
+        remainingIds: Seq[TableId],
+        accTables: Seq[Table],
+        accColumns: Seq[Seq[ColumnType[_]]]
+    ): Future[(Seq[Table], Seq[Seq[ColumnType[_]]])] = {
+      if (remainingIds.isEmpty) {
+        Future.successful((accTables, accColumns))
+      } else {
+        for {
+          newTables <- Future.sequence(remainingIds.map(id => tableStruc.retrieve(id)))
+          newColumns <- Future.sequence(newTables.map(table =>
+            columnStruc.retrieveAll(table).map(cols =>
+              roleModel.filterDomainObjects[ColumnType[_]](
+                ViewColumn,
+                cols,
+                ComparisonObjects(table),
+                false
+              )
             )
-          )
-        ))
+          ))
 
-        collectedTables = tables ++ newTables
-        collectedColumns = columns ++ newColumns
+          collectedTables = accTables ++ newTables
+          collectedColumns = accColumns ++ newColumns
 
-        linkIds = newColumns
-          .flatten
-          .flatMap {
-            case c: LinkColumn => Seq(c.to.table.id)
-            case c: UnionColumn => c.originColumns.tableId2ColumnId.keys
-            case _ => Seq.empty
-          }
-          .filterNot(collectedTables.map(_.id).contains)
-          .distinct
-          .toSeq
+          linkIds = newColumns
+            .flatten
+            .flatMap {
+              case c: LinkColumn => Seq(c.to.table.id)
+              case c: UnionColumn => c.originColumns.tableId2ColumnId.keys
+              case _ => Seq.empty
+            }
+            .filterNot(collectedTables.map(_.id).contains)
+            .distinct
+            .toSeq
 
-        result <- collectTablesAndColumns(linkIds, collectedTables, collectedColumns)
-      } yield result
+          result <- recursionLoop(linkIds, collectedTables, collectedColumns)
+        } yield result
+      }
+
     }
+    recursionLoop(tableIds, Seq.empty, Seq.empty)
   }
 
   def retrieveTableStructure(tableId: TableId)(implicit user: TableauxUser): Future[TablesStructure] = {
