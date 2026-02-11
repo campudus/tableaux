@@ -104,6 +104,18 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
     for {
       conn <- connection()
       result <- fn(conn).recoverWith({
+        case ex: Throwable
+            if ex.getMessage != null && ex.getMessage.contains("cached plan must not change result type") =>
+          // PostgreSQL cached plan error: close connection and retry with a new one
+          logger.warn(
+            s"Detected 'cached plan must not change result type' error. Retrying with a new connection."
+          )
+          for {
+            _ <- close(conn)
+            newConn <- connection()
+            retryResult <- fn(newConn)
+            _ <- close(newConn)
+          } yield retryResult
         case ex: Throwable =>
           logger.error(s"Database query/update/execute failed. Close connection.", ex)
           close(conn).flatMap(_ => Future.failed[A](ex))
