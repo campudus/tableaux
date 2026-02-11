@@ -878,6 +878,30 @@
         }
       }
     },
+    "/structure": {
+      "get": {
+        "summary": "Get structure of all tables",
+        "description": "Returns all tables with columns",
+        "tags": [
+          "structure"
+        ],
+        "operationId": "get-structure",
+        "responses": {
+          "200": {
+            "description": "Returns tables with columns",
+            "schema": {
+              "$ref": "#/definitions/Response:TablesWithColumns"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
+    },
     "/tables": {
       "get": {
         "summary": "Get all tables",
@@ -1032,6 +1056,35 @@
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/structure": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        }
+      ],
+      "get": {
+        "summary": "Get structure of single table",
+        "description": "Returns table with columns and recursively linked tables with their columns.",
+        "tags": [
+          "structure"
+        ],
+        "operationId": "get-table-structure",
+        "responses": {
+          "200": {
+            "description": "Returns tables with columns",
+            "schema": {
+              "$ref": "#/definitions/Response:TablesWithColumns"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
           }
         }
       }
@@ -3445,6 +3498,25 @@
         }
       ]
     },
+    "TableWithColumns": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Id"
+        },
+        {
+          "$ref": "#/definitions/Table"
+        }
+      ],
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ColumnWithId"
+          }
+        }
+      }
+    },
     "Column": {
       "type": "object",
       "allOf": [
@@ -3566,6 +3638,56 @@
       "required": [
         "tables"
       ]
+    },
+    "Response:TablesWithColumns": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TableWithColumns"
+          }
+        }
+      },
+      "required": [
+        "tables"
+      ],
+      "example": {
+        "tables": [
+          {
+            "id": 2,
+            "name": "Bundesländer Deutschlands",
+            "columns": [
+              {
+                "id": 1,
+                "name": "Land",
+                "kind": "text",
+                "ordering": 1
+              },
+              {
+                "id": 2,
+                "name": "Hauptstadt",
+                "kind": "text",
+                "ordering": 2
+              },
+              {
+                "id": 3,
+                "name": "Regierungsbezirke",
+                "kind": "link",
+                "toTable": 3,
+                "toColumn": 1,
+                "ordering": 3
+              }
+            ]
+          }
+        ],
+        "status": "ok"
+      }
     },
     "Response: Services": {
       "type": "object",
