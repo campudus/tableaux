@@ -448,9 +448,9 @@ class GetStructureTest extends TableauxTestBase with UnionTableTestHelper {
         ))
       )
 
-      structureTable1 <- sendRequest("GET", "/structure/1")
-      structureTable2 <- sendRequest("GET", "/structure/2")
-      structureTable3 <- sendRequest("GET", "/structure/3")
+      structureTable1 <- sendRequest("GET", "/tables/1/structure")
+      structureTable2 <- sendRequest("GET", "/tables/2/structure")
+      structureTable3 <- sendRequest("GET", "/tables/3/structure")
     } yield {
       logger.info(s"$structureTable3")
       assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable1)
@@ -500,8 +500,8 @@ class GetStructureTest extends TableauxTestBase with UnionTableTestHelper {
       unionTableId <- createUnionTable(false, true)
       notUnionTableId <- createEmptyDefaultTable("Test Table Not Union")
 
-      structureUnionTable <- sendRequest("GET", s"/structure/$unionTableId")
-      structureNotUnionTable <- sendRequest("GET", s"/structure/$notUnionTableId")
+      structureUnionTable <- sendRequest("GET", s"/tables/$unionTableId/structure")
+      structureNotUnionTable <- sendRequest("GET", s"/tables/$notUnionTableId/structure")
     } yield {
       assertJSONEquals(expectedJsonUnion, structureUnionTable)
       assertJSONEquals(expectedJsonNotUnion, structureNotUnionTable)
