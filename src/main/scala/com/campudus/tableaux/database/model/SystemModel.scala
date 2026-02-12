@@ -20,6 +20,12 @@ object SystemModel {
 class SystemModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
   /**
+    * Resets the connection pool by closing all existing connections and creating a new pool. This clears any cached
+    * prepared statements that may have become stale after schema changes.
+    */
+  def resetConnectionPool(): Future[Unit] = connection.resetPool()
+
+  /**
     * Runs all needed setup functions.
     */
   def install(version: Option[Int] = None): Future[Unit] = {
