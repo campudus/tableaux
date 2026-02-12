@@ -79,6 +79,12 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
   override val vertx: Vertx = vertxAccess.vertx
 
+  /**
+    * Resets the connection pool by closing all existing connections and creating a new pool. This clears any cached
+    * prepared statements that may have become stale after schema changes.
+    */
+  def resetPool(): Future[Unit] = connection.resetPool()
+
   type TransFunc[+A] = DbTransaction => Future[(DbTransaction, A)]
 
   case class Transaction(transaction: ScalaTransaction) extends DbTransaction {

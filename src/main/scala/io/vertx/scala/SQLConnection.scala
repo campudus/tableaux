@@ -66,7 +66,21 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
     * It's non shared, otherwise stopping the verticle will last forever. Test will create many SQLConnection not just
     * the verticle.
     */
-  private val client = PostgreSQLClient.createNonShared(vertxAccess.vertx, config)
+  @volatile private var client = PostgreSQLClient.createNonShared(vertxAccess.vertx, config)
+
+  /**
+    * Resets the connection pool by closing all existing connections and creating a new pool. This clears any cached
+    * prepared statements that may have become stale after schema changes (e.g., after DROP SCHEMA CASCADE).
+    */
+  def resetPool(): Future[Unit] = {
+    val oldClient = client
+    client = PostgreSQLClient.createNonShared(vertxAccess.vertx, config)
+    oldClient.closeFuture().recover {
+      case ex =>
+        logger.warn("Error closing old connection pool during reset", ex)
+        ()
+    }
+  }
 
   def transaction(): Future[Transaction] = {
     for {
@@ -105,15 +119,16 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
 
   private def wrap[A](fn: (JSQLConnection) => Future[A]): Future[A] = {
     val cachedPlanError = "cached plan must not change result type"
+    def shouldRetry(ex: Throwable): Boolean =
+      NonFatal(ex) && Option(ex.getMessage).exists(_.contains(cachedPlanError))
+
     for {
       conn <- connection()
       result <- fn(conn).recoverWith({
-        case ex: Throwable
-            if NonFatal(ex) && ex.getMessage != null && ex.getMessage.contains(cachedPlanError) =>
-          // PostgreSQL cached plan error: close connection and retry with a new one
-          logger.warn(s"Detected '$cachedPlanError' error. Retrying with a new connection.", ex)
+        case ex: Throwable if shouldRetry(ex) =>
+          // PostgreSQL cached plan or stale prepared statement error: retry with a new connection
+          logger.warn(s"Detected retryable database error. Retrying with a new connection.", ex)
           for {
-            _ <- close(conn)
             newConn <- connection()
             retryResult <- fn(newConn)
             _ <- close(newConn)

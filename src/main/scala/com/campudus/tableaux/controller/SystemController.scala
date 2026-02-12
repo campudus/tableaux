@@ -118,6 +118,7 @@ class SystemController(
     for {
       _ <- roleModel.checkAuthorization(EditSystem)
       _ <- repository.uninstall()
+      _ <- repository.resetConnectionPool()
       _ <- repository.installShortCutFunction()
       _ <- repository.install()
       _ <- invalidateCache()
