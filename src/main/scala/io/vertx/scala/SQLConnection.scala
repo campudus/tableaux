@@ -5,6 +5,7 @@ import com.campudus.tableaux.helper.VertxAccess
 
 import io.vertx.scala.SQLConnection.JSQLConnection
 import io.vertx.scala.core.Vertx
+import io.vertx.scala.ext.asyncsql.AsyncSQLClient
 import io.vertx.scala.ext.asyncsql.PostgreSQLClient
 import io.vertx.scala.ext.sql.ResultSet
 import io.vertx.scala.ext.sql.UpdateResult
@@ -13,6 +14,8 @@ import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
+
+import java.util.concurrent.atomic.AtomicReference
 
 sealed trait DatabaseAction extends VertxAccess {
 
@@ -66,15 +69,16 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
     * It's non shared, otherwise stopping the verticle will last forever. Test will create many SQLConnection not just
     * the verticle.
     */
-  @volatile private var client = PostgreSQLClient.createNonShared(vertxAccess.vertx, config)
+  private val clientRef = new AtomicReference[AsyncSQLClient](
+    PostgreSQLClient.createNonShared(vertxAccess.vertx, config)
+  )
 
   /**
     * Resets the connection pool by closing all existing connections and creating a new pool. This clears any cached
     * prepared statements that may have become stale after schema changes (e.g., after DROP SCHEMA CASCADE).
     */
   def resetPool(): Future[Unit] = {
-    val oldClient = client
-    client = PostgreSQLClient.createNonShared(vertxAccess.vertx, config)
+    val oldClient = clientRef.getAndSet(PostgreSQLClient.createNonShared(vertxAccess.vertx, config))
     oldClient.closeFuture().recover {
       case ex =>
         logger.warn("Error closing old connection pool during reset", ex)
@@ -89,7 +93,7 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
     } yield new Transaction(vertxAccess, connection)
   }
 
-  override protected def connection(): Future[JSQLConnection] = client.getConnectionFuture()
+  override protected def connection(): Future[JSQLConnection] = clientRef.get().getConnectionFuture()
 
   override def execute(sql: String): Future[Unit] = {
     wrap { conn =>
@@ -141,7 +145,7 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
     } yield result
   }
 
-  def close(): Future[Unit] = client.closeFuture()
+  def close(): Future[Unit] = clientRef.get().closeFuture()
 }
 
 class Transaction(val vertxAccess: VertxAccess, private val conn: JSQLConnection) extends DatabaseAction {
