@@ -2,6 +2,7 @@ package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.testtools.JsonAssertable.JsonObject
 import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.UnionTableTestHelper
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -12,7 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
-class GetStructureTest extends TableauxTestBase {
+class GetStructureTest extends TableauxTestBase with UnionTableTestHelper {
 
   @Test
   def retrieveTable(implicit c: TestContext): Unit = okTest {
@@ -316,6 +317,349 @@ class GetStructureTest extends TableauxTestBase {
           test
         )
       }
+    }
+  }
+
+  @Test
+  def retrieveSingleTableStructure(implicit c: TestContext): Unit = okTest {
+    val table1Json = Json.obj(
+      "id" -> 1,
+      "name" -> "Test Table 1",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Link 1->2",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        )
+      )
+    )
+
+    val table2Json = Json.obj(
+      "id" -> 2,
+      "name" -> "Test Table 2",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Link 2->3",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        )
+      )
+    )
+
+    val table3Json = Json.obj(
+      "id" -> 3,
+      "name" -> "Test Table 3",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        )
+      )
+    )
+
+    for {
+      _ <- createEmptyDefaultTable("Test Table 1")
+      _ <- createEmptyDefaultTable("Test Table 2")
+      _ <- createEmptyDefaultTable("Test Table 3")
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns",
+        Json.obj("columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Link 1->2",
+            "toTable" -> 2,
+            "kind" -> "link",
+            "singleDirection" -> true
+          )
+        ))
+      )
+      _ <- sendRequest(
+        "POST",
+        "/tables/2/columns",
+        Json.obj("columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Link 2->3",
+            "toTable" -> 3,
+            "kind" -> "link",
+            "singleDirection" -> true
+          )
+        ))
+      )
+
+      structureTable1 <- sendRequest("GET", "/tables/1/structure")
+      structureTable2 <- sendRequest("GET", "/tables/2/structure")
+      structureTable3 <- sendRequest("GET", "/tables/3/structure")
+    } yield {
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable1)
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table2Json, table3Json)), structureTable2)
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table3Json)), structureTable3)
+    }
+  }
+
+  @Test
+  def retrieveSingleTableStructure_withBacklinks(implicit c: TestContext): Unit = okTest {
+    val table1Json = Json.obj(
+      "id" -> 1,
+      "name" -> "Test Table 1",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Link 1->2",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        )
+      )
+    )
+
+    val table2Json = Json.obj(
+      "id" -> 2,
+      "name" -> "Test Table 2",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Test Table 1",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        ),
+        Json.obj(
+          "id" -> 4,
+          "name" -> "Link 2->3",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 4
+        )
+      )
+    )
+
+    val table3Json = Json.obj(
+      "id" -> 3,
+      "name" -> "Test Table 3",
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "columns" -> Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "name" -> "Test Column 1",
+          "kind" -> "text",
+          "identifier" -> true,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 1
+        ),
+        Json.obj(
+          "id" -> 2,
+          "name" -> "Test Column 2",
+          "kind" -> "numeric",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 2
+        ),
+        Json.obj(
+          "id" -> 3,
+          "name" -> "Test Table 2",
+          "kind" -> "link",
+          "identifier" -> false,
+          "multilanguage" -> false,
+          "attributes" -> Json.obj(),
+          "ordering" -> 3
+        )
+      )
+    )
+
+    for {
+      _ <- createEmptyDefaultTable("Test Table 1")
+      _ <- createEmptyDefaultTable("Test Table 2")
+      _ <- createEmptyDefaultTable("Test Table 3")
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns",
+        Json.obj("columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Link 1->2",
+            "toTable" -> 2,
+            "kind" -> "link",
+            "singleDirection" -> false
+          )
+        ))
+      )
+      _ <- sendRequest(
+        "POST",
+        "/tables/2/columns",
+        Json.obj("columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Link 2->3",
+            "toTable" -> 3,
+            "kind" -> "link",
+            "singleDirection" -> false
+          )
+        ))
+      )
+
+      structureTable1 <- sendRequest("GET", "/tables/1/structure")
+      structureTable2 <- sendRequest("GET", "/tables/2/structure")
+      structureTable3 <- sendRequest("GET", "/tables/3/structure")
+    } yield {
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable1)
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable2)
+      assertJSONEquals(Json.obj("tables" -> Json.arr(table1Json, table2Json, table3Json)), structureTable3)
+    }
+  }
+
+  @Test
+  def retrieveSingleTableStructure_unionTable(implicit c: TestContext): Unit = okTest {
+    val expectedJsonUnion = Json.obj(
+      "tables" -> Json.arr(
+        Json.obj(
+          "id" -> 1 // nested link table
+        ),
+        Json.obj(
+          "id" -> 2
+        ),
+        Json.obj(
+          "id" -> 3
+        ),
+        Json.obj(
+          "id" -> 4
+        ),
+        Json.obj(
+          "id" -> 5,
+          "name" -> "union",
+          "hidden" -> false,
+          "displayName" -> Json.obj("de" -> "Union Table"),
+          "langtags" -> Json.arr("de-DE", "en-GB"),
+          "type" -> "union",
+          "originTables" -> Json.arr(2, 4, 3)
+        )
+      )
+    )
+
+    val expectedJsonNotUnion = Json.obj(
+      "tables" -> Json.arr(
+        Json.obj(
+          "id" -> 6,
+          "name" -> "Test Table Not Union"
+        )
+      )
+    )
+
+    for {
+      unionTableId <- createUnionTable(false, true)
+      notUnionTableId <- createEmptyDefaultTable("Test Table Not Union")
+
+      structureUnionTable <- sendRequest("GET", s"/tables/$unionTableId/structure")
+      structureNotUnionTable <- sendRequest("GET", s"/tables/$notUnionTableId/structure")
+    } yield {
+      assertJSONEquals(expectedJsonUnion, structureUnionTable)
+      assertJSONEquals(expectedJsonNotUnion, structureNotUnionTable)
     }
   }
 }

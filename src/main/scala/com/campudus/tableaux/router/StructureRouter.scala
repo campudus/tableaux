@@ -27,6 +27,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   private val table: String = s"/tables/$tableId"
   private val tables: String = "/tables"
   private val tableOrder: String = s"/tables/$tableId/order"
+  private val tableStructure = s"/tables/$tableId/structure"
 
   private val group: String = s"/groups/$groupId"
   private val groups: String = "/groups"
@@ -39,6 +40,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     // RETRIEVE
     router.get(tables).handler(retrieveTables)
     router.getWithRegex(table).handler(retrieveTable)
+    router.getWithRegex(tableStructure).handler(retrieveTableStructure)
     router.getWithRegex(columns).handler(retrieveColumns)
     router.getWithRegex(column).handler(retrieveColumn)
     router.get(structure).handler(retrieveStructure)
@@ -86,6 +88,20 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         controller.retrieveStructure()
       }
     )
+  }
+
+  private def retrieveTableStructure(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveTableStructure(tableId)
+        }
+      )
+    }
   }
 
   private def retrieveTables(context: RoutingContext): Unit = {
