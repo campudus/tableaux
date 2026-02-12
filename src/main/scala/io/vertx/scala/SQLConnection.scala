@@ -6,10 +6,13 @@ import com.campudus.tableaux.helper.VertxAccess
 import io.vertx.scala.SQLConnection.JSQLConnection
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.asyncsql.PostgreSQLClient
-import io.vertx.scala.ext.sql.{ResultSet, UpdateResult}
-import org.vertx.scala.core.json.{JsonArray, JsonObject}
+import io.vertx.scala.ext.sql.ResultSet
+import io.vertx.scala.ext.sql.UpdateResult
+import org.vertx.scala.core.json.JsonArray
+import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 
 sealed trait DatabaseAction extends VertxAccess {
 
@@ -101,15 +104,14 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
   }
 
   private def wrap[A](fn: (JSQLConnection) => Future[A]): Future[A] = {
+    val cachedPlanError = "cached plan must not change result type"
     for {
       conn <- connection()
       result <- fn(conn).recoverWith({
         case ex: Throwable
-            if ex.getMessage != null && ex.getMessage.contains("cached plan must not change result type") =>
+            if NonFatal(ex) && ex.getMessage != null && ex.getMessage.contains(cachedPlanError) =>
           // PostgreSQL cached plan error: close connection and retry with a new one
-          logger.warn(
-            s"Detected 'cached plan must not change result type' error. Retrying with a new connection."
-          )
+          logger.warn(s"Detected '$cachedPlanError' error. Retrying with a new connection.", ex)
           for {
             _ <- close(conn)
             newConn <- connection()
