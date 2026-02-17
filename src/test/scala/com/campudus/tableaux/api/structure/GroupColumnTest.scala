@@ -120,6 +120,42 @@ class GroupColumnTest extends TableauxTestBase {
     }
 
   @Test
+  def createGroupColumnWithColumnNamesAndFormatPattern(implicit c: TestContext): Unit = {
+    okTest {
+      val groupColumnWithPatternByName = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj(
+            "kind" -> "group",
+            "name" -> "groupcolumn",
+            "groups" -> Json.arr("textColumnGroup", "booleanColumnGroup"),
+            "formatPattern" -> "{{textColumnGroup}} - {{booleanColumnGroup}}"
+          )
+        )
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textColumnId1 <- sendCreateColumnRequest(1, createTextColumnJson("textColumn1"))
+        textColumnId2 <- sendCreateColumnRequest(1, createTextColumnJson("textColumn2"))
+        textColumnGroupId <- sendCreateColumnRequest(1, createTextColumnJson("textColumnGroup"))
+        booleanColumnGroupId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleanColumnGroup"))
+
+        groupColumn <- sendRequest("POST", "/tables/1/columns", groupColumnWithPatternByName)
+          .map(_.getJsonArray("columns").getJsonObject(0))
+      } yield {
+        assertJSONEquals(
+          Json.obj(
+            "groups" -> Json.arr(Json.obj("id" -> 3), Json.obj("id" -> 4)),
+            "formatPattern" -> "{{3}} - {{4}}"
+          ),
+          groupColumn
+        )
+      }
+    }
+  }
+
+  @Test
   def createGroupColumnWithTwoColumnsAndRetrieveIt(implicit c: TestContext): Unit = {
     okTest {
       for {
