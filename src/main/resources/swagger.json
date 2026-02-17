@@ -5447,9 +5447,16 @@
         },
         "groups": {
           "type": "array",
-          "description": "A list of column ids that should build a group column",
+          "description": "A list of column ids (integers) or columnNames (strings) that should build a group column. Either all values must be integers or all must be strings, mixed types are not allowed.",
           "items": {
-            "type": "integer"
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
           },
           "example": [
             1,
@@ -5459,7 +5466,7 @@
         },
         "formatPattern": {
           "type": "string",
-          "description": "Pattern for the frontend how to render the content of a group column",
+          "description": "Pattern for the frontend how to render the content of a group column. Placeholders can be either numeric positions like {{1}} (based on column IDs) or column names like {{firstName}}. The type must match the groups array (if groups uses IDs, use numeric placeholders; if groups uses names, use name placeholders).",
           "example": "{{1}} × {{2}} × {{3}} mm (B × H × T)"
         },
         "showMemberColumns": {
@@ -5517,7 +5524,7 @@
           "kind": "group",
           "name": "capital city with population",
           "description": {
-            "en": "a group example, the column ids in groups array must be absolute"
+            "en": "a group example using column ids"
           },
           "ordering": "3",
           "groups": [
@@ -5527,6 +5534,20 @@
           "formatPattern": "city {{1}} has {{2}} inhabitants",
           "showMemberColumns": true,
           "decimalDigits": 6
+        },
+        {
+          "kind": "group",
+          "name": "city_population_by_name",
+          "description": {
+            "en": "a group example using column names"
+          },
+          "ordering": "4",
+          "groups": [
+            "capital city",
+            "population"
+          ],
+          "formatPattern": "city {{capital city}} has {{population}} inhabitants",
+          "showMemberColumns": false
         },
         {
           "kind": "shorttext",
