@@ -116,6 +116,7 @@ case class CreateGroupColumn(
     formatPattern: Option[String],
     override val displayInfos: Seq[DisplayInfo],
     groups: Seq[ColumnId],
+    groupNames: Seq[String] = Seq.empty,
     override val attributes: Option[JsonObject],
     override val hidden: Boolean = false,
     showMemberColumns: Boolean = false

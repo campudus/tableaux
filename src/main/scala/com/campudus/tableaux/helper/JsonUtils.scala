@@ -209,10 +209,7 @@ object JsonUtils extends LazyLogging {
                   case (GroupType) =>
                     // group specific fields
 
-                    val groups = checked(hasArray("groups", json)).asScala
-                      .map(_.asInstanceOf[Int])
-                      .map(_.toLong)
-                      .toSeq
+                    val (groupIds, groupNames) = parseGroupReferences(json)
 
                     val formatPattern = Try(notNull(json.getString("formatPattern"), "formatPattern").get).toOption
                     val showMemberColumns = json.getBoolean("showMemberColumns", false)
@@ -223,7 +220,8 @@ object JsonUtils extends LazyLogging {
                       identifier,
                       formatPattern,
                       displayInfos,
-                      groups,
+                      groupIds,
+                      groupNames,
                       attributes,
                       hidden,
                       showMemberColumns
@@ -316,6 +314,42 @@ object JsonUtils extends LazyLogging {
         throw InvalidJsonException(s"Decimal digits must be between 0 and 10, but was $value.", "decimalDigits")
       case value => value
     })
+  }
+
+  private def parseGroupReferences(json: JsonObject): (Seq[ColumnId], Seq[String]) = {
+    val groupsJson = checked(hasArray("groups", json))
+
+    val (groupIds, groupNames, invalidValues) = groupsJson.asScala.foldLeft(
+      (Vector.empty[ColumnId], Vector.empty[String], Vector.empty[Any])
+    ) {
+      case ((ids, names, invalids), value: java.lang.Number) =>
+        (ids :+ value.longValue(), names, invalids)
+      case ((ids, names, invalids), value: String) =>
+        val trimmed = value.trim
+        if (trimmed.isEmpty) {
+          (ids, names, invalids :+ value)
+        } else {
+          (ids, names :+ trimmed, invalids)
+        }
+      case ((ids, names, invalids), value) =>
+        (ids, names, invalids :+ value)
+    }
+
+    if (invalidValues.nonEmpty) {
+      throw InvalidJsonException(
+        "Field 'groups' must contain only column ids (numbers) or column names (strings).",
+        "groups"
+      )
+    }
+
+    if (groupIds.nonEmpty && groupNames.nonEmpty) {
+      throw InvalidJsonException(
+        "Field 'groups' must contain either only column ids or only column names, not both.",
+        "groups"
+      )
+    }
+
+    (groupIds, groupNames)
   }
 
   def toRowValueSeq(json: JsonObject): Seq[Seq[_]] = {
