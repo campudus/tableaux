@@ -564,6 +564,31 @@ class ColumnModel(val connection: DatabaseConnection)(
       }
     }
 
+    def transformFormatPattern(
+        formatPattern: Option[String],
+        groupNames: Seq[String],
+        columns: Seq[ColumnType[_]]
+    ): Option[String] = {
+      if (groupNames.isEmpty || formatPattern.isEmpty) {
+        formatPattern
+      } else {
+        val columnsByName = columns.groupBy(_.name)
+        formatPattern.map(pattern =>
+          groupNames.foldLeft(pattern) {
+            case (currentPattern, name) =>
+              columnsByName.get(name) match {
+                case Some(matchingColumns) if matchingColumns.size == 1 =>
+                  val columnId = matchingColumns.head.id
+                  currentPattern.replaceAll(s"\\{\\{$name\\}\\}", s"{{$columnId}}")
+                case _ =>
+                  // Name not found or ambiguous - should have been caught by resolveGroupNames
+                  currentPattern
+              }
+          }
+        )
+      }
+    }
+
     connection.transactional { t =>
       for {
         // retrieve all to-be-grouped columns
@@ -575,6 +600,7 @@ class ColumnModel(val connection: DatabaseConnection)(
             resolveGroupNames(allColumns, cgc.groupNames)
           }
         groupedColumns = allColumns.filter(column => groupIds.contains(column.id))
+        transformedFormatPattern = transformFormatPattern(cgc.formatPattern, cgc.groupNames, allColumns)
 
         // do some validation before creating GroupColumn
         _ = {
@@ -590,15 +616,15 @@ class ColumnModel(val connection: DatabaseConnection)(
             )
           }
 
-          if (!isColumnGroupMatchingToFormatPattern(cgc.formatPattern, groupedColumns)) {
+          if (!isColumnGroupMatchingToFormatPattern(transformedFormatPattern, groupedColumns)) {
             throw UnprocessableEntityException(
               s"GroupColumns (${groupedColumns.map(_.id).mkString(", ")}) don't match to formatPattern " +
-                s"${"\"" + cgc.formatPattern.map(_.toString).orNull + "\""}"
+                s"${"\"" + transformedFormatPattern.map(_.toString).orNull + "\""}"
             )
           }
         }
 
-        (t, columnInfo) <- insertSystemColumn(t, tableId, cgc, None, cgc.formatPattern, cgc.showMemberColumns)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, cgc, None, transformedFormatPattern, cgc.showMemberColumns)
 
         // insert group information
         insertPlaceholder = groupIds.map(_ => "(?, ?, ?)").mkString(", ")
