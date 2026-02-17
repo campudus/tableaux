@@ -568,22 +568,13 @@ class ColumnModel(val connection: DatabaseConnection)(
       for {
         // retrieve all to-be-grouped columns
         allColumns <- retrieveAll(table)
-        groupIds = cgc.groups ++ resolveGroupNames(allColumns, cgc.groupNames)
+        groupIds =
+          if (cgc.groups.nonEmpty) {
+            cgc.groups
+          } else {
+            resolveGroupNames(allColumns, cgc.groupNames)
+          }
         groupedColumns = allColumns.filter(column => groupIds.contains(column.id))
-
-        // groupIds = {
-        //   if (cgc.groups.nonEmpty && cgc.groupNames.nonEmpty) {
-        //     throw UnprocessableEntityException(
-        //       s"GroupColumn (${cgc.name}) couldn't be created because 'groups' must use either ids or names, not both"
-        //     )
-        //   }
-
-        //   if (cgc.groups.nonEmpty) {
-        //     cgc.groups
-        //   } else {
-        //     resolveGroupNames(allColumns, cgc.groupNames)
-        //   }
-        // }
 
         // do some validation before creating GroupColumn
         _ = {
