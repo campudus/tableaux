@@ -532,15 +532,62 @@ class ColumnModel(val connection: DatabaseConnection)(
   )(implicit user: TableauxUser): Future[CreatedColumnInformation] = {
     val tableId = table.id
 
+    def resolveGroupNames(columns: Seq[ColumnType[_]], groupNames: Seq[String]): Seq[ColumnId] = {
+      if (groupNames.isEmpty) {
+        Seq.empty
+      } else {
+        val columnsByName = columns.groupBy(_.name)
+        val (resolvedIds, missingNames, ambiguousNames) = groupNames.foldLeft(
+          (Vector.empty[ColumnId], Vector.empty[String], Vector.empty[String])
+        ) {
+          case ((ids, missing, ambiguous), name) =>
+            columnsByName.get(name) match {
+              case None => (ids, missing :+ name, ambiguous)
+              case Some(matching) if matching.size > 1 => (ids, missing, ambiguous :+ name)
+              case Some(matching) => (ids :+ matching.head.id, missing, ambiguous)
+            }
+        }
+
+        if (missingNames.nonEmpty || ambiguousNames.nonEmpty) {
+          val missingPart =
+            if (missingNames.nonEmpty) Some(s"Unknown column names: ${missingNames.mkString(", ")}") else None
+          val ambiguousPart =
+            if (ambiguousNames.nonEmpty) Some(s"Ambiguous column names: ${ambiguousNames.mkString(", ")}") else None
+          val details = Seq(missingPart, ambiguousPart).flatten.mkString(". ")
+
+          throw UnprocessableEntityException(
+            s"GroupColumn (${cgc.name}) couldn't be created. $details"
+          )
+        }
+
+        resolvedIds
+      }
+    }
+
     connection.transactional { t =>
       for {
         // retrieve all to-be-grouped columns
-        groupedColumns <- retrieveAll(table)
-          .map(_.filter(column => cgc.groups.contains(column.id)))
+        allColumns <- retrieveAll(table)
+        groupIds = cgc.groups ++ resolveGroupNames(allColumns, cgc.groupNames)
+        groupedColumns = allColumns.filter(column => groupIds.contains(column.id))
+
+        // groupIds = {
+        //   if (cgc.groups.nonEmpty && cgc.groupNames.nonEmpty) {
+        //     throw UnprocessableEntityException(
+        //       s"GroupColumn (${cgc.name}) couldn't be created because 'groups' must use either ids or names, not both"
+        //     )
+        //   }
+
+        //   if (cgc.groups.nonEmpty) {
+        //     cgc.groups
+        //   } else {
+        //     resolveGroupNames(allColumns, cgc.groupNames)
+        //   }
+        // }
 
         // do some validation before creating GroupColumn
         _ = {
-          if (groupedColumns.size != cgc.groups.size) {
+          if (groupedColumns.size != groupIds.size) {
             throw UnprocessableEntityException(
               s"GroupColumn (${cgc.name}) couldn't be created because some columns don't exist"
             )
@@ -563,10 +610,10 @@ class ColumnModel(val connection: DatabaseConnection)(
         (t, columnInfo) <- insertSystemColumn(t, tableId, cgc, None, cgc.formatPattern, cgc.showMemberColumns)
 
         // insert group information
-        insertPlaceholder = cgc.groups.map(_ => "(?, ?, ?)").mkString(", ")
+        insertPlaceholder = groupIds.map(_ => "(?, ?, ?)").mkString(", ")
         (t, _) <- t.query(
           s"INSERT INTO system_column_groups(table_id, group_column_id, grouped_column_id) VALUES $insertPlaceholder",
-          Json.arr(cgc.groups.flatMap(Seq(tableId, columnInfo.columnId, _)): _*)
+          Json.arr(groupIds.flatMap(Seq(tableId, columnInfo.columnId, _)): _*)
         )
       } yield (t, columnInfo)
     }

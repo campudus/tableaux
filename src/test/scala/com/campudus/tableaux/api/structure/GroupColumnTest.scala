@@ -31,6 +31,18 @@ class GroupColumnTest extends TableauxTestBase {
   def createGroupColumnWithFormatPatternJson(name: String, groups: Seq[ColumnId], formatPattern: String) =
     Columns(FormattedGroupCol(name, groups, formatPattern)).getJson
 
+  def createGroupColumnJsonByName(name: String, groups: Seq[String], showMemberColumns: Boolean = false) =
+    Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "kind" -> "group",
+          "name" -> name,
+          "groups" -> Json.arr(groups: _*),
+          "showMemberColumns" -> showMemberColumns
+        )
+      )
+    )
+
   def sendCreateColumnRequest(tableId: TableId, columnsJson: DomainObject): Future[Int] =
     sendCreateColumnRequest(tableId, columnsJson.getJson)
 
@@ -61,6 +73,51 @@ class GroupColumnTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def createGroupColumnWithColumnNames(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
+        booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
+
+        groupColumn <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnJsonByName("groupcolumn", Seq("textcolumn", "booleancolumn"))
+        )
+          .map(_.getJsonArray("columns").getJsonObject(0))
+      } yield {
+        assertJSONEquals(
+          Json.obj("groups" -> Json.arr(Json.obj("id" -> textColumnId), Json.obj("id" -> booleanColumnId))),
+          groupColumn
+        )
+      }
+    }
+  }
+
+  @Test
+  def createGroupColumnWithMixedGroupReferencesShouldFail(implicit c: TestContext): Unit =
+    exceptionTest("error.json.groups") {
+      val mixedGroupsJson = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj(
+            "kind" -> "group",
+            "name" -> "groupcolumn",
+            "groups" -> Json.arr(1, "booleancolumn")
+          )
+        )
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson("textcolumn"))
+        _ <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson("booleancolumn"))
+        _ <- sendRequest("POST", "/tables/1/columns", mixedGroupsJson)
+      } yield ()
+    }
 
   @Test
   def createGroupColumnWithTwoColumnsAndRetrieveIt(implicit c: TestContext): Unit = {
