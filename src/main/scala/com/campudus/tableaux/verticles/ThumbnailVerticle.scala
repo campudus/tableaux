@@ -9,7 +9,7 @@ import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.core.Vertx
+import io.vertx.scala.core.{Vertx, WorkerExecutor}
 import io.vertx.scala.core.eventbus.Message
 import io.vertx.scala.ext.web.client.WebClient
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -26,6 +26,7 @@ import java.nio.file.Files
 import java.nio.file.attribute.FileTime
 import java.time.{Duration, Instant}
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import org.joda.time.Period
 import org.joda.time.PeriodType
@@ -35,6 +36,24 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     with LazyLogging {
   private lazy val eventBus = vertx.eventBus()
 
+  private lazy val workerExecutor: WorkerExecutor = {
+    val cpuCount = Runtime.getRuntime().availableProcessors()
+    val poolSize = if (cpuCount <= 1) 1 else (cpuCount * 3) / 4
+    val maxExecuteTime = 30
+    val maxExecuteTimeUnit = TimeUnit.SECONDS
+
+    logger.info(s"Creating thumbnail worker pool with poolSize: $poolSize (cpuCount: $cpuCount)")
+
+    vertx.createSharedWorkerExecutor("thumbnail-worker-pool", poolSize, maxExecuteTime, maxExecuteTimeUnit)
+  }
+
+  private lazy val fileModel: FileModel = {
+    val vertxAccess = this.vertxAccess()
+    val connection = SQLConnection(vertxAccess, tableauxConfig.databaseConfig)
+    val dbConnection = DatabaseConnection(vertxAccess, connection)
+    FileModel(dbConnection)
+  }
+
   private val periodFormatter = new PeriodFormatterBuilder()
     .appendDays().appendSuffix("d ")
     .appendHours().appendSuffix("h ")
@@ -42,8 +61,6 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     .appendSeconds().appendSuffix("s ")
     .appendMillis().appendSuffix("ms")
     .toFormatter()
-
-  private var fileModel: FileModel = _
 
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
   private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
@@ -80,13 +97,6 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     logger.info("start future")
 
     vertx.setPeriodic(cacheClearPollingInterval, _ => clearOldThumbnails())
-
-    val vertxAccess = this.vertxAccess()
-
-    val connection = SQLConnection(vertxAccess, tableauxConfig.databaseConfig)
-    val dbConnection = DatabaseConnection(vertxAccess, connection)
-
-    fileModel = FileModel(dbConnection)
 
     if (defaultResizeFilter < 1 | defaultResizeFilter > 15) {
       throw new Exception("Provide a valid 'resizeFilter' with a value between 1 and 15")
@@ -137,11 +147,66 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       .existsFuture(thumbnailPath.toString)
   }
 
+  private def checkSourceFile(filePath: Path): Future[Unit] = {
+    vertx
+      .fileSystem()
+      .existsFuture(filePath.toString)
+      .flatMap {
+        case true => Future.successful(())
+        case false => Future.failed(new FileNotFoundException("Source file not found"))
+      }
+  }
+
+  private def checkMimeType(mimeType: String): Future[Unit] = {
+    isValidMimeType(mimeType) match {
+      case true => Future.successful(())
+      case false => Future.failed(new IllegalArgumentException(s"Unsupported mimeType ${mimeType}"))
+    }
+  }
+
   private def isValidMimeType(mimeType: String): Boolean = {
     mimeType match {
       case "image/jpeg" | "image/png" | "image/webp" | "image/tiff" => true
       case _ => false
     }
+  }
+
+  private def createAndSaveThumbnail(
+      filePath: Path,
+      thumbnailPath: Path,
+      width: Int,
+      resizeFilter: Int
+  ): Future[Boolean] = {
+    workerExecutor.executeBlocking(
+      () => {
+        val baseFile = new File(filePath.toString)
+        val baseImage = ImageIO.read(baseFile)
+        val baseWidth = baseImage.getWidth;
+        val baseHeight = baseImage.getHeight;
+        val resizeWidth = width;
+        val resizeHeight = ((baseHeight.toFloat / baseWidth.toFloat) * resizeWidth).toInt
+
+        if (resizeWidth <= 0 || resizeHeight <= 0) {
+          throw new IllegalArgumentException(s"Width and height must be positive (${resizeWidth}, ${resizeHeight})")
+        }
+
+        val resizeOp = new ResampleOp(resizeWidth, resizeHeight, resizeFilter);
+        val resizeImage = resizeOp.filter(baseImage, null)
+        val resizeFile = new File(thumbnailPath.toString)
+
+        ImageIO.write(resizeImage, "png", resizeFile)
+      },
+      false
+    );
+  }
+
+  private def updateThumbnailTimestamps(thumbnailPath: Path): Future[Unit] = {
+    workerExecutor.executeBlocking(
+      () => {
+        Files.setLastModifiedTime(thumbnailPath.jfile.toPath, FileTime.from(Instant.now()))
+      },
+      false
+    );
   }
 
   private def retrieveThumbnailPath(
@@ -162,52 +227,18 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       resizeFilter = filter.getOrElse(defaultResizeFilter)
       thumbnailName = s"${internalUuid}_${width}_${resizeFilter}.png" // thumbnail is always png
       thumbnailPath = thumbnailsDirectoryPath / Path(thumbnailName)
-      doesFileExist <- checkExistence(filePath)
-      doesThumbnailExist <- checkExistence(thumbnailPath)
-      isMimeTypeValid = isValidMimeType(mimeType)
-    } yield {
-      (doesFileExist, doesThumbnailExist, isMimeTypeValid) match {
-        case (true, true, true) => {
+      _ <- checkSourceFile(filePath)
+      _ <- checkMimeType(mimeType)
+      _ <- checkExistence(thumbnailPath).flatMap({ exists =>
+        if (exists) {
           if (enableLogs) logger.info(s"Updating timestamps for thumbnail $thumbnailName")
-
-          Files.setLastModifiedTime(thumbnailPath.jfile.toPath, FileTime.from(Instant.now()))
-
-          thumbnailPath.toString
+          updateThumbnailTimestamps(thumbnailPath)
+        } else {
+          if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
+          createAndSaveThumbnail(filePath, thumbnailPath, width, resizeFilter)
         }
-        case (true, false, true) => {
-          val baseFile = new File(filePath.toString)
-          val baseImage = ImageIO.read(baseFile)
-          val baseWidth = baseImage.getWidth;
-          val baseHeight = baseImage.getHeight;
-          val targetWidth = width;
-          val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
-
-          (targetWidth, targetHeight.toInt) match {
-            case (resizeWidth, resizeHeight) if resizeWidth > 0 && resizeHeight > 0 => {
-              if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
-
-              val resizeOp = new ResampleOp(resizeWidth, resizeHeight, resizeFilter);
-              val resizeImage = resizeOp.filter(baseImage, null)
-              val resizeFile = new File(thumbnailPath.toString)
-
-              ImageIO.write(resizeImage, "png", resizeFile)
-
-              thumbnailPath.toString
-            }
-            case (resizeWidth, resizeHeight) => {
-              throw new IllegalArgumentException(s"Width and height must be positive (${resizeWidth}, ${resizeHeight})")
-            }
-          }
-
-        }
-        case (false, _, _) => {
-          throw new FileNotFoundException(s"Source file not found") // file doesn't exist (only in dev)
-        }
-        case (_, _, false) => {
-          throw new IllegalArgumentException(s"Unsupported mimeType ${mimeType}")
-        }
-      }
-    }
+      })
+    } yield thumbnailPath.toString
   }
 
   private def retrieveThumbnailPath(message: Message[JsonObject]): Unit = {
@@ -224,21 +255,26 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       })
   }
 
-  private def clearOldThumbnails(): Unit = {
-    val oldFiles = thumbnailsDirectoryPath.jfile.listFiles(oldFileFilter)
+  private def clearOldThumbnails(): Future[Unit] = {
+    workerExecutor.executeBlocking(
+      () => {
+        val oldFiles = thumbnailsDirectoryPath.jfile.listFiles(oldFileFilter)
 
-    logger.info(s"Clearing thumbnails older than $cacheMaxAgeReadable")
+        logger.info(s"Clearing thumbnails older than $cacheMaxAgeReadable")
 
-    for (oldFile <- oldFiles) {
-      val deleteResult = Try(Files.delete(oldFile.toPath))
+        for (oldFile <- oldFiles) {
+          val deleteResult = Try(Files.delete(oldFile.toPath))
 
-      deleteResult match {
-        case Success(_) =>
-          logger.info(s"Successfully deleted thumbnail ${oldFile.getName}")
-        case Failure(ex) =>
-          logger.info(s"Failed to delete thumbnail ${oldFile.getName}: ${ex.getMessage}")
-      }
-    }
+          deleteResult match {
+            case Success(_) =>
+              logger.info(s"Successfully deleted thumbnail ${oldFile.getName}")
+            case Failure(ex) =>
+              logger.info(s"Failed to delete thumbnail ${oldFile.getName}: ${ex.getMessage}")
+          }
+        }
+      },
+      false
+    );
   }
 
   private def generateThumbnailsForExistingImages(): Future[Seq[Option[Path]]] = {
