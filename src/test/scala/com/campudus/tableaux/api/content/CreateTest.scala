@@ -1,7 +1,8 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
-import com.campudus.tableaux.testtools.RequestCreation.{Identifier, TextCol}
+import com.campudus.tableaux.testtools.RequestCreation.{Columns, Identifier, Multilanguage, NumericCol, TextCol}
+import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.TestCustomException
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -176,12 +177,12 @@ class CreateRowTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
 
-  def createTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.TextCol(name)).getJson
-
-  def createNumberColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.NumericCol(name)).getJson
+  def createTextColumnJson(name: String) = Columns().add(TextCol(name)).getJson
+  def createNumberColumnJson(name: String) = Columns().add(NumericCol(name)).getJson
+  def createMultilanguageTextColumnJson(name: String) = Columns().add(Multilanguage(TextCol(name))).getJson
 
   @Test
-  def createRow(implicit c: TestContext): Unit = okTest {
+  def createRow_ok(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "values" -> Json.arr())
     val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "values" -> Json.arr())
 
@@ -194,6 +195,52 @@ class CreateRowTest extends TableauxTestBase {
       assertEquals(expectedJson2, test2)
     }
   }
+
+  @Test
+  def createRowWithValues_withSinglelanguageValueForMultilanguageColumn_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val valuesRow = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1")))
+      )
+      val expectedException = TestCustomException(
+        "Invalid value (JSON required) for MultiLanguage column Test Column 1, Multilanguage",
+        "error.arguments",
+        422
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- sendRequest("POST", "/tables/1/columns", createMultilanguageTextColumnJson("Test Column 1, Multilanguage"))
+
+        test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
+      } yield {
+        assertEquals(expectedException, test)
+      }
+    }
+
+  @Test
+  def createRowWithValues_withMultilanguageValueForSinglelanguageColumn_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val valuesRow = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "Test Field 1"))))
+      )
+      val expectedException = TestCustomException(
+        "Invalid value (JSON required) for MultiLanguage column Test Column 2, Multilanguage",
+        "error.arguments",
+        422
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson("Test Column 1"))
+
+        test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
+      } yield {
+        assertEquals(expectedException, test)
+      }
+    }
 
   @Test
   def createFullRow(implicit c: TestContext): Unit = {
