@@ -227,7 +227,7 @@ class CreateRowTest extends TableauxTestBase {
         "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "Test Field 1"))))
       )
       val expectedException = TestCustomException(
-        "Invalid value (JSON required) for MultiLanguage column Test Column 2, Multilanguage",
+        "Invalid value (single value required) for SingleLanguage column Test Column 1",
         "error.arguments",
         422
       )
@@ -235,6 +235,29 @@ class CreateRowTest extends TableauxTestBase {
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson("Test Column 1"))
+
+        test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
+      } yield {
+        assertEquals(expectedException, test)
+      }
+    }
+
+  @Test
+  def createRowWithValues_withTextValueForNumericColumn_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val valuesRow = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("A text instead of a number")))
+      )
+      val expectedException = TestCustomException(
+        "Invalid value for numeric column Number Test Column 1, expected a number",
+        "error.arguments",
+        422
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson("Number Test Column 1"))
 
         test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
       } yield {
