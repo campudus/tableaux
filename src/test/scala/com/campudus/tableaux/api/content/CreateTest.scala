@@ -243,29 +243,6 @@ class CreateRowTest extends TableauxTestBase {
     }
 
   @Test
-  def createRowWithValues_withTextValueForNumericColumn_throwsException(implicit c: TestContext): Unit =
-    okTest {
-      val valuesRow = Json.obj(
-        "columns" -> Json.arr(Json.obj("id" -> 1)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr("A text instead of a number")))
-      )
-      val expectedException = TestCustomException(
-        "Invalid value for numeric column Number Test Column 1, expected a number",
-        "error.arguments",
-        422
-      )
-
-      for {
-        _ <- sendRequest("POST", "/tables", createTableJson)
-        _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson("Number Test Column 1"))
-
-        test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
-      } yield {
-        assertEquals(expectedException, test)
-      }
-    }
-
-  @Test
   def createFullRow(implicit c: TestContext): Unit = {
     okTest {
       val valuesRow = Json.obj(

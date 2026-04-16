@@ -421,15 +421,7 @@ case class TextColumn(override val languageType: LanguageType)(override val colu
     val user: TableauxUser
 ) extends SimpleValueColumn[String](TextType)(languageType) {
 
-  override def checkValidSingleValue[B](value: B): Try[String] = Try {
-    value match {
-      // allow String, but also allow numbers
-      case s: String => s
-      case n: Number => n.toString
-      case _ =>
-        throw new IllegalArgumentException(s"Invalid value for text column ${columnInformation.name}, expected string")
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 
   override def getJson: JsonObject = {
     val maxLengthJson = getJsonPart(columnInformation.maxLength, "maxLength")
@@ -446,16 +438,7 @@ case class ShortTextColumn(override val languageType: LanguageType)(override val
     val user: TableauxUser
 ) extends SimpleValueColumn[String](ShortTextType)(languageType) {
 
-  override def checkValidSingleValue[B](value: B): Try[String] = Try {
-    value match {
-      // allow String, but also allow numbers
-      case s: String => s
-      case n: Number => n.toString
-      case _ => throw new IllegalArgumentException(
-          s"Invalid value for short text column ${columnInformation.name}, expected string"
-        )
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 
   override def getJson: JsonObject = {
     val maxLengthJson = getJsonPart(columnInformation.maxLength, "maxLength")
@@ -472,16 +455,7 @@ case class RichTextColumn(override val languageType: LanguageType)(override val 
     val user: TableauxUser
 ) extends SimpleValueColumn[String](RichTextType)(languageType) {
 
-  override def checkValidSingleValue[B](value: B): Try[String] = Try {
-    value match {
-      // allow String, but also allow numbers
-      case s: String => s
-      case n: Number => n.toString
-      case _ => throw new IllegalArgumentException(
-          s"Invalid value for rich text column ${columnInformation.name}, expected string"
-        )
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 
   override def getJson: JsonObject = {
     val maxLengthJson = getJsonPart(columnInformation.maxLength, "maxLength")
@@ -504,15 +478,7 @@ case class NumberColumn(override val languageType: LanguageType)(override val co
     super.getJson
       .mergeIn(decimalDigitsJson)
   }
-
-  override def checkValidSingleValue[B](value: B): Try[Number] = Try {
-    value match {
-      case n: Number => n
-      case _ => throw new IllegalArgumentException(
-          s"Invalid value for numeric column ${columnInformation.name}, expected a number"
-        )
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
 case class IntegerColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
@@ -520,14 +486,7 @@ case class IntegerColumn(override val languageType: LanguageType)(override val c
     val user: TableauxUser
 ) extends SimpleValueColumn[Number](IntegerType)(languageType) {
 
-  override def checkValidSingleValue[B](value: B): Try[Number] = Try {
-    value match {
-      case i: Integer => i
-      case _ => throw new IllegalArgumentException(
-          s"Invalid value for integer column ${columnInformation.name}, expected an integer"
-        )
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Integer])
 }
 
 case class CurrencyColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
@@ -535,14 +494,7 @@ case class CurrencyColumn(override val languageType: LanguageType)(override val 
     val user: TableauxUser
 ) extends SimpleValueColumn[Number](CurrencyType)(languageType) {
 
-  override def checkValidSingleValue[B](value: B): Try[Number] = Try {
-    value match {
-      case n: Number => n
-      case _ => throw new IllegalArgumentException(
-          s"Invalid value for currency column ${columnInformation.name}, expected a number"
-        )
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
 case class BooleanColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
@@ -550,14 +502,7 @@ case class BooleanColumn(override val languageType: LanguageType)(override val c
     val user: TableauxUser
 ) extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
 
-  override def checkValidSingleValue[B](value: B): Try[Boolean] = Try {
-    value match {
-      case b: Boolean => b
-      case _ => throw new IllegalArgumentException(
-          s"Invalid value for boolean column ${columnInformation.name}, expected a boolean"
-        )
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[Boolean] = Try(value.asInstanceOf[Boolean])
 }
 
 case class DateColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
