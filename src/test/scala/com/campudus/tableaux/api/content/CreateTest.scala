@@ -1,6 +1,15 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.testtools.RequestCreation.{Columns, Identifier, Multilanguage, NumericCol, TextCol}
+import com.campudus.tableaux.testtools.RequestCreation.{
+  BooleanCol,
+  Columns,
+  CurrencyCol,
+  Identifier,
+  IntegerCol,
+  Multilanguage,
+  NumericCol,
+  TextCol
+}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import com.campudus.tableaux.testtools.TestCustomException
 
@@ -179,6 +188,9 @@ class CreateRowTest extends TableauxTestBase {
 
   def createTextColumnJson(name: String) = Columns().add(TextCol(name)).getJson
   def createNumberColumnJson(name: String) = Columns().add(NumericCol(name)).getJson
+  def createIntegerColumnJson(name: String) = Columns().add(IntegerCol(name)).getJson
+  def createCurrencyColumnJson(name: String) = Columns().add(CurrencyCol(name)).getJson
+  def createBooleanColumnJson(name: String) = Columns().add(BooleanCol(name)).getJson
   def createMultilanguageTextColumnJson(name: String) = Columns().add(Multilanguage(TextCol(name))).getJson
 
   @Test
@@ -235,6 +247,98 @@ class CreateRowTest extends TableauxTestBase {
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson("Test Column 1"))
+
+        test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
+      } yield {
+        assertEquals(expectedException, test)
+      }
+    }
+
+  @Test
+  def createRowWithValues_withTextValueForNumericColumn_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val valuesRow = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("A text instead of a number")))
+      )
+      val expectedException = TestCustomException(
+        "Invalid value for numeric column Number Test Column 1, expected a number",
+        "error.arguments",
+        422
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson("Number Test Column 1"))
+
+        test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
+      } yield {
+        assertEquals(expectedException, test)
+      }
+    }
+
+  @Test
+  def createRowWithValues_withTextValueForIntegerColumn_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val valuesRow = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("A text instead of an integer")))
+      )
+      val expectedException = TestCustomException(
+        "Invalid value for integer column Integer Test Column 1, expected an integer",
+        "error.arguments",
+        422
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- sendRequest("POST", "/tables/1/columns", createIntegerColumnJson("Integer Test Column 1"))
+
+        test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
+      } yield {
+        assertEquals(expectedException, test)
+      }
+    }
+
+  @Test
+  def createRowWithValues_withTextValueForCurrencyColumn_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val valuesRow = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("A text instead of a currency")))
+      )
+      val expectedException = TestCustomException(
+        "Invalid value for currency column Currency Test Column 1, expected a number",
+        "error.arguments",
+        422
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- sendRequest("POST", "/tables/1/columns", createCurrencyColumnJson("Currency Test Column 1"))
+
+        test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
+      } yield {
+        assertEquals(expectedException, test)
+      }
+    }
+
+  @Test
+  def createRowWithValues_withTextValueForBooleanColumn_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val valuesRow = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("true as string instead of boolean")))
+      )
+      val expectedException = TestCustomException(
+        "Invalid value for boolean column Boolean Test Column 1, expected a boolean",
+        "error.arguments",
+        422
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson("Boolean Test Column 1"))
 
         test <- sendRequest("POST", "/tables/1/rows", valuesRow).toException()
       } yield {
