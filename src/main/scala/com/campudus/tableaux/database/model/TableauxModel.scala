@@ -490,6 +490,7 @@ class TableauxModel(
             column =>
               column match {
                 case c: LinkColumn => replaceCellValue(table, column.id, rowId, value, forceHistory)
+                case c: AttachmentColumn => replaceCellValue(table, column.id, rowId, value, forceHistory)
                 case _ => updateCellValue(table, column.id, rowId, value, forceHistory)
               }
           }
