@@ -1940,7 +1940,7 @@
       },
       "patch": {
         "summary": "Update cell values of row",
-        "description": "Update the cells of the given columns in the row",
+        "description": "Update the cells of the given columns in the row. \n**Take note of the behavior!**\nThe behavior for multilanguage and currency columns is to update the given languages/countries and keep the other languages/countries. For links and attachments the behavior is 'replace'. Otherwise there would be no way to change the value of a link or attachment cell.",
         "tags": [
           "data"
         ],
