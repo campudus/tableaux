@@ -487,7 +487,11 @@ class TableauxModel(
       updateEffects = rowUpdate.flatMap {
         case (columnId, value) =>
           columns.find(_.id == columnId) map {
-            column => updateCellValue(table, column.id, rowId, value, forceHistory)
+            column =>
+              column match {
+                case c: LinkColumn => replaceCellValue(table, column.id, rowId, value, forceHistory)
+                case _ => updateCellValue(table, column.id, rowId, value, forceHistory)
+              }
           }
       }
       futureOfSeq <- Future.sequence(updateEffects)

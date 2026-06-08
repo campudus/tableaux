@@ -20,7 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
-class ModifyRowTest extends TableauxTestBase {
+class ModifyRowTest extends TableauxTestBase with LinkTestBase {
 
   @Test
   def updateRow(implicit c: TestContext): Unit = {
@@ -63,6 +63,34 @@ class ModifyRowTest extends TableauxTestBase {
         updated <- sendRequest("PUT", s"/tables/$tableId/rows/1", payload)
         updatedValues = updated.getJsonArray("values")
       } yield assertEquals(updatedValues, valuesPayload)
+    }
+  }
+
+  @Test
+  def updateRowWithLinkColumn(implicit c: TestContext): Unit = okTest {
+    val putInitialLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+
+    val columnsPayload = Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2), Json.obj("id" -> 3))
+    val valuesPayload = Json.arr("table1row1-updated", 42, Json.arr(2, 3))
+    val payload = Json.obj("columns" -> columnsPayload, "values" -> valuesPayload)
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      resPut <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putInitialLinks)
+
+      // change links from [1,2] to [2,3]
+      updated <- sendRequest("PATCH", "/tables/1/rows/1", payload)
+      updatedValues = updated.getJsonArray("values")
+    } yield {
+
+      assertEquals(
+        updatedValues,
+        Json.arr(
+          "table1row1-updated",
+          42,
+          Json.arr(Json.obj("id" -> 2, "value" -> "table2row2"), Json.obj("id" -> 3, "value" -> "table2RowId1"))
+        )
+      )
     }
   }
 }
