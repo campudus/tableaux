@@ -23,22 +23,30 @@ import org.junit.runner.RunWith
 class ModifyRowTest extends TableauxTestBase with LinkTestBase {
 
   @Test
-  def updateRow(implicit c: TestContext): Unit = {
-    val columnsPayload = Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2))
-    val valuesPayload = Json.arr("some-string", 42)
+  def updateRow(implicit c: TestContext): Unit = okTest {
+    val columnsPayload = Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2), Json.obj("id" -> 3))
+    val valuesPayload = Json.arr("some-string", 42, Json.obj("de" -> "the_value"))
     val payload = Json.obj("columns" -> columnsPayload, "values" -> valuesPayload)
 
-    okTest {
-      for {
-        tableId <- createDefaultTable()
-        updated <- sendRequest("PATCH", s"/tables/$tableId/rows/1", payload)
-        updatedValues = updated.getJsonArray("values")
-      } yield assertEquals(updatedValues, valuesPayload)
-    }
+    val multilangColumnPayload = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "shorttext", "languageType" -> "language", "name" -> "multilang_column")
+      )
+    )
+
+    for {
+      tableId <- createDefaultTable()
+      // add multilang column
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", multilangColumnPayload)
+
+      // add value for new column
+      updated <- sendRequest("PATCH", s"/tables/$tableId/rows/1", payload)
+      updatedValues = updated.getJsonArray("values")
+    } yield assertEquals(updatedValues, valuesPayload)
   }
 
   @Test
-  def replaceRow(implicit c: TestContext): Unit = {
+  def replaceRow(implicit c: TestContext): Unit = okTest {
     val addColumnPayload = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "shorttext",
       "languageType" -> "language",
@@ -48,22 +56,20 @@ class ModifyRowTest extends TableauxTestBase with LinkTestBase {
     val valuesPayload = Json.arr("some-string", 42, Json.obj("de" -> "TESTWERT"))
     val payload = Json.obj("columns" -> columnsPayload, "values" -> valuesPayload)
 
-    okTest {
-      for {
-        // Setup
-        tableId <- createDefaultTable()
-        _ <- sendRequest("POST", s"/tables/$tableId/columns", addColumnPayload)
-        _ <- sendRequest(
-          "POST",
-          s"/tables/$tableId/columns/3/rows/1",
-          Json.obj("value" -> Json.obj("de" -> "Überprüfungswert", "en" -> "testvalue"))
-        )
+    for {
+      // Setup
+      tableId <- createDefaultTable()
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", addColumnPayload)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId/columns/3/rows/1",
+        Json.obj("value" -> Json.obj("de" -> "Überprüfungswert", "en" -> "testvalue"))
+      )
 
-        // Test
-        updated <- sendRequest("PUT", s"/tables/$tableId/rows/1", payload)
-        updatedValues = updated.getJsonArray("values")
-      } yield assertEquals(updatedValues, valuesPayload)
-    }
+      // Test
+      updated <- sendRequest("PUT", s"/tables/$tableId/rows/1", payload)
+      updatedValues = updated.getJsonArray("values")
+    } yield assertEquals(updatedValues, valuesPayload)
   }
 
   @Test
