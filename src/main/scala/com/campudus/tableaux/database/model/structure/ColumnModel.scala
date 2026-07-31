@@ -1340,19 +1340,24 @@ class ColumnModel(val connection: DatabaseConnection)(
   ): Seq[ColumnType[?]] = {
     val identifierColumns = columns.filter(_.identifier)
 
-    identifierColumns.size match {
-      case x if x >= 2 => {
-        // in case of two or more identifier columns we preserve the order of column
-        // and a concatcolumn in front of all columns
-        columns.+:(ConcatColumn(ConcatColumnInformation(table), identifierColumns, table.concatFormatPattern))
-      }
-      case x if x == 1 =>
-        // in case of one identifier column we don't get a concat column
-        // but the identifier column will be the first
-        columns.sortBy(_.identifier)(Ordering[Boolean].reverse)
-      case _ =>
-        // no identifier -> return columns
-        columns
+    // a concat column is needed whenever there are multiple identifier columns (to preserve
+    // their order behind one virtual column) or when the single identifier column is a link
+    // column, since a link's "to" column must resolve to a value that can be fetched/concatenated
+    // (see mapLinkColumn / fetchConcatValuesForLinkedRows)
+    val hasSingleIdentifier = identifierColumns.size == 1
+    val hasMultipleIdentifiers = identifierColumns.size >= 2
+    val hasSingleLinkIdentifier = hasSingleIdentifier && identifierColumns.head.isInstanceOf[LinkColumn]
+    val needsConcatColumn = hasMultipleIdentifiers || hasSingleLinkIdentifier
+
+    if (needsConcatColumn) {
+      columns.+:(ConcatColumn(ConcatColumnInformation(table), identifierColumns, table.concatFormatPattern))
+    } else if (hasSingleIdentifier) {
+      // in case of one (non-link) identifier column we don't get a concat column
+      // but the identifier column will be the first
+      columns.sortBy(_.identifier)(Ordering[Boolean].reverse)
+    } else {
+      // no identifier -> return columns
+      columns
     }
   }
 
