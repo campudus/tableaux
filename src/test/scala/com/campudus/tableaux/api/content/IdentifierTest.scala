@@ -37,6 +37,43 @@ class IdentifierTest extends TableauxTestBase {
   }
 
   @Test
+  def retrieveColumnsWithSingleLinkIdentifierColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId1 <- createEmptyDefaultTable()
+      tableId2 <- createEmptyDefaultTable("Test Table 2")
+
+      // the default text column is created as an identifier column; remove it so the
+      // link column added below ends up as the table's only identifier column
+      _ <- sendRequest("POST", s"/tables/$tableId1/columns/1", Json.obj("identifier" -> false))
+
+      linkColumnId <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/columns",
+        Json.obj("columns" -> Json.arr(Json.obj(
+          "kind" -> "link",
+          "name" -> "link",
+          "toTable" -> tableId2,
+          "identifier" -> true,
+          "singleDirection" -> true
+        )))
+      ) map {
+        _.getJsonArray("columns").get[JsonObject](0).getLong("id")
+      }
+
+      test <- sendRequest("GET", s"/tables/$tableId1/columns")
+    } yield {
+      // a single link identifier column still needs a concat column in front, because a link's
+      // value has to be resolved/concatenated from the linked row rather than being a plain scalar
+      val firstColumn = test.getJsonArray("columns").get[JsonObject](0)
+      assertEquals("concat", firstColumn.getString("kind"))
+
+      val concats = firstColumn.getJsonArray("concats")
+      assertEquals(1, concats.size())
+      assertEquals(linkColumnId, concats.getJsonObject(0).getLong("id"))
+    }
+  }
+
+  @Test
   def retrieveColumnsWithTwoIdentifierColumn(implicit c: TestContext): Unit = okTest {
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 3")))
 
@@ -470,6 +507,65 @@ class IdentifierTest extends TableauxTestBase {
         assertEquals(linkColId2, concats3.getLong("id"))
         assertEquals("link", concats3.getString("kind"))
       }
+    }
+  }
+
+  @Test
+  def retrieveRowsWithNestedSingleLinkIdentifier(implicit c: TestContext): Unit = okTest {
+    def putLink(rowId: Long) = Json.obj("value" -> Json.obj("values" -> Json.arr(rowId)))
+
+    for {
+      // table3: a plain table with a simple (non-link) identifier
+      (tableId3, _, rowIds3) <- createSimpleTableWithValues(
+        "table3",
+        List(Identifier(TextCol("text3"))),
+        List(List("table3row1"))
+      )
+
+      // table2: its only identifier column is itself a link column pointing to table3
+      tableId2 <- createEmptyDefaultTable("table2")
+      // the default text column is created as an identifier column; remove it so the
+      // link column added below ends up as the table's only identifier column
+      _ <- sendRequest("POST", s"/tables/$tableId2/columns/1", Json.obj("identifier" -> false))
+      linkColId2 <- sendRequest(
+        "POST",
+        s"/tables/$tableId2/columns",
+        Json.obj(
+          "columns" -> Json.arr(
+            Json.obj(
+              "name" -> "link23",
+              "kind" -> "link",
+              "toTable" -> tableId3,
+              "identifier" -> true,
+              "singleDirection" -> true
+            )
+          )
+        )
+      ) map { _.getJsonArray("columns").get[JsonObject](0).getLong("id") }
+      _ <- sendRequest("POST", s"/tables/$tableId2/rows")
+      _ <- sendRequest("POST", s"/tables/$tableId2/columns/$linkColId2/rows/1", putLink(rowIds3.head))
+
+      // table1: links to table2, whose identifier chain is resolved through the fixed concat column
+      tableId1 <- createEmptyDefaultTable("table1")
+      linkColId1 <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/columns",
+        Json.obj(
+          "columns" -> Json.arr(
+            Json.obj("name" -> "link12", "kind" -> "link", "toTable" -> tableId2, "singleDirection" -> true)
+          )
+        )
+      ) map { _.getJsonArray("columns").get[JsonObject](0).getLong("id") }
+      _ <- sendRequest("POST", s"/tables/$tableId1/rows")
+      _ <- sendRequest("POST", s"/tables/$tableId1/columns/$linkColId1/rows/1", putLink(1))
+
+      // before the fix, loading table1's rows crashed with a scala.MatchError while resolving
+      // table2's single link identifier as table1's link "to" column, since it wasn't wrapped in a concat
+      rows1 <- sendRequest("GET", s"/tables/$tableId1/rows")
+      row1 <- sendRequest("GET", s"/tables/$tableId1/rows/1")
+    } yield {
+      assertEquals("ok", rows1.getString("status"))
+      assertEquals("ok", row1.getString("status"))
     }
   }
 
