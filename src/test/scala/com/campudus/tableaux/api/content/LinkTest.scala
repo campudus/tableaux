@@ -388,10 +388,20 @@ class LinkColumnTest extends LinkTestBase {
       val columns1 = asCastedList[JsonObject](resultColumns1.getJsonArray("columns")).get
       val columns2 = asCastedList[JsonObject](resultColumns2.getJsonArray("columns")).get
 
-      assertEquals(columns1.size, columns2.size)
-      // in table 1 the link column should be an identifier
-      assertEquals("link", columns1.head.getString("kind"))
-      assertTrue(s"identifier of ${columns1.head} should be true", columns1.head.getBoolean("identifier", false))
+      // table 1's only identifier is the link column, so a concat column is prepended;
+      // table 2's identifier is a plain text column, so it doesn't get a concat column
+      assertEquals(columns2.size + 1, columns1.size)
+
+      // in table 1 the concat column wraps the link column as its sole identifier
+      val concatColumn1 = columns1.head
+      assertEquals("concat", concatColumn1.getString("kind"))
+      assertEquals(1, concatColumn1.getJsonArray("concats").size())
+      assertTrue(s"identifier of $concatColumn1 should be true", concatColumn1.getBoolean("identifier", false))
+
+      // the link column itself is still the identifier behind the concat column
+      val linkColumn1 = columns1.last
+      assertEquals("link", linkColumn1.getString("kind"))
+      assertTrue(s"identifier of $linkColumn1 should be true", linkColumn1.getBoolean("identifier", false))
 
       // in table 2 the link column should not be an identifier - otherwise we would have a cycle
       assertEquals("link", columns2(2).getString("kind"))
