@@ -1,0 +1,3 @@
+# Drop scalacache-guava and mockito-scala, use their plain-Java equivalents
+
+Both `com.github.cb372:scalacache-guava` and `org.mockito:mockito-scala` have no Scala 3 build on Maven Central and show no sign of an upcoming one. Footprint is small (scalacache: 2 files — `ColumnModel.scala`, `CacheVerticle.scala`; mockito-scala: 2 test files), so rather than hunting for Scala-3-compatible replacements (e.g. ScalaMock) we drop the Scala wrappers and use the underlying Java APIs directly (`com.google.common.cache.Cache`, `org.mockito:mockito-core`). Slightly less idiomatic Scala call sites in those 4 files, no new dependencies.
