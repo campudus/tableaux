@@ -11,7 +11,6 @@ import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.ext.sql
 import org.vertx.scala.core.json.Json
 import org.vertx.scala.core.json.JsonObject
 

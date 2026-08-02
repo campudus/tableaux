@@ -7,7 +7,7 @@ class ScalaJsonArray(list: java.util.List[_]) extends JsonArray(list) {
 
 class ScalaJsonObject(map: java.util.Map[String, Object]) extends JsonObject(map) {
 
-  def getNumber(field: String): Number = super.getValue(field).asInstanceOf[Number]
+  override def getNumber(field: String): Number = super.getValue(field).asInstanceOf[Number]
 }
 
 trait JsonCompatible {

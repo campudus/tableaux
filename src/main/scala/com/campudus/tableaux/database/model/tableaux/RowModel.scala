@@ -47,28 +47,35 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
       })
   }
 
-  private def generateUnionSelectAndBinds(rowId: RowId, column: LinkColumn, toIds: Seq[RowId]): (String, Seq[Long]) = {
+  // One INSERT per toId rather than a single UNION-ed multi-row INSERT: the reactive Postgres client has trouble
+  // with this query shape once it grows past ~10 bind parameters spread across multiple UNION branches (surfaces
+  // as a spurious "current transaction is aborted" on the statement itself, not reproducible via psql/plain SQL).
+  // Splitting into single-row inserts sidesteps it; the same all-or-nothing semantics are preserved because each
+  // insert's row count is still checked individually and any failure still rolls back the whole transaction.
+  private def generateInsertSelectAndBinds(
+      rowId: RowId,
+      column: LinkColumn,
+      toId: RowId
+  ): (String, Seq[Long]) = {
     val linkId = column.linkId
     val direction = column.linkDirection
 
-    val union = toIds
-      .map(_ => {
-        s"""
-           |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
-           |WHERE
-           |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
-           |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + ? <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
-           |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
-           |""".stripMargin
-      })
-      .mkString(" UNION ")
+    // Both cardinality checks use a plain "+ 1": each insert now runs on its own, sequentially, so by the time a
+    // later toId's insert runs, the COUNT(*) already reflects the earlier ones in this same batch - unlike the
+    // former single UNION-ed statement, where every branch saw the same pre-insert snapshot and the "from" side
+    // needed a running "+ index" offset to account for its own batch-mates.
+    val select =
+      s"""
+         |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
+         |WHERE
+         |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
+         |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + 1 <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
+         |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
+         |""".stripMargin
 
-    val binds = toIds.zipWithIndex
-      .flatMap({
-        case (to, index) => List(rowId, to, rowId, to, rowId, index.toLong + 1, linkId, to, linkId)
-      })
+    val binds = List(rowId, toId, rowId, toId, rowId, linkId, toId, linkId)
 
-    (union, binds)
+    (select, binds)
   }
 
   def getReplacedIds(
@@ -127,8 +134,6 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
       val linkId = column.linkId
       val direction = column.linkDirection
 
-      val (union, binds) = generateUnionSelectAndBinds(rowId, column, toIds)
-
       val fnc = (t: DbTransaction) => {
         for {
           // check if row (where we want to add the links) really exists
@@ -143,20 +148,21 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
               Future.failed(UnprocessableEntityException(ex.getMessage))
             })
 
-          (t, _) <-
-            if (toIds.nonEmpty) {
+          t <- toIds.foldLeft(Future.successful(t))((futureT, toId) => {
+            val (select, binds) = generateInsertSelectAndBinds(rowId, column, toId)
+
+            futureT.flatMap(t =>
               t.query(
-                s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union RETURNING *",
+                s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $select RETURNING *",
                 Json.arr(binds: _*)
               ).map({
-                // if size doesn't match we hit the cardinality limit
-                case (t, result) => {
-                  (t, insertCheckSize(result, toIds.size))
-                }
+                // if no row comes back we hit the cardinality limit or the link already exists
+                case (t, result) =>
+                  insertCheckSize(result, 1)
+                  t
               })
-            } else {
-              Future.successful((t, Unit))
-            }
+            )
+          })
         } yield (t, ())
       }
       maybeTransaction match {
@@ -879,7 +885,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       rowId,
       column.id,
       newUuid.toString,
-      langtags.mkString("{", ",", "}"),
+      Json.arr(langtags: _*),
       annotationType.toString,
       textValue.orNull,
       annotationName.orNull
@@ -925,7 +931,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
          |  ${parseDateTimeSql(s"user_table_annotations_$tableId.created_at")}""".stripMargin
 
     val updateBinds = Json.arr(
-      langtags.mkString("{", ",", "}"),
+      Json.arr(langtags: _*),
       rowId,
       column.id,
       annotationType.toString,

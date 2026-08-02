@@ -119,7 +119,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
 
   def retrieve(id: FolderId): Future[Folder] = {
     for {
-      result <- connection.query(selectStatement(Some("id = ?")), Json.arr(id.toString))
+      result <- connection.query(selectStatement(Some("id = ?")), Json.arr(id))
       resultArr <- Future(selectNotNull(result))
     } yield {
       convertJsonArrayToFolder(resultArr.head)
@@ -159,7 +159,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     for {
       result <- folder match {
         case MediaController.ROOT_FOLDER => connection.query(selectStatement(Some("idparent IS NULL")))
-        case f => connection.query(selectStatement(Some("idparent = ?")), Json.arr(f.id.toString))
+        case f => connection.query(selectStatement(Some("idparent = ?")), Json.arr(f.id))
       }
       resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
@@ -175,7 +175,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     val delete = s"DELETE FROM $table WHERE id = ?"
 
     for {
-      result <- connection.query(delete, Json.arr(id.toString))
+      result <- connection.query(delete, Json.arr(id))
       resultArr <- Future(deleteNotNull(result))
     } yield ()
   }
