@@ -7,12 +7,12 @@ plugins {
   id 'scala'
   id 'application'
 
-  id "com.github.ben-manes.versions" version '0.48.0'
-  id 'org.scoverage' version '8.0.3'
+  id "io.github.ben-manes.versions" version '0.56.0'
+  id 'org.scoverage' version '9.1'
   id 'com.github.kt3k.coveralls' version '2.12.2'
-  id 'com.github.johnrengelman.shadow' version '7.1.2'
-  id 'com.diffplug.spotless' version '6.22.0'
-  id 'com.adarshr.test-logger' version '3.2.0'
+  id 'com.gradleup.shadow' version '9.6.1'
+  id 'com.diffplug.spotless' version '8.9.0'
+  id 'com.adarshr.test-logger' version '4.0.0'
 }
 
 project.group = 'com.campudus'
@@ -27,7 +27,9 @@ def vertxVersion = '3.9.1'
 def vertxPgClientVersion = '3.9.16'
 def scalaVersion = '2.12.20'
 
-sourceCompatibility = '17'
+java {
+  sourceCompatibility = JavaVersion.VERSION_17
+}
 
 def requiredJavaVersion = JavaVersion.VERSION_17
 // ensure that the build fails if sdk version doesn't match the required version
@@ -78,8 +80,12 @@ dependencies {
 
 }
 
-mainClassName = "io.vertx.core.Launcher"
+def mainClassName = "io.vertx.core.Launcher"
 def mainVerticle = "scala:com.campudus.tableaux.Starter"
+
+application {
+  mainClass = mainClassName
+}
 
 test {
   maxHeapSize = "512m"
@@ -151,6 +157,7 @@ sourceSets {
  */
 
 scoverage {
+  scoverageVersion = '2.2.1'
   minimumRate = 0.85
   excludedPackages = [
     'io.vertx.scala.*',
@@ -189,10 +196,6 @@ jar {
 shadowJar {
   archiveClassifier = 'fat'
 
-  manifest {
-    inheritFrom project.tasks.jar.manifest
-  }
-
   mergeServiceFiles {
     include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
   }
@@ -210,23 +213,23 @@ spotless {
 }
 
 testlogger {
-  theme 'mocha'
-  showExceptions true
-  showStackTraces true
-  showFullStackTraces false
-  showCauses true
-  slowThreshold 2000
-  showSummary true
-  showSimpleNames false
-  showPassed true
-  showSkipped true
-  showFailed true
-  showOnlySlow false
-  showStandardStreams false
-  showPassedStandardStreams true
-  showSkippedStandardStreams true
-  showFailedStandardStreams true
-  logLevel 'lifecycle'
+  theme = 'mocha'
+  showExceptions = true
+  showStackTraces = true
+  showFullStackTraces = false
+  showCauses = true
+  slowThreshold = 2000
+  showSummary = true
+  showSimpleNames = false
+  showPassed = true
+  showSkipped = true
+  showFailed = true
+  showOnlySlow = false
+  showStandardStreams = false
+  showPassedStandardStreams = true
+  showSkippedStandardStreams = true
+  showFailedStandardStreams = true
+  logLevel = 'lifecycle'
 }
 
 /**

@@ -237,10 +237,10 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
   }
 
   /**
-    * The reactive Postgres client never auto-populates generated keys the way the old JDBC-style client did (there's
-    * no equivalent of `getGeneratedKeys()`) - callers that need the generated id back use `RETURNING` explicitly and
-    * go through `mapResultSet` instead. No caller in this codebase ever relied on the old `keys`/`no_name` shape, so
-    * plain (non-RETURNING) statements simply report the affected row count.
+    * The reactive Postgres client never auto-populates generated keys the way the old JDBC-style client did (there's no
+    * equivalent of `getGeneratedKeys()`) - callers that need the generated id back use `RETURNING` explicitly and go
+    * through `mapResultSet` instead. No caller in this codebase ever relied on the old `keys`/`no_name` shape, so plain
+    * (non-RETURNING) statements simply report the affected row count.
     */
   private def mapUpdateResult(command: String, rowSet: RowSet[Row]): JsonObject = {
     val updated = rowSet.rowCount()
@@ -275,8 +275,8 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
   /**
     * The reactive Postgres client exposes some column types (NUMERIC, UUID, date/time) as Java types that
-    * io.vertx.core.json.JsonObject/JsonArray can't encode directly. Normalize them to the same String/Number shapes
-    * the old JDBC-style client produced.
+    * io.vertx.core.json.JsonObject/JsonArray can't encode directly. Normalize them to the same String/Number shapes the
+    * old JDBC-style client produced.
     */
   private def normalizeValue(value: AnyRef): AnyRef = value match {
     case null => null

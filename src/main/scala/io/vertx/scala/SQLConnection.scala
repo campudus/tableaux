@@ -6,7 +6,7 @@ import com.campudus.tableaux.helper.VertxAccess
 import io.vertx.core.AsyncResult
 import io.vertx.pgclient.{PgConnectOptions, PgPool}
 import io.vertx.scala.core.Vertx
-import io.vertx.sqlclient.{Pool, PoolOptions, Row, RowSet, SqlClient, Tuple, SqlConnection => JSqlConnection}
+import io.vertx.sqlclient.{Pool, PoolOptions, Row, RowSet, SqlClient, SqlConnection => JSqlConnection, Tuple}
 import org.vertx.scala.core.json.JsonArray
 import org.vertx.scala.core.json.JsonObject
 
@@ -61,8 +61,8 @@ object SQLConnection {
   }
 
   /**
-    * The old JDBC-style SQL client used `?` as a positional placeholder; the reactive Postgres client requires
-    * native `$1, $2, ...` placeholders. Translating here keeps every call site's SQL string unchanged.
+    * The old JDBC-style SQL client used `?` as a positional placeholder; the reactive Postgres client requires native
+    * `$1, $2, ...` placeholders. Translating here keeps every call site's SQL string unchanged.
     */
   private[scala] def toPositional(sql: String): String = {
     val builder = new StringBuilder(sql.length + 8)
@@ -93,11 +93,11 @@ object SQLConnection {
   }
 
   /**
-    * The old JDBC-style client happily bound plain Strings/JsonArrays against uuid, timestamptz and text[] columns
-    * and let Postgres cast them; the reactive client requires the bound Java type to match the column's type
-    * exactly. Rather than touch every one of the ~190 call sites that build these binds as Strings/JsonArrays
-    * (that was the whole point of keeping the old JsonArray-based contract, see ADR 0003), convert the well-known
-    * shapes back to their proper Java types here.
+    * The old JDBC-style client happily bound plain Strings/JsonArrays against uuid, timestamptz and text[] columns and
+    * let Postgres cast them; the reactive client requires the bound Java type to match the column's type exactly.
+    * Rather than touch every one of the ~190 call sites that build these binds as Strings/JsonArrays (that was the
+    * whole point of keeping the old JsonArray-based contract, see ADR 0003), convert the well-known shapes back to
+    * their proper Java types here.
     */
   private val HasJsonCast = "(?i)::jsonb?\\b".r
 
@@ -180,9 +180,9 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
   }
 
   /**
-    * Vert.x's own `Transaction`/`conn.begin()` API has a known, unfixed ordering issue where commands issued
-    * through it can reach Postgres out of order, surfacing as spurious "current transaction is aborted" errors
-    * (see eclipse-vertx/vertx-sql-client#312). We avoid that API entirely and drive the transaction with plain
+    * Vert.x's own `Transaction`/`conn.begin()` API has a known, unfixed ordering issue where commands issued through it
+    * can reach Postgres out of order, surfacing as spurious "current transaction is aborted" errors (see
+    * eclipse-vertx/vertx-sql-client#312). We avoid that API entirely and drive the transaction with plain
     * `BEGIN`/`COMMIT`/`ROLLBACK` statements against a checked-out connection instead - functionally identical, but
     * without the buggy abstraction in between.
     */
