@@ -1,0 +1,5 @@
+# Target platform: Vert.x 4.5.11 + Scala 3.3 LTS (not Vert.x 5)
+
+Official Scala bindings (`vertx-lang-scala`) were never published for Vert.x 4 + Scala 2 — Maven Central jumps straight from `vertx-lang-scala_2.12:3.9.1` to a Scala-3-only `vertx-lang-scala_3`. Two candidates exist: `4.5.11` (last Vert.x-4-line GA release with Scala bindings) and `5.0.0.CR2` (Vert.x 5, still pre-release — core itself is already at `5.0.0.CR7`, i.e. the Scala binding lags its own project's release train). We chose **4.5.11 (GA) + Scala 3.3 LTS** over the Vert.x 5 CR track: this is a multi-tenant production backend, and stacking a pre-release Vert.x on top of a simultaneous Scala 2→3 and Gradle 7→9 jump was judged too much compounding risk. Revisit once Vert.x 5 reaches GA.
+
+As of this decision, `io.vertx:vertx-lang-scala_3:4.5.11` is a single consolidated artifact covering bindings for the whole Vert.x module ecosystem (core, web, web-client, auth-oauth2, pg-client, ...) — unlike the Vert.x-3 era, there are no more separate `vertx-web-scala`/`vertx-pg-client-scala`/etc. artifacts to track.
