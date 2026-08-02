@@ -713,12 +713,16 @@ class IdentifierTest extends TableauxTestBase {
       _ <- vertx
         .eventBus()
         .sendFuture[JsonObject](
-          ADDRESS_INVALIDATE_TABLE, Some(Json.obj("tableId" -> 1)))
+          ADDRESS_INVALIDATE_TABLE,
+          Some(Json.obj("tableId" -> 1))
+        )
 
       _ <- vertx
         .eventBus()
         .sendFuture[JsonObject](
-          ADDRESS_INVALIDATE_TABLE, Some(Json.obj("tableId" -> 2)))
+          ADDRESS_INVALIDATE_TABLE,
+          Some(Json.obj("tableId" -> 2))
+        )
 
       _ <- sendRequest("GET", "/tables/1/columns/3/rows/1")
     } yield {

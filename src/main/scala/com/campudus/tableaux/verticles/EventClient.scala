@@ -172,7 +172,9 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     val thumbnailOptions = DeliveryOptions().setSendTimeout(timeout)
 
     eventBus
-      .sendFuture[String](ADDRESS_THUMBNAIL_RETRIEVE, Some(message), thumbnailOptions).map(message => Path(message.body()))
+      .sendFuture[String](ADDRESS_THUMBNAIL_RETRIEVE, Some(message), thumbnailOptions).map(message =>
+        Path(message.body())
+      )
   }
 
   def validateJson(key: String, json: JsonObject): Future[Unit] = {
