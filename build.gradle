@@ -130,7 +130,7 @@ task runRedeploy(type: JavaExec) {
 }
 
 tasks.withType(ScalaCompile) {
-  scalaCompileOptions.additionalParameters = ["-feature"]
+  scalaCompileOptions.additionalParameters = ["-feature", "-Xsource:3"]
 }
 
 sourceSets {
