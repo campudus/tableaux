@@ -72,7 +72,9 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     // all following routes may require Json in the request body
     val bodyHandler = BodyHandler.create()
     router.putWithRegex(file).handler(bodyHandler)
+    router.post("/files").handler(bodyHandler)
     router.post("/files/*").handler(bodyHandler)
+    router.post(folders).handler(bodyHandler)
     router.put("/folders/*").handler(bodyHandler)
     router.post("/folders/*").handler(bodyHandler)
 

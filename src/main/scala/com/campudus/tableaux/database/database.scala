@@ -7,7 +7,9 @@ import com.campudus.tableaux.helper.VertxAccess
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.{DatabaseAction, SQLConnection}
 import io.vertx.scala.core.Vertx
-import io.vertx.scala.ext.sql.{ResultSet, UpdateResult}
+import io.vertx.sqlclient.Row
+import io.vertx.sqlclient.RowSet
+import io.vertx.sqlclient.data.Numeric
 import org.vertx.scala.core.json.{Json, JsonArray, JsonCompatible, JsonObject}
 
 import scala.concurrent.Future
@@ -198,41 +200,32 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     val command = stmt.trim().split("\\s+").head.toUpperCase
     val returning = stmt.trim().toUpperCase.contains("RETURNING")
 
-    val future = (command, returning) match {
+    (command, returning) match {
       case ("CREATE", _) | ("DROP", _) | ("ALTER", _) | ("LOCK", _) =>
-        connection.execute(stmt)
-      case ("UPDATE", true) =>
-        values match {
-          case Some(s) => connection.query(stmt + ";--", s)
-          case None => connection.query(stmt + ";--")
-        }
-      case ("INSERT", true) | ("SELECT", _) =>
-        values match {
+        connection.execute(stmt).map(_ => createExecuteResult(command))
+
+      case ("UPDATE", true) | ("INSERT", true) | ("SELECT", _) =>
+        val future = values match {
           case Some(s) => connection.query(stmt, s)
           case None => connection.query(stmt)
         }
-      case ("DELETE", true) =>
-        values match {
-          case Some(s) => connection.update(stmt + ";--", s)
-          case None => connection.update(stmt + ";--")
-        }
-      case ("DELETE", false) | ("INSERT", false) | ("UPDATE", false) =>
-        values match {
+        // Kept as "SELECT" for every command to match the historical message shape of the old client, which
+        // ResultChecker.selectNotNull/etc. never actually depend on for UPDATE/INSERT ... RETURNING.
+        future.map(mapResultSet)
+
+      case ("DELETE", true) | ("DELETE", false) | ("INSERT", false) | ("UPDATE", false) =>
+        val future = values match {
           case Some(s) => connection.update(stmt, s)
           case None => connection.update(stmt)
         }
+        future.map(rowSet => mapUpdateResult(command, rowSet))
+
       case (_, _) =>
         throw DatabaseException(
           s"Command $command in Statement $stmt not supported",
           "error.database.command_not_supported"
         )
     }
-
-    future.map({
-      case r: UpdateResult => mapUpdateResult(command, r.asJava.toJson)
-      case r: ResultSet => mapResultSet(r.asJava.toJson)
-      case _ => createExecuteResult(command)
-    })
   }
 
   private def createExecuteResult(msg: String): JsonObject = {
@@ -243,44 +236,76 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     )
   }
 
-  private def mapUpdateResult(msg: String, obj: JsonObject): JsonObject = {
-    import scala.collection.JavaConverters._
-
-    val updated = obj.getInteger("updated", 0)
-    val keys = obj.getJsonArray("keys", Json.arr())
-
-    val fields =
-      if (keys.size() >= 1) {
-        Json.arr("no_name")
-      } else {
-        Json.arr()
-      }
-
-    val results = Json.arr(keys.getList.asScala.map({ v: Any =>
-      {
-        Json.arr(v)
-      }
-    }): _*)
+  /**
+    * The reactive Postgres client never auto-populates generated keys the way the old JDBC-style client did (there's
+    * no equivalent of `getGeneratedKeys()`) - callers that need the generated id back use `RETURNING` explicitly and
+    * go through `mapResultSet` instead. No caller in this codebase ever relied on the old `keys`/`no_name` shape, so
+    * plain (non-RETURNING) statements simply report the affected row count.
+    */
+  private def mapUpdateResult(command: String, rowSet: RowSet[Row]): JsonObject = {
+    val updated = rowSet.rowCount()
 
     Json.obj(
       "status" -> "ok",
       "rows" -> updated,
-      "message" -> s"${msg.toUpperCase} $updated",
-      "fields" -> fields,
-      "results" -> results
+      "message" -> s"$command $updated",
+      "fields" -> Json.arr(),
+      "results" -> Json.arr()
     )
   }
 
-  private def mapResultSet(obj: JsonObject): JsonObject = {
-    val columnNames = obj.getJsonArray("columnNames", Json.arr())
-    val results = obj.getJsonArray("results", Json.arr())
+  private def mapResultSet(rowSet: RowSet[Row]): JsonObject = {
+    import scala.collection.JavaConverters._
+
+    val columnNames = rowSet.columnsNames().asScala.toSeq
+    val results = Json.arr(rowSet.iterator().asScala.map(rowToJsonArray(_, columnNames.size)).toSeq: _*)
 
     Json.obj(
       "status" -> "ok",
       "rows" -> results.size(),
       "message" -> s"SELECT ${results.size()}",
-      "fields" -> columnNames,
+      "fields" -> Json.arr(columnNames: _*),
       "results" -> results
     )
+  }
+
+  private def rowToJsonArray(row: Row, columnCount: Int): JsonArray = {
+    Json.arr((0 until columnCount).map(pos => normalizeValue(row.getValue(pos))): _*)
+  }
+
+  /**
+    * The reactive Postgres client exposes some column types (NUMERIC, UUID, date/time) as Java types that
+    * io.vertx.core.json.JsonObject/JsonArray can't encode directly. Normalize them to the same String/Number shapes
+    * the old JDBC-style client produced.
+    */
+  private def normalizeValue(value: AnyRef): AnyRef = value match {
+    case null => null
+    // io.vertx.core.json.JsonObject/JsonArray explicitly reject raw BigDecimal (see JsonObject.checkAndCopy), so
+    // NUMERIC columns need to come through as a Long or Double instead, same as the old JDBC-style client did.
+    case n: Numeric =>
+      val d = n.doubleValue()
+      if (!d.isInfinite && d == Math.rint(d) && Math.abs(d) < Long.MaxValue.toDouble) {
+        Long.box(d.toLong)
+      } else {
+        Double.box(d)
+      }
+    // Same reasoning as Numeric above: JsonObject only understands java.time.Instant natively, not the other
+    // java.time types the reactive client returns for TIMESTAMP/DATE/TIME columns. The app already expects
+    // timestamp-ish columns to arrive as parseable strings (see DatabaseQuery.convertStringToDateTime), so a plain
+    // ISO-8601 String matches the old JDBC-style client's behaviour.
+    case t: java.time.LocalDateTime => t.toString
+    case t: java.time.OffsetDateTime => t.toString
+    case t: java.time.LocalDate => t.toString
+    case t: java.time.LocalTime => t.toString
+    // uuid columns come back as java.util.UUID; the old client always represented them as plain strings.
+    case u: java.util.UUID => u.toString
+    // The reactive client auto-decodes jsonb columns into JsonObject/JsonArray; every call site in this codebase
+    // expects the old client's behaviour instead - the raw JSON text as a String, parsed explicitly via
+    // Json.fromObjectString/fromArrayString where needed.
+    case obj: JsonObject => obj.encode()
+    case arr: JsonArray => arr.encode()
+    // text[]/other array columns come back as a plain Java array; JsonObject only understands JsonArray.
+    case arr: Array[AnyRef @unchecked] => Json.arr(arr.map(normalizeValue): _*)
+    case other => other
   }
 }

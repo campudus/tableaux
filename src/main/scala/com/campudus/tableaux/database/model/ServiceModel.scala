@@ -57,22 +57,25 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
       .filter({ case (_, v) => v.isDefined })
       .map({ case (k, v) => (k, v.get) })
 
-    val columnString2valueString: Map[String, String] = paramsToUpdate.map({
+    val columnString2value: Map[String, AnyRef] = paramsToUpdate.map({
       case (columnName, value) =>
-        val columnString = s"$columnName = ?"
-
-        val valueString = value match {
-          case m: MultiLanguageValue[_] => m.getJson.toString
-          case a => a.toString
+        // Only stringify the types that actually need a text/json representation - ordering (Long) and active
+        // (Boolean) need to reach the reactive Postgres client as their natural type, not as a String.
+        // displayname/description are `json` columns, so the pre-stringified value needs an explicit cast (see
+        // SQLConnection.toBindValue); config/scope are passed through as native JsonObjects, which need no cast.
+        val (bindValue: AnyRef, cast) = value match {
+          case m: MultiLanguageValue[_] => (m.getJson.toString, "::json")
+          case s: ServiceType => (s.toString, "")
+          case a: AnyRef => (a, "")
         }
 
-        columnString -> valueString
+        s"$columnName = ?$cast" -> bindValue
     })
 
-    val columnsString = columnString2valueString.keys.mkString(", ")
+    val columnsString = columnString2value.keys.mkString(", ")
     val update = s"UPDATE $table SET $columnsString, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
 
-    val binds = Json.arr(columnString2valueString.values.toSeq: _*).add(serviceId.toString)
+    val binds = Json.arr(columnString2value.values.toSeq: _*).add(serviceId)
 
     for {
       _ <- name.map(checkUniqueName).getOrElse(Future.successful(()))
@@ -102,7 +105,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
 
   def retrieve(id: ServiceId)(implicit user: TableauxUser): Future[Service] = {
     for {
-      result <- connection.query(selectStatement(Some("id = ?")), Json.arr(id.toString))
+      result <- connection.query(selectStatement(Some("id = ?")), Json.arr(id))
       resultArr <- Future(selectNotNull(result))
     } yield {
       convertJsonArrayToService(resultArr.head)
@@ -139,7 +142,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
                     |  config,
                     |  scope)
                     |VALUES
-                    |  (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""".stripMargin
+                    |  (?, ?, ?, ?::json, ?::json, ?, ?::jsonb, ?::jsonb) RETURNING id""".stripMargin
 
     for {
       _ <- checkUniqueName(name)

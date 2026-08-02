@@ -24,16 +24,15 @@ import org.junit.{After, Before, Test}
 import org.junit.Assert._
 import org.junit.runner.RunWith
 import org.mockito.Mockito.{mock, reset, verify, when}
-import org.scalatestplus.mockito.MockitoSugar
 
 @RunWith(classOf[VertxUnitRunner])
-class CdnVerticleTest extends VertxAccess with MockitoSugar {
+class CdnVerticleTest extends VertxAccess {
   override val vertx: Vertx = Vertx.vertx()
 
   val cdnConfig = Json.obj("url" -> "http://my.cdn.url", "apiKey" -> "123456")
 
-  val mockClient = mock[WebClient]
-  val mockRequest = mock[HttpRequest[Buffer]]
+  val mockClient = mock(classOf[WebClient])
+  val mockRequest = mock(classOf[HttpRequest[Buffer]])
   val eventClient = new EventClient(vertx)
 
   private var deploymentId: String = "CdnVerticleTest"
@@ -112,7 +111,7 @@ class CdnVerticleTest extends VertxAccess with MockitoSugar {
 
     val extendedFile = ExtendedFile(file)
 
-    val mockResponse = mock[HttpResponse[Buffer]]
+    val mockResponse = mock(classOf[HttpResponse[Buffer]])
 
     when(mockClient.postAbs("http://my.cdn.url/purge")).thenReturn(mockRequest)
     when(mockRequest.sendFuture()).thenReturn(Future.successful(mockResponse))

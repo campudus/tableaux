@@ -74,7 +74,7 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
      * Catch and ignore all exceptions here in order to not interrupt the main server.
      * Error handling and logging gets handled in Verticle.
      */
-    eventBus.sendFuture[String](address, jsonObj).map(_ => {}).recover { case _: Throwable => }
+    eventBus.sendFuture[String](address, Some(jsonObj)).map(_ => {}).recover { case _: Throwable => }
   }
 
   def cellChanged(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Unit] = {
@@ -172,25 +172,25 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     val thumbnailOptions = DeliveryOptions().setSendTimeout(timeout)
 
     eventBus
-      .sendFuture[String](ADDRESS_THUMBNAIL_RETRIEVE, message, thumbnailOptions).map(message => Path(message.body()))
+      .sendFuture[String](ADDRESS_THUMBNAIL_RETRIEVE, Some(message), thumbnailOptions).map(message => Path(message.body()))
   }
 
   def validateJson(key: String, json: JsonObject): Future[Unit] = {
     val message = Json.obj("key" -> key, "jsonToValidate" -> json, "jsonType" -> "object")
 
     eventBus
-      .sendFuture[String](ADDRESS_JSON_SCHEMA_VALIDATE, message)
+      .sendFuture[String](ADDRESS_JSON_SCHEMA_VALIDATE, Some(message))
       .map(_ => {})
   }
 
   def validateJson(key: String, json: JsonArray): Future[Unit] = {
     val message = Json.obj("key" -> key, "jsonToValidate" -> json, "jsonType" -> "array")
 
-    eventBus.sendFuture[String](ADDRESS_JSON_SCHEMA_VALIDATE, message).map(_ => {})
+    eventBus.sendFuture[String](ADDRESS_JSON_SCHEMA_VALIDATE, Some(message)).map(_ => {})
   }
 
   def registerSchema(schemaWithKey: JsonObject): Future[Unit] = {
-    eventBus.sendFuture[String](ADDRESS_JSON_SCHEMA_REGISTER, schemaWithKey).map(_ => {})
+    eventBus.sendFuture[String](ADDRESS_JSON_SCHEMA_REGISTER, Some(schemaWithKey)).map(_ => {})
   }
 
   def registerMultipleSchemas(schemaWithKeyList: List[JsonObject]): Future[List[Unit]] = {
@@ -201,14 +201,14 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     val cellValue = Json.obj("value" -> DomainObject.compatibilityGet(value))
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId, "rowId" -> rowId).copy().mergeIn(cellValue)
 
-    eventBus.sendFuture(ADDRESS_SET_CELL, obj, options)
+    eventBus.sendFuture(ADDRESS_SET_CELL, Some(obj), options)
   }
 
   def retrieveCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Option[Any]] = {
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId, "rowId" -> rowId)
 
     eventBus
-      .sendFuture[JsonObject](ADDRESS_RETRIEVE_CELL, obj, options)
+      .sendFuture[JsonObject](ADDRESS_RETRIEVE_CELL, Some(obj), options)
       .map({
         case v if v.body().containsKey("value") => Some(v.body().getValue("value"))
         case _ => None
@@ -227,14 +227,14 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     val rowValue = Json.obj("value" -> rowPermissions.rowPermissions)
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId).copy().mergeIn(rowValue)
 
-    eventBus.sendFuture(ADDRESS_SET_ROW_PERMISSIONS, obj, options)
+    eventBus.sendFuture(ADDRESS_SET_ROW_PERMISSIONS, Some(obj), options)
   }
 
   def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[Option[RowPermissions]] = {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
 
     eventBus
-      .sendFuture[JsonObject](ADDRESS_RETRIEVE_ROW_PERMISSIONS, obj, options)
+      .sendFuture[JsonObject](ADDRESS_RETRIEVE_ROW_PERMISSIONS, Some(obj), options)
       .map(value => {
         value match {
           case v if v.body().containsKey("value") => {
@@ -253,7 +253,7 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
   def invalidateRowPermissions(tableId: TableId, rowId: RowId): Future[_] = {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
 
-    eventBus.sendFuture(ADDRESS_INVALIDATE_ROW_PERMISSIONS, obj)
+    eventBus.sendFuture(ADDRESS_INVALIDATE_ROW_PERMISSIONS, Some(obj))
   }
 
   def setRowLevelAnnotations(
@@ -265,14 +265,14 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId).copy().mergeIn(rowValue)
 
     eventBus
-      .sendFuture(ADDRESS_SET_ROW_LEVEL_ANNOTATIONS, obj, options)
+      .sendFuture(ADDRESS_SET_ROW_LEVEL_ANNOTATIONS, Some(obj), options)
   }
 
   def retrieveRowLevelAnnotations(tableId: TableId, rowId: RowId): Future[Option[RowLevelAnnotations]] = {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
 
     eventBus
-      .sendFuture[JsonObject](ADDRESS_RETRIEVE_ROW_LEVEL_ANNOTATIONS, obj, options)
+      .sendFuture[JsonObject](ADDRESS_RETRIEVE_ROW_LEVEL_ANNOTATIONS, Some(obj), options)
       .map(value => {
         value match {
           case v if v.body().containsKey("value") => {
@@ -293,35 +293,35 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
   def invalidateRowLevelAnnotations(tableId: TableId, rowId: RowId): Future[_] = {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
 
-    eventBus.sendFuture(ADDRESS_INVALIDATE_ROW_LEVEL_ANNOTATIONS, obj)
+    eventBus.sendFuture(ADDRESS_INVALIDATE_ROW_LEVEL_ANNOTATIONS, Some(obj))
   }
 
   def invalidateTableRowLevelAnnotations(tableId: TableId): Future[_] = {
     val obj = Json.obj("tableId" -> tableId)
-    eventBus.sendFuture(ADDRESS_INVALIDATE_TABLE_ROW_LEVEL_ANNOTATIONS, obj)
+    eventBus.sendFuture(ADDRESS_INVALIDATE_TABLE_ROW_LEVEL_ANNOTATIONS, Some(obj))
   }
 
   def invalidateCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[_] = {
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId, "rowId" -> rowId)
-    eventBus.sendFuture(ADDRESS_INVALIDATE_CELL, obj, options)
+    eventBus.sendFuture(ADDRESS_INVALIDATE_CELL, Some(obj), options)
   }
 
   def invalidateColumn(tableId: TableId, columnId: ColumnId): Future[_] = {
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId)
-    eventBus.sendFuture(ADDRESS_INVALIDATE_COLUMN, obj)
+    eventBus.sendFuture(ADDRESS_INVALIDATE_COLUMN, Some(obj))
   }
 
   def invalidateRow(tableId: TableId, rowId: RowId): Future[_] = {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
-    eventBus.sendFuture(ADDRESS_INVALIDATE_ROW, obj)
+    eventBus.sendFuture(ADDRESS_INVALIDATE_ROW, Some(obj))
   }
 
   def invalidateTable(tableId: TableId): Future[_] = {
     val obj = Json.obj("tableId" -> tableId)
-    eventBus.sendFuture(ADDRESS_INVALIDATE_TABLE, obj)
+    eventBus.sendFuture(ADDRESS_INVALIDATE_TABLE, Some(obj))
   }
 
   def invalidateAll(): Future[_] = {
-    eventBus.sendFuture(ADDRESS_INVALIDATE_ALL, Json.emptyObj())
+    eventBus.sendFuture(ADDRESS_INVALIDATE_ALL, Some(Json.emptyObj()))
   }
 }

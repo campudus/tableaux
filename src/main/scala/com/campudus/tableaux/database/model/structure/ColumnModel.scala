@@ -28,14 +28,11 @@ import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-import com.google.common.cache.CacheBuilder
+import com.google.common.cache.{Cache => GuavaCache, CacheBuilder}
 import com.typesafe.scalalogging.LazyLogging
 import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit
 import org.checkerframework.checker.units.qual
-import scalacache._
-import scalacache.guava._
-import scalacache.modes.scalaFuture._
 
 object CachedColumnModel {
 
@@ -57,7 +54,31 @@ class CachedColumnModel(
     implicit roleModel: RoleModel
 ) extends ColumnModel(connection) {
 
-  implicit val scalaCache: Cache[Object] = GuavaCache(createCache())
+  private val cache: GuavaCache[String, Object] = createCache()
+
+  private def cacheKey(parts: Seq[Any]): String = parts.mkString(":")
+
+  private def cachingF[A](parts: Any*)(f: => Future[A]): Future[A] = {
+    val key = cacheKey(parts)
+
+    Option(cache.getIfPresent(key)) match {
+      case Some(value) => Future.successful(value.asInstanceOf[A])
+      case None =>
+        f.andThen({
+          case Success(value) => cache.put(key, value.asInstanceOf[Object])
+        })
+    }
+  }
+
+  private def remove(parts: Any*): Future[Unit] = {
+    cache.invalidate(cacheKey(parts))
+    Future.successful(())
+  }
+
+  private def removeAll(): Future[Unit] = {
+    cache.invalidateAll()
+    Future.successful(())
+  }
 
   private def createCache() = {
     val builder = CacheBuilder.newBuilder()
@@ -78,7 +99,7 @@ class CachedColumnModel(
 
     builder.recordStats()
 
-    builder.build[String, Entry[Object]]
+    builder.build[String, Object]()
   }
 
   def removeAllCache(): Future[Unit] = {
@@ -130,15 +151,15 @@ class CachedColumnModel(
   override def retrieve(table: Table, columnId: ColumnId)(
       implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
-    cachingF[Future, Object]("retrieve", table.id, columnId)(None)(
+    cachingF("retrieve", table.id, columnId)(
       super.retrieve(table, columnId)
-    ).asInstanceOf[Future[ColumnType[_]]]
+    )
   }
 
   override def retrieveAll(table: Table)(implicit user: TableauxUser): Future[Seq[ColumnType[_]]] = {
-    cachingF[Future, Object]("retrieveAll", table.id)(None)(
+    cachingF("retrieveAll", table.id)(
       super.retrieveAll(table)
-    ).asInstanceOf[Future[Seq[ColumnType[_]]]]
+    )
   }
 
   override def createColumns(table: Table, createColumns: Seq[CreateColumn])(
@@ -851,7 +872,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           |  show_member_columns,
           |  decimal_digits
           |  )
-          |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?::json, ?::json, ?, ?, ?, ?, ?)
           |  RETURNING column_id, ordering
           |""".stripMargin
     }
@@ -1819,8 +1840,9 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def getUpdateQueryFor(
-      columnName: String
-  ): String = s"UPDATE system_columns SET $columnName = ? WHERE table_id = ? AND column_id = ?"
+      columnName: String,
+      cast: String = ""
+  ): String = s"UPDATE system_columns SET $columnName = ?$cast WHERE table_id = ? AND column_id = ?"
 
   def change(
       table: Table,
@@ -1847,12 +1869,13 @@ class ColumnModel(val connection: DatabaseConnection)(
         t: DbTransaction,
         columnName: String,
         value: Option[VALUE_TYPE],
-        trans: VALUE_TYPE => _ = (v: VALUE_TYPE) => v
+        trans: VALUE_TYPE => _ = (v: VALUE_TYPE) => v,
+        cast: String = ""
     ): Future[(DbTransaction, JsonObject)] = {
       optionToValidFuture(
         value,
         t,
-        { v: VALUE_TYPE => t.query(getUpdateQueryFor(columnName), Json.arr(trans(v), tableId, columnId)) }
+        { v: VALUE_TYPE => t.query(getUpdateQueryFor(columnName, cast), Json.arr(trans(v), tableId, columnId)) }
       )
     }
 
@@ -1865,8 +1888,9 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t, resultKind) <- maybeUpdateColumn(t, "column_type", kind, (k: TableauxDbType) => k.name)
       (t, resultIdentifier) <- maybeUpdateColumn(t, "identifier", identifier)
       (t, resultSeparator) <- maybeUpdateColumn(t, "separator", separator)
-      (t, resultAttributes) <- maybeUpdateColumn(t, "attributes", attributes, (a: JsonObject) => a.encode())
-      (t, resultRules) <- maybeUpdateColumn(t, "rules", rules, (r: JsonArray) => r.encode())
+      (t, resultAttributes) <-
+        maybeUpdateColumn(t, "attributes", attributes, (a: JsonObject) => a.encode(), "::json")
+      (t, resultRules) <- maybeUpdateColumn(t, "rules", rules, (r: JsonArray) => r.encode(), "::json")
       (t, resultCountryCodes) <-
         maybeUpdateColumn(t, "country_codes", countryCodes, (c: Seq[String]) => Json.arr(c: _*))
       (t, resultHidden) <- maybeUpdateColumn(t, "hidden", hidden)

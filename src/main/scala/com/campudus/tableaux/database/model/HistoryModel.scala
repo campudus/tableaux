@@ -402,7 +402,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
            |  user_table_history_$tableId
            |    (row_id, column_id, event, history_type, value_type, language_type, value, author)
            |  VALUES
-           |    (?, ?, ?, ?, ?, ?, ?, ?)
+           |    (?, ?, ?, ?, ?, ?, ?::jsonb, ?)
            |  RETURNING revision""".stripMargin,
         Json.arr(
           rowId,

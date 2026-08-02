@@ -51,7 +51,7 @@ class TableModel(val connection: DatabaseConnection)(
 
           (t, result) <- t
             .query(
-              s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type, group_id, attributes, concat_format_pattern) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING table_id",
+              s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type, group_id, attributes, concat_format_pattern) VALUES (?, ?, ?, ?, ?, ?::json, ?) RETURNING table_id",
               Json
                 .arr(
                   name,
@@ -482,7 +482,7 @@ class TableModel(val connection: DatabaseConnection)(
         { attributes: JsonObject =>
           {
             t.query(
-              s"UPDATE system_table SET attributes = ? WHERE table_id = ?",
+              s"UPDATE system_table SET attributes = ?::json WHERE table_id = ?",
               Json.arr(attributes.encode(), tableId)
             )
           }

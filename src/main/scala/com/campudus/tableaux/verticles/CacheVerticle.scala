@@ -15,12 +15,9 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
-import com.google.common.cache.CacheBuilder
+import com.google.common.cache.{Cache => GuavaCache, CacheBuilder}
 import com.typesafe.scalalogging.LazyLogging
 import java.util.concurrent.TimeUnit
-import scalacache._
-import scalacache.guava._
-import scalacache.modes.scalaFuture._
 
 object CacheVerticle {
 
@@ -50,9 +47,35 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
   private lazy val eventBus = vertx.eventBus()
 
-  type CellCaches = mutable.Map[(TableId, ColumnId), Cache[AnyRef]]
-  type RowPermissionsCaches = mutable.Map[(TableId), Cache[AnyRef]]
-  type RowLevelAnnotationsCache = mutable.Map[(TableId), Cache[AnyRef]]
+  type Cache = GuavaCache[String, AnyRef]
+  type CellCaches = mutable.Map[(TableId, ColumnId), Cache]
+  type RowPermissionsCaches = mutable.Map[(TableId), Cache]
+  type RowLevelAnnotationsCache = mutable.Map[(TableId), Cache]
+
+  // Guava's Cache rejects null values outright, but a cached cell value can legitimately be null - wrap it in a
+  // sentinel so it can still be stored and cached as "present, value null" rather than "not cached at all".
+  private object NullValue
+
+  private def get(key: Any)(implicit cache: Cache): Future[Option[AnyRef]] =
+    Future.successful(Option(cache.getIfPresent(key.toString)).map({
+      case NullValue => null
+      case v => v
+    }))
+
+  private def put(key: Any)(value: AnyRef)(implicit cache: Cache): Future[Unit] = {
+    cache.put(key.toString, if (value == null) NullValue else value)
+    Future.successful(())
+  }
+
+  private def remove(key: Any)(implicit cache: Cache): Future[Unit] = {
+    cache.invalidate(key.toString)
+    Future.successful(())
+  }
+
+  private def removeAll()(implicit cache: Cache): Future[Unit] = {
+    cache.invalidateAll()
+    Future.successful(())
+  }
 
   private val cellCaches: CellCaches = mutable.Map.empty
   private val rowPermissionsCaches: RowPermissionsCaches = mutable.Map.empty
@@ -118,34 +141,34 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
     }
 
     builder.recordStats()
-    builder.build[String, Entry[AnyRef]]
+    builder.build[String, AnyRef]()
   }
 
-  private def getCellCache(tableId: TableId, columnId: ColumnId): Cache[AnyRef] = {
+  private def getCellCache(tableId: TableId, columnId: ColumnId): Cache = {
     cellCaches.get(tableId, columnId) match {
       case Some(cache) => cache
       case None =>
-        val cache: Cache[AnyRef] = GuavaCache(createCache())
+        val cache: Cache = createCache()
         cellCaches.put((tableId, columnId), cache)
         cache
     }
   }
 
-  private def getRowPermissionsCache(tableId: TableId): Cache[AnyRef] = {
+  private def getRowPermissionsCache(tableId: TableId): Cache = {
     rowPermissionsCaches.get(tableId) match {
       case Some(cache) => cache
       case None =>
-        val cache: Cache[AnyRef] = GuavaCache(createCache())
+        val cache: Cache = createCache()
         rowPermissionsCaches.put((tableId), cache)
         cache
     }
   }
 
-  private def getRowLevelAnnotationsCache(tableId: TableId): Cache[AnyRef] = {
+  private def getRowLevelAnnotationsCache(tableId: TableId): Cache = {
     rowLevelAnnotationsCache.get(tableId) match {
       case Some(cache) => cache
       case None =>
-        val cache: Cache[AnyRef] = GuavaCache(createCache())
+        val cache: Cache = createCache()
         rowLevelAnnotationsCache.put((tableId), cache)
         cache
     }
@@ -174,7 +197,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
     extractTableColumnRow(obj) match {
       case Some((tableId, columnId, rowId)) =>
-        implicit val scalaCache: Cache[AnyRef] = getCellCache(tableId, columnId)
+        implicit val scalaCache: Cache = getCellCache(tableId, columnId)
         put(rowId)(value).map(_ => replyJson(message, tableId, columnId, rowId))
 
       case None =>
@@ -188,7 +211,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
     extractTableColumnRow(obj) match {
       case Some((tableId, columnId, rowId)) =>
-        implicit val scalaCache: Cache[AnyRef] = getCellCache(tableId, columnId)
+        implicit val scalaCache: Cache = getCellCache(tableId, columnId)
 
         get(rowId)
           .map({
@@ -218,7 +241,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
     extractTableRow(obj) match {
       case Some((tableId, rowId)) => {
-        implicit val scalaCache: Cache[AnyRef] = getRowPermissionsCache(tableId)
+        implicit val scalaCache: Cache = getRowPermissionsCache(tableId)
         put(rowId)(value).map(_ => replyJson(message, tableId, rowId))
       }
       case None => {
@@ -233,7 +256,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
     extractTableRow(obj) match {
       case Some((tableId, rowId)) =>
-        implicit val scalaCache: Cache[AnyRef] = getRowPermissionsCache(tableId)
+        implicit val scalaCache: Cache = getRowPermissionsCache(tableId)
 
         get(rowId).map({
           case Some(value) => {
@@ -261,7 +284,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
     extractTableColumnRow(message.body()) match {
       case Some((tableId, columnId, rowId)) =>
         // invalidate cell
-        implicit val scalaCache: Cache[AnyRef] = getCellCache(tableId, columnId)
+        implicit val scalaCache: Cache = getCellCache(tableId, columnId)
         remove(rowId).map(_ => replyJson(message, tableId, columnId, rowId))
 
       case None =>
@@ -276,7 +299,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
     extractTableRow(obj) match {
       case Some((tableId, rowId)) => {
-        implicit val scalaCache: Cache[AnyRef] = getRowLevelAnnotationsCache(tableId)
+        implicit val scalaCache: Cache = getRowLevelAnnotationsCache(tableId)
         put(rowId)(value).map(_ => replyJson(message, tableId, rowId))
       }
       case None => {
@@ -291,7 +314,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
     extractTableRow(obj) match {
       case Some((tableId, rowId)) =>
-        implicit val scalaCache: Cache[AnyRef] = getRowLevelAnnotationsCache(tableId)
+        implicit val scalaCache: Cache = getRowLevelAnnotationsCache(tableId)
 
         get(rowId).map({
           case Some(value) => {
@@ -319,7 +342,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
     extractTableRow(message.body()) match {
       case Some((tableId, rowId)) =>
         // invalidate cell
-        implicit val scalaCache: Cache[AnyRef] = getRowLevelAnnotationsCache(tableId)
+        implicit val scalaCache: Cache = getRowLevelAnnotationsCache(tableId)
 
         remove(rowId).map(_ => replyJson(message, tableId, rowId))
 
@@ -368,7 +391,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
     } yield (tableId, columnId)) match {
       case Some((tableId, columnId)) =>
         // invalidate column
-        implicit val scalaCache: Cache[AnyRef] = getCellCache(tableId, columnId)
+        implicit val scalaCache: Cache = getCellCache(tableId, columnId)
 
         removeAll()
           .map(_ => {
@@ -449,7 +472,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
   private def messageHandlerInvalidateAll(message: Message[JsonObject]): Unit = {
     Future.sequence(cellCaches.map({
       case ((tableId, columnId), cache) =>
-        implicit val implicitCache: Cache[AnyRef] = implicitly(cache)
+        implicit val implicitCache: Cache = cache
 
         removeAll().map(_ => removeCache(tableId, columnId))
     })).onComplete(_ => {
@@ -464,7 +487,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
     extractTableRow(message.body()) match {
       case Some((tableId, rowId)) =>
         // invalidate cell
-        implicit val scalaCache: Cache[AnyRef] = getRowPermissionsCache(tableId)
+        implicit val scalaCache: Cache = getRowPermissionsCache(tableId)
         remove(rowId).map(_ => replyJson(message, tableId, rowId))
 
       case None =>

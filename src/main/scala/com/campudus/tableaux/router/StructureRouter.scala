@@ -54,8 +54,10 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 
     // all following routes may require Json in the request body
     val bodyHandler = BodyHandler.create()
+    router.post(tables).handler(bodyHandler)
     router.post("/tables/*").handler(bodyHandler)
     router.patch("/tables/*").handler(bodyHandler)
+    router.post(groups).handler(bodyHandler)
     router.post("/groups/*").handler(bodyHandler)
     router.patch("/groups/*").handler(bodyHandler)
 

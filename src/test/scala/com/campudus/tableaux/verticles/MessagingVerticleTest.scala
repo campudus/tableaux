@@ -32,14 +32,13 @@ import scala.util.{Failure, Success, Try}
 import org.junit.{After, Before, Test}
 import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{doAnswer, spy}
-import org.mockito.captor.ArgCaptor
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatestplus.mockito.MockitoSugar
 
 @RunWith(classOf[VertxUnitRunner])
-class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
+class MessagingVerticleTest extends TableauxTestBase {
   val answers: MutableList[JsonObject] = MutableList()
   var eventClient: EventClient = _
   var tableauxModel: TableauxModel = _
@@ -108,9 +107,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     val options = DeploymentOptions()
       .setConfig(verticleConfig)
 
-    val spiedMessagingVerticle = spy(new MessagingVerticle(tableauxConfig))
-    val listenersCaptor = ArgCaptor[Seq[Service]]
-    val payloadCaptor = ArgCaptor[JsonObject]
+    val spiedMessagingVerticle = spy[MessagingVerticle](new MessagingVerticle(tableauxConfig))
 
     doAnswer(new Answer[Future[Seq[Any]]] {
       override def answer(i: InvocationOnMock): Future[Seq[Any]] = {
@@ -132,8 +129,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
 
       }
     }).when(spiedMessagingVerticle).sendMessage(
-      listenersCaptor,
-      payloadCaptor
+      any[Seq[Service]](),
+      any[JsonObject]()
     )
     implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
 

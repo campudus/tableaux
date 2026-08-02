@@ -49,22 +49,23 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
       .filter({ case (_, v) => v.isDefined })
       .map({ case (k, v) => (k, v.get) })
 
-    val columnString2valueString: Map[String, String] = paramsToUpdate.map({
+    val columnString2value: Map[String, AnyRef] = paramsToUpdate.map({
       case (columnName, value) =>
-        val columnString = s"$columnName = ?"
-
-        val valueString = value match {
-          case m: MultiLanguageValue[_] => m.getJson.toString
-          case a => a.toString
+        // Only MultiLanguageValue needs stringifying - priority (Int) and is_multilang/is_dashboard (Boolean)
+        // need to reach the reactive Postgres client as their natural type, not as a String. display_name is a
+        // `json` column, so the pre-stringified value needs an explicit cast (see SQLConnection.toBindValue).
+        val (bindValue: AnyRef, cast) = value match {
+          case m: MultiLanguageValue[_] => (m.getJson.toString, "::json")
+          case a: AnyRef => (a, "")
         }
 
-        columnString -> valueString
+        s"$columnName = ?$cast" -> bindValue
     })
 
-    val columnsString = columnString2valueString.keys.mkString(", ")
+    val columnsString = columnString2value.keys.mkString(", ")
     val update = s"UPDATE $table SET $columnsString WHERE name = ?"
 
-    val binds = Json.arr(columnString2valueString.values.toSeq: _*).add(name)
+    val binds = Json.arr(columnString2value.values.toSeq: _*).add(name)
 
     for {
       _ <- connection.query(update, binds)
@@ -127,7 +128,7 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
                     |  is_multilang,
                     |  is_dashboard)
                     |VALUES
-                    |  (?, COALESCE(?, (SELECT MAX(priority) FROM $table) + 1, 1), ?, ?, ?, ?, ?) RETURNING name""".stripMargin
+                    |  (?, COALESCE(?, (SELECT MAX(priority) FROM $table) + 1, 1), ?, ?, ?::json, ?, ?) RETURNING name""".stripMargin
 
     for {
       _ <- checkUniqueName(name)

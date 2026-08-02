@@ -242,7 +242,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
            |INSERT INTO user_settings_global AS usg
            |  (key, value, user_id)
            |VALUES
-           |  (?, ?, ?)
+           |  (?, ?::jsonb, ?)
            |ON CONFLICT (key, user_id)
            |DO UPDATE SET
            |  value = EXCLUDED.value
@@ -272,7 +272,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
            |INSERT INTO user_settings_table AS ust
            |  (key, value, user_id, table_id)
            |VALUES
-           |  (?, ?, ?, ?)
+           |  (?, ?::jsonb, ?, ?)
            |ON CONFLICT (key, user_id, table_id)
            |DO UPDATE SET
            |  value = EXCLUDED.value
@@ -304,7 +304,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
            |INSERT INTO user_settings_filter
            |  (key, value, user_id, name)
            |VALUES
-           |  (?, ?, ?, ?)
+           |  (?, ?::jsonb, ?, ?)
            |RETURNING id
           """.stripMargin,
         Json.arr(settingKey, settingValue, user.name, settingName)
