@@ -21,7 +21,7 @@ import org.junit.runner.RunWith
 sealed trait Helper extends LinkTestBase {
 
   def findByNameInColumnsArray(columnName: String)(jsonArray: JsonArray): JsonObject = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     jsonArray.asScala
       .collect({
@@ -73,7 +73,7 @@ sealed trait Helper extends LinkTestBase {
   }
 
   def filterArchivedRows(jsonArray: JsonArray): Seq[JsonObject] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     jsonArray.asScala
       .collect({
@@ -689,7 +689,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
   @Test
   def patchTwoRowsToPointToSameForeignRowsShouldFail(implicit c: TestContext): Unit = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     okTest {
       for {
@@ -874,7 +874,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
   @Test
   def patchAndRetrieveWithHigherCardinality(implicit c: TestContext): Unit = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     okTest {
       for {
@@ -1587,7 +1587,7 @@ class LinkFinalCascadeTest extends LinkTestBase with Helper {
   }
 
   def filterFinalRows(jsonArray: JsonArray): Seq[JsonObject] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     jsonArray.asScala
       .collect({

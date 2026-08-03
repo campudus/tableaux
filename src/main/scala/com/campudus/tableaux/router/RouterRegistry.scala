@@ -86,12 +86,12 @@ object RouterRegistry extends LazyLogging {
     val userRouter = UserRouter(tableauxConfig, UserController(_, userModel, roleModel))
 
     def registerCommonRoutes(router: Router) = {
-      router.mountSubRouter("/system", systemRouter.route)
-      router.mountSubRouter("/", structureRouter.route)
-      router.mountSubRouter("/", tableauxRouter.route)
-      router.mountSubRouter("/", mediaRouter.route)
-      router.mountSubRouter("/docs", documentationRouter.route)
-      router.mountSubRouter("/user", userRouter.route)
+      router.route("/system*").subRouter(systemRouter.route)
+      router.route("/*").subRouter(structureRouter.route)
+      router.route("/*").subRouter(tableauxRouter.route)
+      router.route("/*").subRouter(mediaRouter.route)
+      router.route("/docs*").subRouter(documentationRouter.route)
+      router.route("/user*").subRouter(userRouter.route)
 
       router.get("/").handler(systemRouter.defaultRoute)
       router.get("/index.html").handler(systemRouter.defaultRoute)
@@ -101,7 +101,7 @@ object RouterRegistry extends LazyLogging {
 
     def registerPublicRoutes(router: Router) = {
       logger.info("Registering public routes")
-      router.mountSubRouter("/", mediaRouter.publicRoute)
+      router.route("/*").subRouter(mediaRouter.publicRoute)
     }
 
     def initManualAuth() = {

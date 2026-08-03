@@ -23,9 +23,9 @@ import io.vertx.core.Vertx
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
-import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import com.google.common.cache.{Cache => GuavaCache, CacheBuilder}
@@ -804,7 +804,7 @@ class ColumnModel(val connection: DatabaseConnection)(
               name = linkColumnInfo.foreignLinkColumn.name.getOrElse(table.name),
               identifier = false,
               displayInfos = linkColumnInfo.foreignLinkColumn.displayInfos.getOrElse({
-                table.displayInfos.map({
+                table.displayInfos.collect({
                   case DisplayInfo(langtag, Some(name), _) =>
                     NameOnly(langtag, name)
                 })

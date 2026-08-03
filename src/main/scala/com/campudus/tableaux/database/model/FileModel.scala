@@ -195,7 +195,7 @@ class FileModel(override protected val connection: DatabaseConnection) extends D
   }
 
   private def convertRowToFile(row: JsonArray): TableauxFile = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     val folders: Seq[Long] = Option(row.getString(2)) match {
       case None => Seq.empty[Long]

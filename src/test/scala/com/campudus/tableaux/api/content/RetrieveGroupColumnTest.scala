@@ -49,7 +49,7 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
       rowsOnlyGroupColumn <- sendRequest("GET", s"/tables/$tableId/columns/$groupColumnId/rows")
         .map(_.getJsonArray("rows"))
     } yield {
-      import scala.collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
 
       val expected = Json.arr(
         Json.obj(
@@ -138,7 +138,7 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
         .map(_.getJsonArray("rows"))
 
     } yield {
-      import scala.collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
 
       val expectedOnlyGroupColumnValue = Json.arr(
         Json.obj(
@@ -226,7 +226,7 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
         .map(_.getJsonArray("rows"))
 
     } yield {
-      import scala.collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
 
       val expectedOnlyGroupColumnValue = Json.arr(
         Json.obj(

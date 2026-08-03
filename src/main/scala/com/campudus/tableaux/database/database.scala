@@ -42,7 +42,7 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
   }
 
   protected def convertJsonArrayToSeq[A](arr: JsonArray, converter: AnyRef => A): Seq[A] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     Option(arr).getOrElse(Json.emptyArr()).asScala.toSeq.map(converter)
   }
@@ -134,7 +134,7 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
   def query(stmt: String, parameter: JsonArray): Future[JsonObject] = doMagicQuery(stmt, Some(parameter), connection)
 
-  def begin(): Future[DbTransaction] = connection.transaction().map(Transaction)
+  def begin(): Future[DbTransaction] = connection.transaction().map(Transaction.apply)
 
   def transactional[A](fn: TransFunc[A]): Future[A] = {
     for {
@@ -255,7 +255,7 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
   }
 
   private def mapResultSet(rowSet: RowSet[Row]): JsonObject = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     val columnNames = rowSet.columnsNames().asScala.toSeq
     val results = Json.arr(rowSet.iterator().asScala.map(rowToJsonArray(_, columnNames.size)).toSeq*)

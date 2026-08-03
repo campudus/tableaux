@@ -6,9 +6,9 @@ import io.vertx.core.Vertx
 import io.vertx.lang.scala.*
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.io.Source
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import java.nio.file.FileAlreadyExistsException

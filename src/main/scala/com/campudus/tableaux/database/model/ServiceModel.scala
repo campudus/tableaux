@@ -63,11 +63,11 @@ class ServiceModel(override protected val connection: DatabaseConnection)(
         // (Boolean) need to reach the reactive Postgres client as their natural type, not as a String.
         // displayname/description are `json` columns, so the pre-stringified value needs an explicit cast (see
         // SQLConnection.toBindValue); config/scope are passed through as native JsonObjects, which need no cast.
-        val (bindValue: AnyRef, cast) = value match {
+        val (bindValue: AnyRef, cast) = (value match {
           case m: MultiLanguageValue[_] => (m.getJson.toString, "::json")
           case s: ServiceType => (s.toString, "")
-          case a: AnyRef => (a, "")
-        }
+          case _ => (value, "")
+        }): @unchecked
 
         s"$columnName = ?$cast" -> bindValue
     })

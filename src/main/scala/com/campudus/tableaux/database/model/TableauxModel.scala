@@ -13,9 +13,9 @@ import com.campudus.tableaux.verticles.EventClient
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 import scala.util.{Failure, Success}
 import scala.util.Try

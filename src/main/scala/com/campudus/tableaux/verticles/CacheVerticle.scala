@@ -414,7 +414,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
   private def filterCellCaches(tableId: TableId) = {
     // invalidate table
-    cellCaches.filterKeys({
+    cellCaches.view.filterKeys({
       case (cachedTableId, _) =>
         cachedTableId == tableId
     }).values
@@ -422,7 +422,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
   private def filterRowLevelAnnotationsCache(tableId: TableId) = {
     // invalidate table
-    rowLevelAnnotationsCache.filterKeys({
+    rowLevelAnnotationsCache.view.filterKeys({
       case (cachedTableId) => cachedTableId == tableId
     }).values
   }

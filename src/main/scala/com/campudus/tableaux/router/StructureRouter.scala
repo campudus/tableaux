@@ -9,7 +9,7 @@ import com.campudus.tableaux.router.auth.permission.TableauxUser
 import io.vertx.ext.web.{Router, RoutingContext}
 import io.vertx.ext.web.handler.BodyHandler
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 object StructureRouter {

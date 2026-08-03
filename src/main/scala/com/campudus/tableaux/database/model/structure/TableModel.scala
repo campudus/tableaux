@@ -12,8 +12,8 @@ import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleMode
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 class TableModel(val connection: DatabaseConnection)(
     implicit roleModel: RoleModel
@@ -349,10 +349,12 @@ class TableModel(val connection: DatabaseConnection)(
   ): Seq[Table] = {
     val displayInfoTable = resultObjectToJsonArray(result)
       .groupBy(_.getLong(0).longValue())
+      .view
       .mapValues(
         _.filter(arr => Option(arr.getString(2)).isDefined || Option(arr.getString(3)).isDefined)
           .map(arr => DisplayInfos.fromString(arr.getString(1), arr.getString(2), arr.getString(3)))
       )
+      .toMap
 
     tables.map({ table =>
       {

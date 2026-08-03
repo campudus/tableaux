@@ -15,8 +15,8 @@ import io.vertx.lang.scala.{ScalaVerticle, *}
 import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import com.twelvemonkeys.image.ResampleOp
@@ -247,7 +247,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
           createAndSaveThumbnail(filePath, thumbnailPath, width, resizeFilter)
         }
       })
-    } yield thumbnailPath.toString
+    } yield thumbnailPath
   }
 
   private def retrieveThumbnailPath(message: Message[JsonObject]): Unit = {

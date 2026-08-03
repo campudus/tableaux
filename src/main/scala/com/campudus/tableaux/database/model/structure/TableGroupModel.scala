@@ -78,6 +78,7 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
   private def mapDisplayInfosIntoTableGroup(result: JsonObject): Seq[TableGroup] = {
     val displayInfoTable = resultObjectToJsonArray(result)
       .groupBy(_.getLong(0).longValue())
+      .view
       .mapValues(
         _.filter(arr => Option(arr.getString(2)).isDefined || Option(arr.getString(3)).isDefined)
           .map(arr => DisplayInfos.fromString(arr.getString(1), arr.getString(2), arr.getString(3)))

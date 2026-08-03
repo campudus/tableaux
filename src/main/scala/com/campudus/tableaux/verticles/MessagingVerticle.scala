@@ -18,9 +18,9 @@ import io.vertx.lang.scala.{ScalaVerticle, *}
 import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.Json
 
-import scala.collection.JavaConverters._
 import scala.compiletime.uninitialized
 import scala.concurrent.{Future, Promise}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging

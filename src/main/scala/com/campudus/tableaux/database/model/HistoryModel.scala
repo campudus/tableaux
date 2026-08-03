@@ -11,8 +11,8 @@ import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 import java.util.UUID
@@ -661,7 +661,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  private def retrieveCellValue(table: Table, column: ColumnType[?], rowId: RowId)(implicit
+  private def retrieveCellValue(table: Table, column: SimpleValueColumn[?], rowId: RowId)(implicit
       user: TableauxUser): Future[Option[Any]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
@@ -834,7 +834,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
             )
           } yield historyRowId
         )
-      case (_, MultiCountry(_)) => Seq.empty[Future[RowId]]
+      case (_, _: MultiCountry) => Seq.empty[Future[RowId]]
     }
 
     Future.sequence(futureSequence)
@@ -851,7 +851,11 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       column <- multis
       langtag <- column.languageType match {
         case MultiLanguage => table.langtags.getOrElse(Seq.empty[String])
-        case MultiCountry(countryCodes) => countryCodes.codes
+        case c: MultiCountry => c.countryCodes.codes
+        case LanguageNeutral =>
+          throw new IllegalArgumentException(
+            s"Column ${column.name} with LanguageNeutral type must not be classified as multi-language"
+          )
       }
     } yield (column, Map(langtag -> None))
 

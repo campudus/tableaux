@@ -363,7 +363,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
   }
 
   def filterByType(historyType: String)(jsonArray: JsonArray): Seq[JsonObject] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     jsonArray.asScala
       .collect({

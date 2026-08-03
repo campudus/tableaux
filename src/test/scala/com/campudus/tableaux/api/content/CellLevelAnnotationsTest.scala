@@ -250,7 +250,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         val rowJson1Column1Annotations = rowJson1.getJsonArray("annotations").getJsonArray(0)
         val rowJson1Column2Annotations = rowJson1.getJsonArray("annotations").getJsonArray(1)
 
-        import scala.collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
 
         // assert that each annotation has a UUID
         assertTrue(rowJson1Column1Annotations.asScala.map(_.asInstanceOf[JsonObject]).forall(_.containsKey("uuid")))

@@ -9,7 +9,7 @@ object RequestCreation {
 
   case class Rows(columns: JsonArray, valueObjects: JsonObject*) extends DomainObject {
 
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     val columnSeq = columns.asScala.toList
       .map(_.asInstanceOf[JsonObject])

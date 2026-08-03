@@ -43,7 +43,7 @@ object History {
       case HistoryTypeRow => RowHistory(baseHistory, value)
       case HistoryTypeRowFlag => RowFlagHistory(baseHistory, valueType)
       case HistoryTypeRowPermissions => RowPermissionsHistory(baseHistory, valueType, value)
-      case _ => throw new IllegalArgumentException(s"Invalid historyType for CellHistory.apply $historyType")
+      case null => throw new IllegalArgumentException(s"Invalid historyType for CellHistory.apply $historyType")
     }
   }
 

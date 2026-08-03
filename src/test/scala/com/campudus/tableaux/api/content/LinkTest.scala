@@ -496,7 +496,7 @@ class LinkColumnTest extends LinkTestBase {
 
 @RunWith(classOf[VertxUnitRunner])
 class LinkTest extends LinkTestBase {
-  import scala.collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
 
   @Test
   def fillAndRetrieveLinkCell(implicit c: TestContext): Unit = {
@@ -1600,7 +1600,7 @@ class LinkOrderTest extends LinkTestBase {
         getFromTable2Row2 <- sendRequest("GET", s"/tables/2/columns/$linkColumnId/rows/2")
       } yield {
 
-        import scala.collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
 
         assertEquals(
           List(1, 2, 3),
@@ -1646,7 +1646,7 @@ class LinkOrderTest extends LinkTestBase {
         getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
         getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
       } yield {
-        import scala.collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
 
         assertEquals(
           List(2, 3, 1),
@@ -1683,7 +1683,7 @@ class LinkOrderTest extends LinkTestBase {
         getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
         getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
       } yield {
-        import scala.collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
 
         assertEquals(
           List(3, 1, 2),
@@ -1728,7 +1728,7 @@ class LinkOrderTest extends LinkTestBase {
         getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
         getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
       } yield {
-        import scala.collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
 
         assertEquals(
           List(2, 1, 3),

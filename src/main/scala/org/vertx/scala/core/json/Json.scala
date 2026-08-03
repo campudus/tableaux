@@ -147,7 +147,7 @@ object Json {
   def obj(fields: (String, Any)*): core.json.JsonObject = {
     val o = new core.json.JsonObject()
     fields.foreach {
-      case (key, l: Array[_]) => addToObject(o, key, listToJsArr(l))
+      case (key, l: Array[_]) => addToObject(o, key, listToJsArr(l.toIndexedSeq))
       case (key, l: Seq[_]) => addToObject(o, key, listToJsArr(l))
       case (key, value) => addToObject(o, key, value)
     }
@@ -166,7 +166,7 @@ object Json {
   def arr(fields: Any*): core.json.JsonArray = {
     val a = new core.json.JsonArray()
     fields.foreach {
-      case array: Array[_] => addToArray(a, listToJsArr(array))
+      case array: Array[_] => addToArray(a, listToJsArr(array.toIndexedSeq))
       case seq: Seq[_] => addToArray(a, listToJsArr(seq))
       case f => addToArray(a, f)
     }

@@ -12,8 +12,8 @@ import com.campudus.tableaux.verticles.EventClient
 
 import org.vertx.scala.core.json.{Json, _}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
@@ -280,6 +280,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     val setExpression = columns
       .map({
         case MultiLanguageColumn(column) => s"column_${column.id} = NULL"
+        case column => throw new IllegalArgumentException(s"Column ${column.name} is not a MultiLanguage column")
       })
       .mkString(", ")
 
@@ -773,6 +774,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
     val columnsForLang = entries
       .groupBy({ case (langtag, _) => langtag })
+      .view
       .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
 
     if (columnsForLang.nonEmpty) {
@@ -951,7 +953,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
         updateResult = rawRow match {
           case Some(Seq(uuidStr: String, langtagsStr: String, createdAt: String)) =>
-            import scala.collection.JavaConverters._
+            import scala.jdk.CollectionConverters._
 
             Some(
               UUID.fromString(uuidStr),
@@ -1086,6 +1088,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
     val columnsForLang = entries
       .groupBy({ case (langtag, _) => langtag })
+      .view
       .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
 
     if (columnsForLang.nonEmpty) {
@@ -1139,7 +1142,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     val projection = column.languageType match {
       case LanguageNeutral => s"ut.column_${column.id}"
-      case MultiLanguage | MultiCountry(_) => s"utl.column_${column.id}"
+      case MultiLanguage | (_: MultiCountry) => s"utl.column_${column.id}"
     }
 
     val (whereClause, bind) = (column.languageType, langtagOpt) match {
@@ -1204,7 +1207,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
                 value,
                 createdAtStr: String
               ) =>
-            import scala.collection.JavaConverters._
+            import scala.jdk.CollectionConverters._
 
             (
               tables.find(table => table.id == tableId).getOrElse(Table(tableId)),
@@ -1251,6 +1254,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
                       .groupBy({
                         case (_, _, columnId: ColumnId, _) => columnId
                       })
+                      .view
                       .mapValues(_.map({
                         case (_, _, _, annotation) => annotation
                       }))
@@ -1314,6 +1318,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         .groupBy({
           case (tableId: TableId, _) => tableId
         })
+        .view
         .mapValues(_.map({
           case (_, annotationTypeCount: CellAnnotationCount) => annotationTypeCount
         }))
@@ -1479,7 +1484,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
           RowLevelAnnotations(finalFlag, archivedFlag),
           RowPermissions(rowPermissions),
           CellLevelAnnotations(columns, cellAnnotations),
-          (columns, rawValues).zipped.map(mapValueByColumnType)
+          columns.lazyZip(rawValues).map(mapValueByColumnType)
         )
       case _ =>
         throw UnknownServerException(s"Please check generateProjection!")
@@ -1526,6 +1531,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         val castedMap = Json
           .fromObjectString(obj.toString)
           .asMap
+          .view
           .mapValues(Option(_))
           .mapValues({
             case None =>
@@ -1648,7 +1654,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       case _: SimpleValueColumn[_] =>
         (s"column_${c.to.id}", s"ut$toTableId.column_${c.to.id}")
 
-      // no case needed for AttachmentColumn yet
+      case _ =>
+        // no case needed for LinkColumn/AttachmentColumn yet
+        throw new IllegalArgumentException(
+          s"Linking to a LinkColumn or AttachmentColumn (column ${c.to.id}) is not supported"
+        )
     }
 
     s"""(
