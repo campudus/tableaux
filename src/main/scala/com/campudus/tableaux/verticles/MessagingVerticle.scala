@@ -233,7 +233,7 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
 
   }
 
-  private def completionAsFuture(consumer: io.vertx.core.eventbus.MessageConsumer[_]): Future[Unit] = {
+  private def completionAsFuture(consumer: io.vertx.core.eventbus.MessageConsumer[?]): Future[Unit] = {
     val promise = Promise[Unit]()
     consumer.completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
     promise.future
@@ -241,7 +241,7 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
 
   private def registerConsumers(): Future[Unit] = {
     def listen(address: String, handler: Message[JsonObject] => Future[Seq[Any]]): Future[Unit] = {
-      completionAsFuture(eventBus.consumer(address, errorHandler(handler) _))
+      completionAsFuture(eventBus.consumer(address, errorHandler(handler)))
     }
 
     listen(ADDRESS_CELL_CHANGED, messageHandlerCellChanged)

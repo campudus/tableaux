@@ -74,7 +74,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
   protected val config: TableauxConfig
 
-  protected[this] implicit def roleModel: RoleModel
+  protected implicit def roleModel: RoleModel
 
   def createTable(name: String, hidden: Boolean)(implicit user: TableauxUser): Future[Table] = {
     structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None, None, None, None)
@@ -92,23 +92,23 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
   def createColumns(table: Table, columns: Seq[CreateColumn])(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
+  ): Future[Seq[ColumnType[?]]] = {
     structureModel.columnStruc.createColumns(table, columns)
   }
 
   def retrieveColumn(table: Table, columnId: ColumnId)(
       implicit user: TableauxUser
-  ): Future[ColumnType[_]] = {
+  ): Future[ColumnType[?]] = {
     structureModel.columnStruc.retrieve(table, columnId)
   }
 
   def retrieveColumns(table: Table, isInternalCall: Boolean = false)(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
+  ): Future[Seq[ColumnType[?]]] = {
     for {
       allColumns <- structureModel.columnStruc.retrieveAll(table)
       filteredColumns = roleModel
-        .filterDomainObjects[ColumnType[_]](ViewColumn, allColumns, ComparisonObjects(table), isInternalCall)
+        .filterDomainObjects[ColumnType[?]](ViewColumn, allColumns, ComparisonObjects(table), isInternalCall)
 
     } yield filteredColumns
   }
@@ -117,7 +117,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.columnStruc.retrieveDependencies(table.id)
   }
 
-  def retrieveDependentGroupColumns(column: ColumnType[_]): Future[Seq[DependentColumnInformation]] = {
+  def retrieveDependentGroupColumns(column: ColumnType[?]): Future[Seq[DependentColumnInformation]] = {
     structureModel.columnStruc.retrieveDependentGroupColumn(column.table.id, column.id)
   }
 
@@ -127,9 +127,9 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 }
 
 class TableauxModel(
-    override protected[this] val connection: DatabaseConnection,
-    override protected[this] val structureModel: StructureModel,
-    override protected[this] val config: TableauxConfig
+    override protected val connection: DatabaseConnection,
+    override protected val structureModel: StructureModel,
+    override protected val config: TableauxConfig
 )(override implicit val roleModel: RoleModel)
     extends DatabaseQuery
     with StructureDelegateModel {
@@ -190,8 +190,8 @@ class TableauxModel(
 
   def retrieveDependentRows(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[DependentRowsSeq] = {
     val retrieveFn = table.tableType match {
-      case UnionTable => retrieveUnionTableDependentRows _
-      case _ => retrieveDependentRowsInternal _
+      case UnionTable => retrieveUnionTableDependentRows
+      case _ => retrieveDependentRowsInternal
     }
     retrieveFn(table, rowId)
   }
@@ -480,7 +480,7 @@ class TableauxModel(
       rowUpdate: Seq[(ColumnId, Any)],
       rowPermissionOpt: Option[Seq[String]],
       forceHistory: Boolean = false
-  )(implicit user: TableauxUser): Future[Seq[Cell[_]]] = {
+  )(implicit user: TableauxUser): Future[Seq[Cell[?]]] = {
     for {
       allColumns <- retrieveColumns(table)
       columns = roleModel.filterDomainObjects(ViewColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
@@ -505,7 +505,7 @@ class TableauxModel(
       rowUpdate: Seq[(ColumnId, Any)],
       rowPermissionOpt: Option[Seq[String]],
       forceHistory: Boolean = false
-  )(implicit user: TableauxUser): Future[Seq[Cell[_]]] = {
+  )(implicit user: TableauxUser): Future[Seq[Cell[?]]] = {
     for {
       allColumns <- retrieveColumns(table)
       columns = roleModel.filterDomainObjects(ViewColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
@@ -520,7 +520,7 @@ class TableauxModel(
   }
 
   def addCellAnnotation(
-      column: ColumnType[_],
+      column: ColumnType[?],
       rowId: RowId,
       langtags: Seq[String],
       annotationType: CellAnnotationType,
@@ -538,7 +538,7 @@ class TableauxModel(
     } yield CellLevelAnnotation(uuid, annotationType, mergedLangtags, value, createdAt)
   }
 
-  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID)(
+  def deleteCellAnnotation(column: ColumnType[?], rowId: RowId, uuid: UUID)(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
@@ -551,7 +551,7 @@ class TableauxModel(
     } yield ()
   }
 
-  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID, langtag: String)(
+  def deleteCellAnnotation(column: ColumnType[?], rowId: RowId, uuid: UUID, langtag: String)(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
@@ -569,7 +569,7 @@ class TableauxModel(
       rowId: RowId,
       rowAnnotationType: RowAnnotationType,
       flag: Boolean
-  )(implicit user: TableauxUser): Future[_] = {
+  )(implicit user: TableauxUser): Future[?] = {
     for {
       _ <- updateRowModel.updateRowAnnotation(table.id, rowId, rowAnnotationType, flag)
       _ <- createHistoryModel.createRowsAnnotationHistory(table.id, flag, rowAnnotationType, Seq(rowId))
@@ -665,7 +665,7 @@ class TableauxModel(
 
   def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId)(
       implicit user: TableauxUser
-  ): Future[Cell[_]] = {
+  ): Future[Cell[?]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
@@ -691,8 +691,8 @@ class TableauxModel(
       columnId: ColumnId,
       rowId: RowId,
       toId: LinkId,
-      locationType: LocationType[_]
-  )(implicit user: TableauxUser): Future[Cell[_]] = {
+      locationType: LocationType[?]
+  )(implicit user: TableauxUser): Future[Cell[?]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
@@ -718,8 +718,8 @@ class TableauxModel(
       columnId: ColumnId,
       rowId: RowId,
       attachmentId: UUID,
-      locationType: LocationType[_]
-  )(implicit user: TableauxUser): Future[Cell[_]] = {
+      locationType: LocationType[?]
+  )(implicit user: TableauxUser): Future[Cell[?]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
@@ -740,7 +740,7 @@ class TableauxModel(
     } yield updatedCell
   }
 
-  private def checkValueTypeForColumn[A](column: ColumnType[_], value: A): Future[Unit] = {
+  private def checkValueTypeForColumn[A](column: ColumnType[?], value: A): Future[Unit] = {
     (column match {
       case MultiLanguageColumn(c) => MultiLanguageColumn.checkValidValue(c, value)
       case c => c.checkValidValue(value)
@@ -750,9 +750,9 @@ class TableauxModel(
     }
   }
 
-  private def checkValueLengthOfTextCell[A](column: ColumnType[_], value: A): Future[Unit] = {
+  private def checkValueLengthOfTextCell[A](column: ColumnType[?], value: A): Future[Unit] = {
 
-    val getLengthLimitAttributes: (ColumnType[_]) => (Option[Int], Option[Int]) = (column) => {
+    val getLengthLimitAttributes: (ColumnType[?]) => (Option[Int], Option[Int]) = (column) => {
       val minLength = column.columnInformation.minLength
       val maxLength = column.columnInformation.maxLength
       (minLength, maxLength)
@@ -814,7 +814,7 @@ class TableauxModel(
     }
   }
 
-  private def hasCellChanged(oldCell: Cell[_], newCell: Cell[_]): Boolean = oldCell.value != newCell.value
+  private def hasCellChanged(oldCell: Cell[?], newCell: Cell[?]): Boolean = oldCell.value != newCell.value
 
   private def updateOrReplaceValue[A](
       table: Table,
@@ -824,7 +824,7 @@ class TableauxModel(
       replace: Boolean = false,
       forceHistory: Boolean = false,
       maybeTransaction: Option[DbTransaction] = None
-  )(implicit user: TableauxUser): Future[Cell[_]] = {
+  )(implicit user: TableauxUser): Future[Cell[?]] = {
     for {
       _ <- checkForSettingsTable(table, columnId, "can't update key cell of a settings table")
 
@@ -876,17 +876,17 @@ class TableauxModel(
 
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
-  ): Future[Cell[_]] =
+  ): Future[Cell[?]] =
     updateOrReplaceValue(table, columnId, rowId, value, forceHistory = forceHistory)
 
   def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
-  ): Future[Cell[_]] =
+  ): Future[Cell[?]] =
     updateOrReplaceValue(table, columnId, rowId, value, replace = true, forceHistory = forceHistory)
 
   def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId)(
       implicit user: TableauxUser
-  ): Future[Cell[_]] = {
+  ): Future[Cell[?]] = {
     for {
       _ <- checkForSettingsTable(table, columnId, "can't clear key cell of a settings table")
 
@@ -917,7 +917,7 @@ class TableauxModel(
     }
   }
 
-  private def checkForDuplicateKey[A](table: Table, keyColumn: ColumnType[_], keyName: Option[Any])(
+  private def checkForDuplicateKey[A](table: Table, keyColumn: ColumnType[?], keyName: Option[Any])(
       implicit user: TableauxUser
   ) = {
     retrieveRows(table, Seq(keyColumn), None, None, Pagination(None, None), ColumnFilter(None, None))
@@ -939,7 +939,7 @@ class TableauxModel(
     }
   }
 
-  def invalidateCellAndDependentColumns(column: ColumnType[_], rowIds: Seq[RowId])(
+  def invalidateCellAndDependentColumns(column: ColumnType[?], rowIds: Seq[RowId])(
       implicit user: TableauxUser
   ): Future[Seq[Unit]] = {
     Future.sequence(
@@ -959,7 +959,7 @@ class TableauxModel(
     } yield allColumns.filter(column => column.kind == StatusType).map(column => column.asInstanceOf[StatusColumn])
   }
 
-  def maybeInvalidateStatusCells(column: ColumnType[_], rowId: RowId)(
+  def maybeInvalidateStatusCells(column: ColumnType[?], rowId: RowId)(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
@@ -972,10 +972,10 @@ class TableauxModel(
     } yield ()
   }
 
-  def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId)(
+  def invalidateCellAndDependentColumns(column: ColumnType[?], rowId: RowId)(
       implicit user: TableauxUser
   ): Future[Unit] = {
-    def invalidateColumn: (TableId, ColumnId) => Future[_] = eventClient.invalidateColumn
+    def invalidateColumn: (TableId, ColumnId) => Future[?] = eventClient.invalidateColumn
 
     for {
       // invalidate the cell itself
@@ -1107,7 +1107,7 @@ class TableauxModel(
     } yield cell
   }
 
-  private def retrieveCell(column: ColumnType[_], rowId: RowId, isInternalCall: Boolean)(
+  private def retrieveCell(column: ColumnType[?], rowId: RowId, isInternalCall: Boolean)(
       implicit user: TableauxUser
   ): Future[Cell[Any]] = {
 
@@ -1191,7 +1191,7 @@ class TableauxModel(
   }
 
   private def removeUnauthorizedForeignValuesFromRows(
-      columns: Seq[ColumnType[_]],
+      columns: Seq[ColumnType[?]],
       rows: Seq[RowLike],
       shouldHideValuesByRowPermissions: Boolean = true
   )(implicit user: TableauxUser): Future[Seq[RowLike]] = {
@@ -1201,7 +1201,7 @@ class TableauxModel(
   }
 
   private def removeUnauthorizedLinkAndConcatValuesFromRow(
-      columns: Seq[ColumnType[_]],
+      columns: Seq[ColumnType[?]],
       row: RowLike,
       shouldHideValuesByRowPermissions: Boolean = true
   )(implicit user: TableauxUser): Future[RowLike] = {
@@ -1221,10 +1221,10 @@ class TableauxModel(
   }
 
   private def removeUnauthorizedLinkAndConcatValuesFromRowValues(
-      columns: Seq[ColumnType[_]],
-      rowValues: Seq[_],
+      columns: Seq[ColumnType[?]],
+      rowValues: Seq[?],
       shouldHideValuesByRowPermissions: Boolean = false
-  )(implicit user: TableauxUser): Future[Seq[_]] = {
+  )(implicit user: TableauxUser): Future[Seq[?]] = {
     Future.sequence(columns zip rowValues map {
       case (column, rowValue) =>
         removeUnauthorizedLinkAndConcatValues(column, rowValue, shouldHideValuesByRowPermissions)
@@ -1234,7 +1234,7 @@ class TableauxModel(
   // Recursively traverses nested Link and Concat values
   // to filter out foreign row values which the user is not permitted to view.
   private def removeUnauthorizedLinkAndConcatValues(
-      column: ColumnType[_],
+      column: ColumnType[?],
       value: Any,
       shouldHideValuesByRowPermissions: Boolean = false
   )(implicit user: TableauxUser): Future[Any] = {
@@ -1308,7 +1308,7 @@ class TableauxModel(
         }
       }
       case (c: ConcatColumn, concats) => {
-        val concatSeq: Seq[_] = concats match {
+        val concatSeq: Seq[?] = concats match {
           case c: Seq[_] => c
           case c: JsonArray => c.asScala.toSeq
         }
@@ -1343,7 +1343,7 @@ class TableauxModel(
 
   private def retrieveRow(
       table: Table,
-      columns: Seq[ColumnType[_]],
+      columns: Seq[ColumnType[?]],
       rowId: RowId,
       columnFilter: ColumnFilter
   )(implicit user: TableauxUser): Future[RowLike] = {
@@ -1392,8 +1392,8 @@ class TableauxModel(
       pagination: Pagination
   )(implicit user: TableauxUser): Future[RowSeq] = {
     val retrieveFn = table.tableType match {
-      case UnionTable => retrieveUnionTableForeignRows _
-      case _ => retrieveForeignRowsInternal _
+      case UnionTable => retrieveUnionTableForeignRows
+      case _ => retrieveForeignRowsInternal
     }
     retrieveFn(table, columnId, rowId, finalFlagOpt, archivedFlagOpt, pagination)
   }
@@ -1453,10 +1453,10 @@ class TableauxModel(
       case row: UnionTableRow => row.copy(values = row.values.take(1))
     }))
 
-  private def filterColumns(table: Table, columns: Seq[ColumnType[_]])(
+  private def filterColumns(table: Table, columns: Seq[ColumnType[?]])(
       implicit user: TableauxUser
-  ): Seq[ColumnType[_]] = {
-    roleModel.filterDomainObjects[ColumnType[_]](
+  ): Seq[ColumnType[?]] = {
+    roleModel.filterDomainObjects[ColumnType[?]](
       ViewCellValue,
       columns,
       ComparisonObjects(table),
@@ -1464,7 +1464,7 @@ class TableauxModel(
     )
   }
 
-  private def filterRows(columns: Seq[ColumnType[_]], rows: Seq[RowLike])(implicit
+  private def filterRows(columns: Seq[ColumnType[?]], rows: Seq[RowLike])(implicit
       user: TableauxUser): Future[Seq[RowLike]] = {
     if (config.isRowPermissionCheckEnabled) {
       removeUnauthorizedForeignValuesFromRows(columns, rows)
@@ -1475,7 +1475,7 @@ class TableauxModel(
 
   private def getColumnMapping(
       originTable: Table,
-      unionTableColumns: Seq[ColumnType[_]]
+      unionTableColumns: Seq[ColumnType[?]]
   ): Map[UnionColumnId, OriginColumnId] = {
     unionTableColumns.collect({ case utc: UnionColumn => utc })
       .flatMap { utc =>
@@ -1490,8 +1490,8 @@ class TableauxModel(
   private def reorderValuesAndAnnotations(
       originColumnValue: JsonObject,
       unionColumn2OriginColumnMapping: Map[UnionColumnId, OriginColumnId],
-      originColumns: Seq[ColumnType[_]],
-      unionTableColumns: Seq[ColumnType[_]]
+      originColumns: Seq[ColumnType[?]],
+      unionTableColumns: Seq[ColumnType[?]]
   )(rows: Seq[RowLike]): Seq[RawRow] = {
     val unionColumnOrdering = unionTableColumns.map(c => c.id)
     val originColumnOrdering = originColumns.map(c => c.id)
@@ -1535,7 +1535,7 @@ class TableauxModel(
   private def mapRawUnionTableRows(
       unionTable: Table,
       originTable: Table,
-      unionTableColumns: Seq[ColumnType[_]],
+      unionTableColumns: Seq[ColumnType[?]],
       rawRows: Seq[RawRow],
       columnFilter: ColumnFilter
   )(implicit user: TableauxUser): Future[Seq[UnionTableRow]] = {
@@ -1548,7 +1548,7 @@ class TableauxModel(
 
   def retrieveUnionTableRow(
       unionTable: Table,
-      unionTableColumns: Seq[ColumnType[_]],
+      unionTableColumns: Seq[ColumnType[?]],
       compositeId: RowId,
       columnFilter: ColumnFilter
   )(implicit user: TableauxUser): Future[RowLike] = {
@@ -1591,7 +1591,7 @@ class TableauxModel(
 
   def retrieveUnionTableRows(
       unionTable: Table,
-      unionTableColumns: Seq[ColumnType[_]],
+      unionTableColumns: Seq[ColumnType[?]],
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination,
@@ -1744,7 +1744,7 @@ class TableauxModel(
 
   private def retrieveRows(
       table: Table,
-      columns: Seq[ColumnType[_]],
+      columns: Seq[ColumnType[?]],
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination,
@@ -1768,14 +1768,14 @@ class TableauxModel(
     val shouldAnnotateSkipped = options.fold(false)(_.annotateSkipped)
     val shouldSkipConstrained = options.fold(false)(_.skipConstrainedFrom)
     val specificColumns = options.flatMap(_.columnIds)
-    def canBeDuplicated(col: ColumnType[_]): Boolean = col match {
+    def canBeDuplicated(col: ColumnType[?]): Boolean = col match {
       case _: ConcatColumn => false
       case _: GroupColumn => false
       case _ => true
     }
-    def isIn(xs: Seq[ColumnId]): ((ColumnType[_]) => Boolean) = {
+    def isIn(xs: Seq[ColumnId]): ((ColumnType[?]) => Boolean) = {
       val lookup = xs.toSet
-      (y: ColumnType[_]) => lookup contains y.id
+      (y: ColumnType[?]) => lookup contains y.id
     }
     for {
       _ <- roleModel.checkAuthorization(CreateRow, ComparisonObjects(table))
@@ -1841,7 +1841,7 @@ class TableauxModel(
 
   private def mapRawRows(
       table: Table,
-      columns: Seq[ColumnType[_]],
+      columns: Seq[ColumnType[?]],
       rawRows: Seq[RawRow],
       columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(implicit user: TableauxUser): Future[Seq[RowLike]] = {
@@ -1882,18 +1882,18 @@ class TableauxModel(
     def fetchValuesForStatusColumn(
         concatenateColumn: ConcatenateColumn,
         rowId: RowId
-    ): Future[Map[ColumnId, (ColumnType[_], Any)]] = {
+    ): Future[Map[ColumnId, (ColumnType[?], Any)]] = {
       val columns = concatenateColumn.columns
       for {
         row <- retrieveRow(concatenateColumn.table, columns, rowId, ColumnFilter(None, None))
       } yield columns
         .zip(row.values)
-        .foldLeft(Map[ColumnId, (ColumnType[_], Any)]())({
+        .foldLeft(Map[ColumnId, (ColumnType[?], Any)]())({
           case (acc, (col, remVal)) => acc + (col.id -> (col, remVal))
         })
     }
 
-    def calcStatusValue(rules: JsonArray, columnsWithValues: Map[ColumnId, (ColumnType[_], Any)]): Seq[Boolean] = {
+    def calcStatusValue(rules: JsonArray, columnsWithValues: Map[ColumnId, (ColumnType[?], Any)]): Seq[Boolean] = {
 
       def calcValue(condition: JsonObject)(implicit user: TableauxUser): Boolean = {
 
@@ -2241,14 +2241,14 @@ class TableauxModel(
     } yield filteredHistorySeq
   }
 
-  private def filterHistoriesForColumns(cellHistorySeq: Seq[History], columns: Seq[ColumnType[_]]) = {
+  private def filterHistoriesForColumns(cellHistorySeq: Seq[History], columns: Seq[ColumnType[?]]) = {
     cellHistorySeq.filter(history => {
       val columnIds: Seq[ColumnId] = columns.map(_.id)
       history.columnIdOpt.forall(historyColumnId => columnIds.contains(historyColumnId))
     })
   }
 
-  private def checkColumnTypeForLangtag[A](column: ColumnType[_], langtagOpt: Option[String]): Future[Unit] = {
+  private def checkColumnTypeForLangtag[A](column: ColumnType[?], langtagOpt: Option[String]): Future[Unit] = {
     (column.languageType, langtagOpt) match {
       case (LanguageNeutral, Some(_)) =>
         Future.failed(

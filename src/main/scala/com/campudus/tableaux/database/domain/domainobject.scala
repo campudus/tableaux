@@ -25,7 +25,7 @@ trait DomainObjectHelper {
     }
   }
 
-  private def compatibilitySeq[A](returnType: ReturnType)(values: Seq[A]): java.util.List[_] = {
+  private def compatibilitySeq[A](returnType: ReturnType)(values: Seq[A]): java.util.List[?] = {
     import scala.collection.JavaConverters._
 
     values

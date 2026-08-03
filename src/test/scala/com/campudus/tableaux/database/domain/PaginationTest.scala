@@ -16,7 +16,7 @@ class PaginationTest {
   @Test
   def checkOffset_negativeValue_returnsFailedArg(): Unit = {
     val p = Pagination(Option(-1), None)
-    assertTrue(p.check.isInstanceOf[FailArg[_]])
+    assertTrue(p.check.isInstanceOf[FailArg[?]])
   }
 
   @Test
@@ -28,12 +28,12 @@ class PaginationTest {
   @Test
   def checkLimit_negativeValue_returnsFailedArg(): Unit = {
     val p = Pagination(None, Option(-1))
-    assertTrue(p.check.isInstanceOf[FailArg[_]])
+    assertTrue(p.check.isInstanceOf[FailArg[?]])
   }
 
   @Test
   def checkLimit_checkOffset_negativeValue_returnsFailedArg(): Unit = {
     val p = Pagination(Option(-1), Option(-1))
-    assertTrue(p.check.isInstanceOf[FailArg[_]])
+    assertTrue(p.check.isInstanceOf[FailArg[?]])
   }
 }

@@ -30,13 +30,13 @@ object OriginColumnsBase {
 
 case class OriginColumns(
     tableId2ColumnId: Map[TableId, ColumnId],
-    tableId2Column: Map[TableId, ColumnType[_]] = Map() // placeholder in first create, get filled later
+    tableId2Column: Map[TableId, ColumnType[?]] = Map() // placeholder in first create, get filled later
 ) extends OriginColumnsBase {
 
   def getJson: JsonArray = {
     Json.arr(tableId2Column.map { case (tableId, column) =>
       Json.obj("tableId" -> tableId, "column" -> column.getJson)
-    }.toSeq: _*)
+    }.toSeq*)
   }
 }
 

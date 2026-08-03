@@ -157,8 +157,8 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
 
 object ColumnType {
 
-  private type MultiLanguageAndValue = (SimpleValueColumn[_], Map[String, Option[_]])
-  private type LanguageNeutralAndValue = (SimpleValueColumn[_], Option[_])
+  private type MultiLanguageAndValue = (SimpleValueColumn[?], Map[String, Option[?]])
+  private type LanguageNeutralAndValue = (SimpleValueColumn[?], Option[?])
   private type LinkAndRowIds = (LinkColumn, Seq[RowId])
   private type AttachmentAndUUIDs = (AttachmentColumn, Seq[(UUID, Option[Ordering])])
 
@@ -170,7 +170,7 @@ object ColumnType {
     *   - link
     *   - attachment
     */
-  def splitIntoTypesWithValues(columnsWithValue: Seq[(ColumnType[_], _)]): Try[
+  def splitIntoTypesWithValues(columnsWithValue: Seq[(ColumnType[?], ?)]): Try[
     (List[LanguageNeutralAndValue], List[MultiLanguageAndValue], List[LinkAndRowIds], List[AttachmentAndUUIDs])
   ] = {
     Try {
@@ -210,12 +210,12 @@ object ColumnType {
     *   - attachment
     */
   def splitIntoTypes(
-      columns: Seq[ColumnType[_]]
-  ): (List[SimpleValueColumn[_]], List[SimpleValueColumn[_]], List[LinkColumn], List[AttachmentColumn]) = {
+      columns: Seq[ColumnType[?]]
+  ): (List[SimpleValueColumn[?]], List[SimpleValueColumn[?]], List[LinkColumn], List[AttachmentColumn]) = {
     columns.foldLeft(
       (
-        List[SimpleValueColumn[_]](),
-        List[SimpleValueColumn[_]](),
+        List[SimpleValueColumn[?]](),
+        List[SimpleValueColumn[?]](),
         List[LinkColumn](),
         List[AttachmentColumn]()
       )
@@ -258,7 +258,7 @@ sealed trait ColumnType[+A] extends DomainObject {
   val attributes: JsonObject = columnInformation.attributes
   val hidden: Boolean = columnInformation.hidden
 
-  protected[this] implicit def roleModel: RoleModel
+  protected implicit def roleModel: RoleModel
 
   override def getJson: JsonObject = {
 
@@ -287,7 +287,7 @@ sealed trait ColumnType[+A] extends DomainObject {
         json.mergeIn(
           Json.obj(
             "languageType" -> LanguageType.COUNTRY,
-            "countryCodes" -> Json.arr(countryCodes.codes: _*)
+            "countryCodes" -> Json.arr(countryCodes.codes*)
           )
         )
 
@@ -360,7 +360,7 @@ object MultiLanguageColumn {
     }
   }
 
-  def unapply(columnType: ColumnType[_]): Option[SimpleValueColumn[_]] = {
+  def unapply(columnType: ColumnType[?]): Option[SimpleValueColumn[?]] = {
     (columnType, columnType.languageType) match {
       case (simpleValueColumn: SimpleValueColumn[_], MultiLanguage | MultiCountry(_)) => Some(simpleValueColumn)
       case _ => None
@@ -374,8 +374,8 @@ object SimpleValueColumn {
       kind: TableauxDbType,
       languageType: LanguageType,
       columnInformation: ColumnInformation
-  )(implicit roleModel: RoleModel = RoleModel(), user: TableauxUser): SimpleValueColumn[_] = {
-    val applyFn: LanguageType => ColumnInformation => SimpleValueColumn[_] = kind match {
+  )(implicit roleModel: RoleModel = RoleModel(), user: TableauxUser): SimpleValueColumn[?] = {
+    val applyFn: LanguageType => ColumnInformation => SimpleValueColumn[?] = kind match {
       case TextType => TextColumn.apply
       case RichTextType => RichTextColumn.apply
       case ShortTextType => ShortTextColumn.apply
@@ -413,7 +413,7 @@ sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(o
     }
   }
 
-  protected[this] def checkValidSingleValue[B](value: B): Try[A]
+  protected def checkValidSingleValue[B](value: B): Try[A]
 }
 
 case class TextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
@@ -559,7 +559,7 @@ case class DateTimeColumn(override val languageType: LanguageType)(override val 
  */
 case class LinkColumn(
     override val columnInformation: ColumnInformation,
-    to: ColumnType[_],
+    to: ColumnType[?],
     linkId: LinkId,
     linkDirection: LinkDirection
 )(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ColumnType[Seq[RowId]]
@@ -651,7 +651,7 @@ case class LinkColumn(
 case class StatusColumn(
     override val columnInformation: ColumnInformation,
     rules: JsonArray,
-    override val columns: Seq[ColumnType[_]]
+    override val columns: Seq[ColumnType[?]]
 )(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ConcatenateColumn
     with LazyLogging {
 
@@ -716,7 +716,7 @@ case class AttachmentColumn(override val columnInformation: ColumnInformation)(
 }
 
 sealed trait ConcatenateColumn extends ColumnType[JsonArray] {
-  val columns: Seq[ColumnType[_]]
+  val columns: Seq[ColumnType[?]]
 
   // If any of the columns is MultiLanguage or MultiCountry
   // the ConcatColumn will be MultiLanguage
@@ -744,7 +744,7 @@ sealed trait ConcatenateColumn extends ColumnType[JsonArray] {
 
 case class ConcatColumn(
     override val columnInformation: ConcatColumnInformation,
-    override val columns: Seq[ColumnType[_]],
+    override val columns: Seq[ColumnType[?]],
     formatPattern: Option[String]
 )(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ConcatenateColumn {
   override val kind: ConcatType.type = ConcatType
@@ -765,7 +765,7 @@ case class ConcatColumn(
 
 case class GroupColumn(
     override val columnInformation: ColumnInformation,
-    override val columns: Seq[ColumnType[_]],
+    override val columns: Seq[ColumnType[?]],
     formatPattern: Option[String],
     showMemberColumns: Boolean
 )(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ConcatenateColumn {
@@ -825,7 +825,7 @@ case class UnionColumn(
   * @param columns
   *   The sequence of columns.
   */
-case class ColumnSeq(columns: Seq[ColumnType[_]])(implicit roleModel: RoleModel, val user: TableauxUser)
+case class ColumnSeq(columns: Seq[ColumnType[?]])(implicit roleModel: RoleModel, val user: TableauxUser)
     extends DomainObject {
 
   override def getJson: JsonObject = {
@@ -854,7 +854,7 @@ case class ColumnFilter(
 
   override def getJson: JsonObject = Json.obj("columnIds" -> columnIds.orNull, "columnNames" -> columnNames.orNull)
 
-  def check: ArgumentCheck[_] = {
+  def check: ArgumentCheck[?] = {
     (columnIds, columnNames) match {
       case (Some(ids), Some(names)) =>
         FailArg(InvalidJsonException(s"Parameter columnIds can not be used in combination with columnNames", "invalid"))
@@ -864,7 +864,7 @@ case class ColumnFilter(
     }
   }
 
-  def filter: ColumnType[_] => Boolean = { c =>
+  def filter: ColumnType[?] => Boolean = { c =>
     (columnIds, columnNames) match {
       case (Some(ids), None) => ids.contains(c.id)
       case (None, Some(names)) => names.contains(c.name)

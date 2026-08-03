@@ -21,7 +21,7 @@ object CellAnnotationConfigModel {
   }
 }
 
-class CellAnnotationConfigModel(override protected[this] val connection: DatabaseConnection)(
+class CellAnnotationConfigModel(override protected val connection: DatabaseConnection)(
     implicit roleModel: RoleModel
 ) extends DatabaseQuery {
   val table: String = "system_annotations"
@@ -65,7 +65,7 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
     val columnsString = columnString2value.keys.mkString(", ")
     val update = s"UPDATE $table SET $columnsString WHERE name = ?"
 
-    val binds = Json.arr(columnString2value.values.toSeq: _*).add(name)
+    val binds = Json.arr(columnString2value.values.toSeq*).add(name)
 
     for {
       _ <- connection.query(update, binds)

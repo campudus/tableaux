@@ -153,8 +153,8 @@ object SQLConnection {
       }
 
       params match {
-        case Some(p) => client.preparedQuery(positionalSql).execute(toTuple(p, hasJsonCast), complete _)
-        case None => client.query(positionalSql).execute(complete _)
+        case Some(p) => client.preparedQuery(positionalSql).execute(toTuple(p, hasJsonCast), complete)
+        case None => client.query(positionalSql).execute(complete)
       }
     }
   }

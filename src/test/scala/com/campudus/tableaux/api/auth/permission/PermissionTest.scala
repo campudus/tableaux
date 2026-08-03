@@ -29,7 +29,7 @@ class PermissionTest {
       languageType: LanguageType = LanguageNeutral,
       identifier: Boolean = false,
       table: Table = createTable()
-  ): ColumnType[_] = {
+  ): ColumnType[?] = {
     val displayInfos = Seq(DisplayInfos.fromString("en", "name", "desc"))
     val createColumn: CreateColumn =
       CreateSimpleColumn(name, null, kind, languageType, identifier, displayInfos, false, None)

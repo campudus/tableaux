@@ -150,13 +150,13 @@ class CachedColumnModel(
 
   override def retrieve(table: Table, columnId: ColumnId)(
       implicit user: TableauxUser
-  ): Future[ColumnType[_]] = {
+  ): Future[ColumnType[?]] = {
     cachingF("retrieve", table.id, columnId)(
       super.retrieve(table, columnId)
     )
   }
 
-  override def retrieveAll(table: Table)(implicit user: TableauxUser): Future[Seq[ColumnType[_]]] = {
+  override def retrieveAll(table: Table)(implicit user: TableauxUser): Future[Seq[ColumnType[?]]] = {
     cachingF("retrieveAll", table.id)(
       super.retrieveAll(table)
     )
@@ -164,7 +164,7 @@ class CachedColumnModel(
 
   override def createColumns(table: Table, createColumns: Seq[CreateColumn])(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
+  ): Future[Seq[ColumnType[?]]] = {
     for {
       r <- super.createColumns(table, createColumns)
       _ <- removeCache(table.id, None)
@@ -173,7 +173,7 @@ class CachedColumnModel(
 
   override def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
+  ): Future[Seq[ColumnType[?]]] = {
     for {
       r <- super.createUnionTableColumns(table, createColumns)
       _ <- removeCache(table.id, None)
@@ -182,7 +182,7 @@ class CachedColumnModel(
 
   override def createColumn(table: Table, createColumn: CreateColumn)(
       implicit user: TableauxUser
-  ): Future[ColumnType[_]] = {
+  ): Future[ColumnType[?]] = {
     for {
       r <- super.createColumn(table, createColumn)
       _ <- removeCache(table.id, None)
@@ -220,7 +220,7 @@ class CachedColumnModel(
       showMemberColumns: Option[Boolean],
       decimalDigits: Option[Int],
       formatPattern: Option[String]
-  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
+  )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
       r <- super
@@ -248,7 +248,7 @@ class CachedColumnModel(
 
   override def retrieveAndValidateDependentStatusColumns(rules: JsonArray, table: Table)(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
+  ): Future[Seq[ColumnType[?]]] = {
     super.retrieveAndValidateDependentStatusColumns(rules, table)
   }
 }
@@ -257,7 +257,7 @@ object ColumnModel extends LazyLogging {
 
   def isColumnGroupMatchingToFormatPattern(
       formatPattern: Option[String],
-      groupedColumns: Seq[ColumnType[_]]
+      groupedColumns: Seq[ColumnType[?]]
   ): Boolean = {
     val formatVariable = "\\{\\{(\\w+)\\}\\}".r
 
@@ -295,8 +295,8 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   def createColumns(table: Table, createColumns: Seq[CreateColumn])(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
-    createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
+  ): Future[Seq[ColumnType[?]]] = {
+    createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[?]])) {
       case (future, next) =>
         for {
           createdColumns <- future
@@ -309,7 +309,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   def createColumn(table: Table, createColumn: CreateColumn)(
       implicit user: TableauxUser
-  ): Future[ColumnType[_]] = {
+  ): Future[ColumnType[?]] = {
 
     val attributes = createColumn.attributes
     val validator = EventClient(Vertx.currentContext().owner())
@@ -480,7 +480,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
+  ): Future[Seq[ColumnType[?]]] = {
     for {
       errors <- checkCreateUnionColumns(table, createColumns)
       _ <- {
@@ -491,7 +491,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
       }
 
-      result <- createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
+      result <- createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[?]])) {
         case (future, next) =>
           for {
             createdColumns <- future
@@ -505,7 +505,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   def createUnionTableColumn(table: Table, createColumn: CreateColumn)(
       implicit user: TableauxUser
-  ): Future[ColumnType[_]] = {
+  ): Future[ColumnType[?]] = {
     val attributes = createColumn.attributes
     val validator = EventClient(Vertx.currentContext().owner())
 
@@ -536,7 +536,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def createStatusColumn(
       table: Table,
       statusColumnInfo: CreateStatusColumn
-  )(implicit user: TableauxUser): Future[(Seq[ColumnType[_]], CreatedColumnInformation)] = {
+  )(implicit user: TableauxUser): Future[(Seq[ColumnType[?]], CreatedColumnInformation)] = {
     connection.transactional { t =>
       for {
         dependentColumns <- retrieveAndValidateDependentStatusColumns(statusColumnInfo.rules, table)
@@ -553,7 +553,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   )(implicit user: TableauxUser): Future[CreatedColumnInformation] = {
     val tableId = table.id
 
-    def resolveGroupNames(columns: Seq[ColumnType[_]], groupNames: Seq[String]): Seq[ColumnId] = {
+    def resolveGroupNames(columns: Seq[ColumnType[?]], groupNames: Seq[String]): Seq[ColumnId] = {
       if (groupNames.isEmpty) {
         Seq.empty
       } else {
@@ -588,7 +588,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     def transformFormatPattern(
         formatPattern: Option[String],
         groupNames: Seq[String],
-        columns: Seq[ColumnType[_]]
+        columns: Seq[ColumnType[?]]
     ): Option[String] = {
       if (groupNames.isEmpty || formatPattern.isEmpty) {
         formatPattern
@@ -651,7 +651,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         insertPlaceholder = groupIds.map(_ => "(?, ?, ?)").mkString(", ")
         (t, _) <- t.query(
           s"INSERT INTO system_column_groups(table_id, group_column_id, grouped_column_id) VALUES $insertPlaceholder",
-          Json.arr(groupIds.flatMap(Seq(tableId, columnInfo.columnId, _)): _*)
+          Json.arr(groupIds.flatMap(Seq(tableId, columnInfo.columnId, _))*)
         )
       } yield (t, columnInfo)
     }
@@ -677,7 +677,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         for {
           (t, _) <- t.query(
             s"INSERT INTO system_union_column(table_id, column_id, origin_table_id, origin_column_id) VALUES $insertPlaceholder",
-            Json.arr(values: _*)
+            Json.arr(values*)
           )
         } yield (t, Json.obj())
 
@@ -754,7 +754,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def createLinkColumn(
       table: Table,
       linkColumnInfo: CreateLinkColumn
-  )(implicit user: TableauxUser): Future[(LinkId, ColumnType[_], CreatedColumnInformation)] = {
+  )(implicit user: TableauxUser): Future[(LinkId, ColumnType[?], CreatedColumnInformation)] = {
     val tableId = table.id
 
     connection.transactional { t =>
@@ -927,7 +927,7 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.languageType.toString,
                 createColumn.identifier,
                 formatPattern.orNull,
-                countryCodes.map(f => Json.arr(f: _*)).orNull,
+                countryCodes.map(f => Json.arr(f*)).orNull,
                 createColumn.separator,
                 attributes,
                 rules,
@@ -950,7 +950,7 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.languageType.toString,
                 createColumn.identifier,
                 formatPattern.orNull,
-                countryCodes.map(f => Json.arr(f: _*)).orNull,
+                countryCodes.map(f => Json.arr(f*)).orNull,
                 createColumn.separator,
                 attributes,
                 rules,
@@ -975,7 +975,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       if (displayInfos.nonEmpty) {
         val (statement, binds) = displayInfos.createSql
         for {
-          (t, _) <- t.query(statement, Json.arr(binds: _*))
+          (t, _) <- t.query(statement, Json.arr(binds*))
         } yield (t, displayInfos.entries)
       } else {
         Future.successful((t, List()))
@@ -1057,7 +1057,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield recursiveDependentColumnInformation
   }
 
-  private[this] def mapRowToDependentColumnInformation(row: JsonArray): DependentColumnInformation = {
+  private def mapRowToDependentColumnInformation(row: JsonArray): DependentColumnInformation = {
 
     val tableId = row.get[TableId](0)
     val columnId = row.get[ColumnId](1)
@@ -1136,7 +1136,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
-  def retrieve(table: Table, columnId: ColumnId)(implicit user: TableauxUser): Future[ColumnType[_]] = {
+  def retrieve(table: Table, columnId: ColumnId)(implicit user: TableauxUser): Future[ColumnType[?]] = {
     columnId match {
       case 0 =>
         // Column zero could only be a concat column.
@@ -1189,7 +1189,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int)(
       implicit user: TableauxUser
-  ): Future[ColumnType[_]] = {
+  ): Future[ColumnType[?]] = {
     val select =
       s"""
          |SELECT
@@ -1217,17 +1217,17 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield mappedColumn
   }
 
-  def retrieveAll(table: Table)(implicit user: TableauxUser): Future[Seq[ColumnType[_]]] =
+  def retrieveAll(table: Table)(implicit user: TableauxUser): Future[Seq[ColumnType[?]]] =
     retrieveColumns(table, MAX_DEPTH, identifiersOnly = false)
 
   private def retrieveColumns(table: Table, depth: Int, identifiersOnly: Boolean)(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
+  ): Future[Seq[ColumnType[?]]] = {
 
     /**
       * Convert the column to the actual GroupColumn (fill with values we can't get from the initial query)
       */
-    def fillGroupColumn(mappedColumns: Seq[ColumnType[_]], g: GroupColumn): GroupColumn = {
+    def fillGroupColumn(mappedColumns: Seq[ColumnType[?]], g: GroupColumn): GroupColumn = {
       val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
       GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns)
     }
@@ -1235,7 +1235,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     /**
       * Convert the column to the actual UnionColumn (fill with values we can't get from the initial query)
       */
-    def fillUnionColumn(originTableCache: Map[TableId, Seq[ColumnType[_]]], u: UnionColumn): UnionColumn = {
+    def fillUnionColumn(originTableCache: Map[TableId, Seq[ColumnType[?]]], u: UnionColumn): UnionColumn = {
       val tableToColumnMap = u.originColumns.tableId2ColumnId.map({
         case (originTableId, originColumnId) =>
           val originColumns = originTableCache(originTableId)
@@ -1255,7 +1255,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       UnionColumn(u.kind, u.languageType, u.columnInformation, filledOriginColumns)
     }
 
-    def getOriginTableCache(mappedColumns: Seq[ColumnType[_]]): Future[Map[TableId, Seq[ColumnType[_]]]] = {
+    def getOriginTableCache(mappedColumns: Seq[ColumnType[?]]): Future[Map[TableId, Seq[ColumnType[?]]]] = {
       // Pre-fetch all required origin tables and their columns for UnionColumns
       // Build a cache: Map[TableId, Seq[ColumnType[_]]] to avoid fetching the same table multiple times
       val originTableIds = mappedColumns
@@ -1319,7 +1319,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   private def retrieveIdentifiers(table: Table, depth: Int)(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
+  ): Future[Seq[ColumnType[?]]] = {
     for {
       // we need to retrieve identifiers only otherwise we will end up in a infinite loop
       columns <- retrieveColumns(table, depth, identifiersOnly = true)
@@ -1334,9 +1334,9 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
-  private def prependConcatColumnIfNecessary(table: Table, columns: Seq[ColumnType[_]])(
+  private def prependConcatColumnIfNecessary(table: Table, columns: Seq[ColumnType[?]])(
       implicit user: TableauxUser
-  ): Seq[ColumnType[_]] = {
+  ): Seq[ColumnType[?]] = {
     val identifierColumns = columns.filter(_.identifier)
 
     identifierColumns.size match {
@@ -1363,7 +1363,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       formatPattern: Option[String],
       rules: JsonArray,
       showMemberColumns: Boolean
-  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
+  )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     kind match {
       case AttachmentType => Future(AttachmentColumn(columnInformation))
       case StatusType => mapStatusColumn(columnInformation, rules)
@@ -1379,7 +1379,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       languageType: LanguageType,
       columnInformation: ColumnInformation,
       originColumns: Option[OriginColumns]
-  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
+  )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     Future(UnionColumn(
       kind,
       languageType,
@@ -1400,9 +1400,9 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   def retrieveAndValidateDependentStatusColumns(rules: JsonArray, table: Table)(
       implicit user: TableauxUser
-  ): Future[Seq[ColumnType[_]]] = {
+  ): Future[Seq[ColumnType[?]]] = {
 
-    var valueTypeMap: Map[ColumnId, Seq[_]] = Map()
+    var valueTypeMap: Map[ColumnId, Seq[?]] = Map()
 
     def calcDependentColumnIdsFromValuesWithSideEffect(values: JsonArray): Seq[ColumnId] = {
 
@@ -1493,7 +1493,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   private def mapRowResultToColumnType(table: Table, row: JsonArray, depth: Int)(
       implicit user: TableauxUser
-  ): Future[ColumnType[_]] = {
+  ): Future[ColumnType[?]] = {
     val columnId = row.get[ColumnId](0)
     val columnName = row.get[String](1)
     val kind = TableauxDbType(row.get[String](2))
@@ -1694,7 +1694,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   private def checkForStatusColumnDependency(
       columnId: ColumnId,
-      columns: Seq[ColumnType[_]],
+      columns: Seq[ColumnType[?]],
       actionErrorMessage: String
   ): Unit = {
     columns
@@ -1789,7 +1789,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield ()
   }
 
-  private def deleteSimpleColumn(column: ColumnType[_]): Future[Unit] = {
+  private def deleteSimpleColumn(column: ColumnType[?]): Future[Unit] = {
     val tableId = column.table.id
     val columnId = column.id
 
@@ -1806,7 +1806,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield ()
   }
 
-  private def deleteUnionSimpleColumn(column: ColumnType[_]): Future[Unit] = {
+  private def deleteUnionSimpleColumn(column: ColumnType[?]): Future[Unit] = {
     val tableId = column.table.id
     val columnId = column.id
 
@@ -1862,14 +1862,14 @@ class ColumnModel(val connection: DatabaseConnection)(
       showMemberColumns: Option[Boolean],
       decimalDigits: Option[Int],
       formatPattern: Option[String]
-  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
+  )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     val tableId = table.id
 
     def maybeUpdateColumn[VALUE_TYPE](
         t: DbTransaction,
         columnName: String,
         value: Option[VALUE_TYPE],
-        trans: VALUE_TYPE => _ = (v: VALUE_TYPE) => v,
+        trans: VALUE_TYPE => ? = (v: VALUE_TYPE) => v,
         cast: String = ""
     ): Future[(DbTransaction, JsonObject)] = {
       optionToValidFuture(
@@ -1892,7 +1892,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         maybeUpdateColumn(t, "attributes", attributes, (a: JsonObject) => a.encode(), "::json")
       (t, resultRules) <- maybeUpdateColumn(t, "rules", rules, (r: JsonArray) => r.encode(), "::json")
       (t, resultCountryCodes) <-
-        maybeUpdateColumn(t, "country_codes", countryCodes, (c: Seq[String]) => Json.arr(c: _*))
+        maybeUpdateColumn(t, "country_codes", countryCodes, (c: Seq[String]) => Json.arr(c*))
       (t, resultHidden) <- maybeUpdateColumn(t, "hidden", hidden)
       (t, resultShowMemberColumns) <- maybeUpdateColumn(t, "show_member_columns", showMemberColumns)
       (t, resultDecimalDigits) <- maybeUpdateColumn(t, "decimal_digits", decimalDigits)
@@ -1973,7 +1973,7 @@ class ColumnModel(val connection: DatabaseConnection)(
                 } else {
                   dis.insertSql(di.langtag)
                 }
-              (t, _) <- t.query(statement, Json.arr(binds: _*))
+              (t, _) <- t.query(statement, Json.arr(binds*))
             } yield t
         }
       case None => Future.successful(t)

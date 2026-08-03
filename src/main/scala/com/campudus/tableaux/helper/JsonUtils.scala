@@ -352,7 +352,7 @@ object JsonUtils extends LazyLogging {
     (groupIds, groupNames)
   }
 
-  def toRowValueSeq(json: JsonObject): Seq[Seq[_]] = {
+  def toRowValueSeq(json: JsonObject): Seq[Seq[?]] = {
     (for {
       checkedRowList <- toJsonObjectSeq("rows", json)
       result <- sequence(checkedRowList map toValueSeq)
@@ -366,7 +366,7 @@ object JsonUtils extends LazyLogging {
     } yield columns
   }
 
-  def toColumnValueSeq(json: JsonObject): Seq[Seq[(ColumnId, _)]] = {
+  def toColumnValueSeq(json: JsonObject): Seq[Seq[(ColumnId, ?)]] = {
     (for {
       columnsObject <- toJsonObjectSeq("columns", json)
       columns = sequence(columnsObject.map(hasLong("id", _)))
@@ -375,7 +375,7 @@ object JsonUtils extends LazyLogging {
     } yield result).get
   }
 
-  def toSingleRowColumnValueSeq(json: JsonObject): Seq[(ColumnId, _)] = {
+  def toSingleRowColumnValueSeq(json: JsonObject): Seq[(ColumnId, ?)] = {
     (for {
       columnsObject <- toJsonObjectSeq("columns", json)
       columns <- sequence(columnsObject.map(hasLong("id", _)))
@@ -387,7 +387,7 @@ object JsonUtils extends LazyLogging {
   private def mergeColumnWithValue(
       columns: Seq[ColumnId],
       rows: Seq[JsonObject]
-  ): ArgumentCheck[Seq[Seq[(ColumnId, _)]]] = {
+  ): ArgumentCheck[Seq[Seq[(ColumnId, ?)]]] = {
     sequence(rows map { row =>
       toValueSeq(row) flatMap { values =>
         checkSameLengthsAndZip[ColumnId, Any](columns, values)

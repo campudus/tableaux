@@ -197,7 +197,7 @@ class SystemController(
     Json.fromObjectString(file)
   }
 
-  private def createTable(tableType: TableType, tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]])(
+  private def createTable(tableType: TableType, tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[?]])(
       implicit user: TableauxUser
   ): Future[Table] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
@@ -241,7 +241,7 @@ class SystemController(
   def updateLangtags(langtags: Seq[String])(implicit user: TableauxUser): Future[DomainObject] = {
     for {
       _ <- roleModel.checkAuthorization(EditSystem)
-      _ <- repository.updateSetting(SystemController.SETTING_LANGTAGS, Json.arr(langtags: _*).toString)
+      _ <- repository.updateSetting(SystemController.SETTING_LANGTAGS, Json.arr(langtags*).toString)
       updatedLangtags <- retrieveLangtags()
     } yield updatedLangtags
   }

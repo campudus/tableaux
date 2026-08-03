@@ -17,7 +17,7 @@ object SystemModel {
   }
 }
 
-class SystemModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
+class SystemModel(override protected val connection: DatabaseConnection) extends DatabaseQuery {
 
   /**
     * Resets the connection pool by closing all existing connections and creating a new pool. This clears any cached

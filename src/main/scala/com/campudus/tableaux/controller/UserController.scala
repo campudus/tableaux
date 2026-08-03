@@ -69,9 +69,9 @@ class UserController(
       filterSettings <- repository.retrieveFilterSettings()
     } yield {
       UserSettingSeq(Seq(
-        globalSettings.map(_.asInstanceOf[UserSetting[_]]),
-        tableSettings.map(_.asInstanceOf[UserSetting[_]]),
-        filterSettings.map(_.asInstanceOf[UserSetting[_]])
+        globalSettings.map(_.asInstanceOf[UserSetting[?]]),
+        tableSettings.map(_.asInstanceOf[UserSetting[?]]),
+        filterSettings.map(_.asInstanceOf[UserSetting[?]])
       ).flatten)
     }
   }
@@ -111,7 +111,7 @@ class UserController(
   def upsertGlobalSetting(
       settingKey: String,
       settingJson: JsonObject
-  )(implicit user: TableauxUser): Future[UserSettingGlobal[_]] = {
+  )(implicit user: TableauxUser): Future[UserSettingGlobal[?]] = {
     checkArguments(
       notNull(settingKey, "key"),
       notNull(settingJson, "json")
@@ -147,7 +147,7 @@ class UserController(
       settingKey: String,
       settingJson: JsonObject,
       tableId: Long
-  )(implicit user: TableauxUser): Future[UserSettingTable[_]] = {
+  )(implicit user: TableauxUser): Future[UserSettingTable[?]] = {
     checkArguments(
       notNull(settingKey, "key"),
       notNull(settingJson, "json"),
@@ -181,7 +181,7 @@ class UserController(
   def upsertFilterSetting(
       settingKey: String,
       settingJson: JsonObject
-  )(implicit user: TableauxUser): Future[UserSettingFilter[_]] = {
+  )(implicit user: TableauxUser): Future[UserSettingFilter[?]] = {
     checkArguments(
       notNull(settingKey, "key"),
       notNull(settingJson, "json")

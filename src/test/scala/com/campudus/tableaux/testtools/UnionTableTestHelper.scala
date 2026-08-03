@@ -156,7 +156,7 @@ trait UnionTableTestHelper extends TableauxTestBase {
     sendRequest(
       "POST",
       s"/tables/$tableId/columns",
-      Json.obj("columns" -> Json.arr(columns: _*))
+      Json.obj("columns" -> Json.arr(columns*))
     )
 
   

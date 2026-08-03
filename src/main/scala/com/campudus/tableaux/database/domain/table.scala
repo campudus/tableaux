@@ -128,7 +128,7 @@ case class TableSeq(tables: Seq[Table])(
   }
 }
 
-case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: RowSeq)(implicit user: TableauxUser)
+case class CompleteTable(table: Table, columns: Seq[ColumnType[?]], rowList: RowSeq)(implicit user: TableauxUser)
     extends DomainObject {
 
   override def getJson: JsonObject = {
@@ -140,14 +140,14 @@ case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: Row
   }
 }
 
-case class TablesStructure(tables: Seq[Table], columnMap: Map[TableId, Seq[ColumnType[_]]])(implicit user: TableauxUser)
+case class TablesStructure(tables: Seq[Table], columnMap: Map[TableId, Seq[ColumnType[?]]])(implicit user: TableauxUser)
     extends DomainObject {
 
   override def getJson: JsonObject = {
     Json.obj("tables" -> tables.map(tbl => {
       tbl.getJson.mergeIn(
         Json.obj("columns" -> {
-          val columns = columnMap.getOrElse(tbl.id, Seq[ColumnType[_]]())
+          val columns = columnMap.getOrElse(tbl.id, Seq[ColumnType[?]]())
           columns.map(_.getJson)
         })
       )

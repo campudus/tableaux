@@ -156,7 +156,7 @@ trait TableauxTestBase
   def initRoleModel(roleConfig: String): RoleModel = {
     val roleModel: RoleModel = RoleModel(Json.fromObjectString(roleConfig.stripMargin))
 
-    val roles = collection.immutable.Seq(roleModel.role2permissions.keySet.toSeq: _*)
+    val roles = collection.immutable.Seq(roleModel.role2permissions.keySet.toSeq*)
 
     setRequestRoles(roles)
 
@@ -179,7 +179,7 @@ trait TableauxTestBase
     */
   protected def asDevUser[A](function: => Future[A]): Future[A] = {
     // format: on
-    val userRolesFromTest: Seq[String] = collection.immutable.Seq(user.roles: _*)
+    val userRolesFromTest: Seq[String] = collection.immutable.Seq(user.roles*)
 
     setRequestRoles(Seq("dev"))
 
@@ -190,7 +190,7 @@ trait TableauxTestBase
     result
   }
 
-  def okTest(f: => Future[_])(implicit context: TestContext): Unit = {
+  def okTest(f: => Future[?])(implicit context: TestContext): Unit = {
     val async = context.async()
     (try {
       f
@@ -205,7 +205,7 @@ trait TableauxTestBase
     }
   }
 
-  def exceptionTest(id: String)(f: => Future[_])(implicit context: TestContext): Unit = {
+  def exceptionTest(id: String)(f: => Future[?])(implicit context: TestContext): Unit = {
     val async = context.async()
     f onComplete {
       case Success(_) =>
@@ -588,7 +588,7 @@ trait TableauxTestBase
       rows <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow(columnIds))
       _ = logger.info(s"Row is $rows")
       rowIds = rows.getJsonArray("rows").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
-    } yield (tableId, columnIds, collection.immutable.Seq(rowIds: _*))
+    } yield (tableId, columnIds, collection.immutable.Seq(rowIds*))
   }
 
   protected def createSimpleTableWithMultilanguageColumn(
@@ -631,7 +631,7 @@ trait TableauxTestBase
       columns <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn)
       columnIds = columns.getJsonArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
     } yield {
-      (tableId.toLong, collection.immutable.Seq(columnIds: _*))
+      (tableId.toLong, collection.immutable.Seq(columnIds*))
     }
   }
 
@@ -702,11 +702,11 @@ trait TableauxTestBase
       column <- sendRequest(
         "POST",
         s"/tables/$tableId/columns",
-        Json.obj("columns" -> Json.arr(columnTypes.map(_.getJson): _*))
+        Json.obj("columns" -> Json.arr(columnTypes.map(_.getJson)*))
       )
       columnIds = column.getJsonArray("columns").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
-      columnsPost = Json.arr(columnIds.map(id => Json.obj("id" -> id)): _*)
-      rowsPost = Json.arr(rows.map(values => Json.obj("values" -> Json.arr(values: _*))): _*)
+      columnsPost = Json.arr(columnIds.map(id => Json.obj("id" -> id))*)
+      rowsPost = Json.arr(rows.map(values => Json.obj("values" -> Json.arr(values*)))*)
       rowPost <- sendRequest("POST", s"/tables/$tableId/rows", Json.obj("columns" -> columnsPost, "rows" -> rowsPost))
       rowIds = rowPost.getJsonArray("rows").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
     } yield (tableId, columnIds, rowIds)

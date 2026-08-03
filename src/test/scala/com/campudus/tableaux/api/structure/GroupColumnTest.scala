@@ -37,7 +37,7 @@ class GroupColumnTest extends TableauxTestBase {
         Json.obj(
           "kind" -> "group",
           "name" -> name,
-          "groups" -> Json.arr(groups: _*),
+          "groups" -> Json.arr(groups*),
           "showMemberColumns" -> showMemberColumns
         )
       )

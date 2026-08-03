@@ -115,7 +115,7 @@ case class WrongJsonTypeException(override val message: String) extends CustomEx
   override val statusCode = 400
 }
 
-case class WrongColumnKindException[T <: ColumnType[_]](column: ColumnType[_], shouldBe: Class[T])
+case class WrongColumnKindException[T <: ColumnType[?]](column: ColumnType[?], shouldBe: Class[T])
     extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
   override val statusCode: Int = 400
@@ -124,7 +124,7 @@ case class WrongColumnKindException[T <: ColumnType[_]](column: ColumnType[_], s
     s"This action is not possible on ${column.name}. Action only available for columns of kind ${shouldBe.toString}."
 }
 
-case class WrongStatusColumnKindException(wrongColumn: ColumnType[_], shouldBe: Seq[TableauxDbType])
+case class WrongStatusColumnKindException(wrongColumn: ColumnType[?], shouldBe: Seq[TableauxDbType])
     extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
   override val statusCode: Int = 400
@@ -133,7 +133,7 @@ case class WrongStatusColumnKindException(wrongColumn: ColumnType[_], shouldBe: 
     s"This action is not possible on Column with kind: ${wrongColumn.kind}. Action only available for columns of kind ${shouldBe.toString}."
 }
 
-case class WrongLanguageTypeException(wrongColumn: ColumnType[_], shouldBe: LanguageType) extends CustomException {
+case class WrongLanguageTypeException(wrongColumn: ColumnType[?], shouldBe: LanguageType) extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
   override val statusCode: Int = 400
 
@@ -141,7 +141,7 @@ case class WrongLanguageTypeException(wrongColumn: ColumnType[_], shouldBe: Lang
     s"This action is not possible on Columns with LanguageType:  ${wrongColumn.languageType}. Action only available for columns of LanguageType ${shouldBe.toString}."
 }
 
-case class WrongStatusConditionTypeException(column: ColumnType[_], is: String, shouldBe: String)
+case class WrongStatusConditionTypeException(column: ColumnType[?], is: String, shouldBe: String)
     extends CustomException {
   override val id: String = s"error.request.status.value.wrongtype"
   override val statusCode: Int = 400

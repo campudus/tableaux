@@ -175,7 +175,7 @@ class ArgumentCheckerTest {
     assertEquals(OkArg(json.getJsonArray("array")), hasArray("array", json))
     assertEquals(OkArg(json.getLong("long").toLong), hasLong("long", json))
 
-    def exceptionTest(regex: String, argument: ArgumentCheck[_]): Unit = {
+    def exceptionTest(regex: String, argument: ArgumentCheck[?]): Unit = {
       try {
         argument.get
         Assert.fail("should fail")

@@ -22,7 +22,7 @@ object UserModel {
   }
 }
 
-class UserModel(override protected[this] val connection: DatabaseConnection)(
+class UserModel(override protected val connection: DatabaseConnection)(
     implicit roleModel: RoleModel
 ) extends DatabaseQuery {
 
@@ -30,7 +30,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     Json.fromObjectString(s"""{"value":${value}}""").getValue("value")
   }
 
-  private def convertJsonArrayToUserSettingGlobal(arr: JsonArray)(implicit user: TableauxUser): UserSettingGlobal[_] = {
+  private def convertJsonArrayToUserSettingGlobal(arr: JsonArray)(implicit user: TableauxUser): UserSettingGlobal[?] = {
     UserSettingGlobal(
       UserSettingKeyGlobal.fromKey(arr.get[String](0)).getOrElse(
         throw UnknownServerException(s"invalid global setting key ${arr.get[String](0)}")
@@ -41,7 +41,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     )
   }
 
-  private def convertJsonArrayToUserSettingTable(arr: JsonArray)(implicit user: TableauxUser): UserSettingTable[_] = {
+  private def convertJsonArrayToUserSettingTable(arr: JsonArray)(implicit user: TableauxUser): UserSettingTable[?] = {
     UserSettingTable(
       arr.get[Long](0).longValue(), // tableId
       UserSettingKeyTable.fromKey(arr.get[String](1)).getOrElse(
@@ -53,7 +53,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     )
   }
 
-  private def convertJsonArrayToUserSettingFilter(arr: JsonArray)(implicit user: TableauxUser): UserSettingFilter[_] = {
+  private def convertJsonArrayToUserSettingFilter(arr: JsonArray)(implicit user: TableauxUser): UserSettingFilter[?] = {
     UserSettingFilter(
       arr.get[Long](0).longValue(), // id
       arr.get[String](1), // name
@@ -66,7 +66,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     )
   }
 
-  def retrieveGlobalSetting(settingKey: String)(implicit user: TableauxUser): Future[UserSettingGlobal[_]] = {
+  def retrieveGlobalSetting(settingKey: String)(implicit user: TableauxUser): Future[UserSettingGlobal[?]] = {
     val select =
       s"""
          |SELECT
@@ -91,7 +91,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
-  def retrieveGlobalSettings()(implicit user: TableauxUser): Future[Seq[UserSettingGlobal[_]]] = {
+  def retrieveGlobalSettings()(implicit user: TableauxUser): Future[Seq[UserSettingGlobal[?]]] = {
     val select =
       s"""
          |SELECT
@@ -117,7 +117,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   def retrieveTableSetting(
       settingKey: String,
       tableId: Long
-  )(implicit user: TableauxUser): Future[UserSettingTable[_]] = {
+  )(implicit user: TableauxUser): Future[UserSettingTable[?]] = {
     val select =
       s"""
          |SELECT
@@ -147,7 +147,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
 
   def retrieveTableSettings(
       tableId: Option[Long] = None
-  )(implicit user: TableauxUser): Future[Seq[UserSettingTable[_]]] = {
+  )(implicit user: TableauxUser): Future[Seq[UserSettingTable[?]]] = {
     val (condition, values) = tableId match {
       case None => ("WHERE user_id = ?", Json.arr(user.name))
       case Some(tId) => ("WHERE user_id = ? AND table_id = ?", Json.arr(user.name, tId))
@@ -178,7 +178,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   def retrieveFilterSetting(
       settingKey: String,
       id: Long
-  )(implicit user: TableauxUser): Future[UserSettingFilter[_]] = {
+  )(implicit user: TableauxUser): Future[UserSettingFilter[?]] = {
     val select =
       s"""
          |SELECT
@@ -207,7 +207,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
-  def retrieveFilterSettings()(implicit user: TableauxUser): Future[Seq[UserSettingFilter[_]]] = {
+  def retrieveFilterSettings()(implicit user: TableauxUser): Future[Seq[UserSettingFilter[?]]] = {
     val select =
       s"""
          |SELECT
@@ -235,7 +235,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   def upsertGlobalSetting(
       settingKey: String,
       settingValue: String
-  )(implicit user: TableauxUser): Future[UserSettingGlobal[_]] = {
+  )(implicit user: TableauxUser): Future[UserSettingGlobal[?]] = {
     for {
       result <- connection.query(
         s"""
@@ -265,7 +265,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
       settingKey: String,
       settingValue: String,
       tableId: Long
-  )(implicit user: TableauxUser): Future[UserSettingTable[_]] = {
+  )(implicit user: TableauxUser): Future[UserSettingTable[?]] = {
     for {
       result <- connection.query(
         s"""
@@ -297,7 +297,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
       settingKey: String,
       settingValue: String,
       settingName: String
-  )(implicit user: TableauxUser): Future[UserSettingFilter[_]] = {
+  )(implicit user: TableauxUser): Future[UserSettingFilter[?]] = {
     for {
       result <- connection.query(
         s"""

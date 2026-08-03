@@ -100,7 +100,7 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     sendMessage(ADDRESS_COLUMN_CHANGED, message)
   }
 
-  def columnDeleted(tableId: TableId, columnId: ColumnId, column: ColumnType[_]): Future[Unit] = {
+  def columnDeleted(tableId: TableId, columnId: ColumnId, column: ColumnType[?]): Future[Unit] = {
     val message = Json.obj("columnId" -> columnId, "tableId" -> tableId, "column" -> column.getJson)
 
     sendMessage(ADDRESS_COLUMN_DELETED, message)
@@ -201,7 +201,7 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     Future.sequence(schemaWithKeyList.map(registerSchema))
   }
 
-  def setCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId, value: Any): Future[_] = {
+  def setCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId, value: Any): Future[?] = {
     val cellValue = Json.obj("value" -> DomainObject.compatibilityGet(value))
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId, "rowId" -> rowId).copy().mergeIn(cellValue)
 
@@ -228,7 +228,7 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
       tableId: TableId,
       rowId: RowId,
       rowPermissions: RowPermissions
-  ): Future[_] = {
+  ): Future[?] = {
     val rowValue = Json.obj("value" -> rowPermissions.rowPermissions)
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId).copy().mergeIn(rowValue)
 
@@ -255,7 +255,7 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
       })
   }
 
-  def invalidateRowPermissions(tableId: TableId, rowId: RowId): Future[_] = {
+  def invalidateRowPermissions(tableId: TableId, rowId: RowId): Future[?] = {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
 
     eventBus.request(ADDRESS_INVALIDATE_ROW_PERMISSIONS, obj).asScala
@@ -265,7 +265,7 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
       tableId: TableId,
       rowId: RowId,
       rowLevelAnnotations: RowLevelAnnotations
-  ): Future[_] = {
+  ): Future[?] = {
     val rowValue = Json.obj("value" -> rowLevelAnnotations.getJson)
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId).copy().mergeIn(rowValue)
 
@@ -295,38 +295,38 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
       })
   }
 
-  def invalidateRowLevelAnnotations(tableId: TableId, rowId: RowId): Future[_] = {
+  def invalidateRowLevelAnnotations(tableId: TableId, rowId: RowId): Future[?] = {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
 
     eventBus.request(ADDRESS_INVALIDATE_ROW_LEVEL_ANNOTATIONS, obj).asScala
   }
 
-  def invalidateTableRowLevelAnnotations(tableId: TableId): Future[_] = {
+  def invalidateTableRowLevelAnnotations(tableId: TableId): Future[?] = {
     val obj = Json.obj("tableId" -> tableId)
     eventBus.request(ADDRESS_INVALIDATE_TABLE_ROW_LEVEL_ANNOTATIONS, obj).asScala
   }
 
-  def invalidateCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[_] = {
+  def invalidateCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[?] = {
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId, "rowId" -> rowId)
     eventBus.request(ADDRESS_INVALIDATE_CELL, obj, options).asScala
   }
 
-  def invalidateColumn(tableId: TableId, columnId: ColumnId): Future[_] = {
+  def invalidateColumn(tableId: TableId, columnId: ColumnId): Future[?] = {
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId)
     eventBus.request(ADDRESS_INVALIDATE_COLUMN, obj).asScala
   }
 
-  def invalidateRow(tableId: TableId, rowId: RowId): Future[_] = {
+  def invalidateRow(tableId: TableId, rowId: RowId): Future[?] = {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
     eventBus.request(ADDRESS_INVALIDATE_ROW, obj).asScala
   }
 
-  def invalidateTable(tableId: TableId): Future[_] = {
+  def invalidateTable(tableId: TableId): Future[?] = {
     val obj = Json.obj("tableId" -> tableId)
     eventBus.request(ADDRESS_INVALIDATE_TABLE, obj).asScala
   }
 
-  def invalidateAll(): Future[_] = {
+  def invalidateAll(): Future[?] = {
     eventBus.request(ADDRESS_INVALIDATE_ALL, Json.emptyObj()).asScala
   }
 }
