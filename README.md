@@ -66,6 +66,8 @@ Build without running tests:
 ./gradlew clean assemble
 ```
 
+To run and debug tests from VS Code (green gutter icons / Test Explorer), install the `scalameta.metals` extension. After a fresh clone or after deleting `.bloop`/`.metals`, Metals needs to compile the test sources once before it reports tests to the Test Explorer and shows the gutter run icons — either by opening any test file, or via the Command Palette action `Metals: Compile`. Note that this only works through Metals/Bloop, not via a `./gradlew` task, since Metals gets test info from the Bloop build server, not from Gradle's own compile output.
+
 ## Tests (with custom config)
 
 Tests use their own separate config, default configuration file is `conf-test.json`.
