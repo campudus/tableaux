@@ -48,6 +48,12 @@ object RouterRegistry extends LazyLogging {
         val looksLikeSignatureFailure =
           cause != null && Option(cause.getMessage).exists(_.toLowerCase.contains("signature"))
 
+        logger.error(
+          s"Uncaught 500 for ${context.request().method()} ${context.normalizedPath()}: " +
+            s"${Option(cause).map(_.toString).getOrElse("<no cause>")}",
+          cause
+        )
+
         if (!context.response().ended()) {
           context.response().setStatusCode(if (looksLikeSignatureFailure) 401 else 500).end()
         }
