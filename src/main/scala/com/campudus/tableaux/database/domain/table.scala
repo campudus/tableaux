@@ -1,11 +1,12 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, TableauxUser}
 
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 object TableType {
 

@@ -1,9 +1,10 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import org.joda.time.DateTime
 

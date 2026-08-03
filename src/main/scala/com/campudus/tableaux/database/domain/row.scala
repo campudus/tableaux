@@ -3,9 +3,10 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.Starter
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.UnionTableHelper
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 object UnionTableRow {
   var rowOffset: Long = Starter.DEFAULT_UNION_TABLE_ROW_OFFSET

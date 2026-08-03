@@ -9,14 +9,14 @@ import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.toCreateColumnSeq
 import com.campudus.tableaux.helper.JsonUtils.toRowValueSeq
 import com.campudus.tableaux.helper.UnionTableHelper
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
-import org.vertx.scala.core.json.Json
-import org.vertx.scala.core.json.JsonObject
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future
 import scala.util.Try

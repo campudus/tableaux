@@ -1,12 +1,13 @@
 package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.database._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import org.junit.Assert._
 import org.junit.Test
@@ -35,7 +36,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
 
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
-        val historyCell = result.getJsonArray("rows", Json.emptyArr()).getJsonObject(0)
+        val historyCell = result.getJsonArray("rows", Json.arr()).getJsonObject(0)
         assertEquals(1, historyCell.getInteger("revision"))
         assertEquals(HistoryType.Cell, historyCell.getString("historyType"))
         assertEquals(NumericType.toString, historyCell.getString("valueType"))
@@ -64,8 +65,8 @@ class RetrieveHistoryTest extends TableauxTestBase {
 
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
-        val historyCell = result.getJsonArray("rows", Json.emptyArr()).getJsonObject(0)
-        assertEquals(Json.emptyObj(), historyCell.getJsonObject("value"))
+        val historyCell = result.getJsonArray("rows", Json.arr()).getJsonObject(0)
+        assertEquals(Json.obj(), historyCell.getJsonObject("value"))
       }
     }
   }
@@ -103,7 +104,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
 
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
-        val historyCells = result.getJsonArray("rows", Json.emptyArr())
+        val historyCells = result.getJsonArray("rows", Json.arr())
         assertJSONEquals(expected, historyCells.toString, JSONCompareMode.LENIENT)
       }
     }

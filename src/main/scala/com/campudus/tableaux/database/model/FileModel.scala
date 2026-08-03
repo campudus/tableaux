@@ -4,9 +4,10 @@ import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.database.domain.{Folder, MultiLanguageValue, TableauxFile}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.ResultChecker._
 
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.concurrent.Future
 
@@ -200,8 +201,7 @@ class FileModel(override protected val connection: DatabaseConnection) extends D
     val folders: Seq[Long] = Option(row.getString(2)) match {
       case None => Seq.empty[Long]
       case Some(_) =>
-        Json
-          .fromArrayString(row.getString(2))
+        new JsonArray(row.getString(2))
           .asScala
           .toSeq
           .map({

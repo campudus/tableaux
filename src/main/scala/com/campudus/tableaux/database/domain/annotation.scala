@@ -1,10 +1,10 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 
-import org.vertx.scala.core.json.Json
-import org.vertx.scala.core.json.JsonArray
-import org.vertx.scala.core.json.JsonObject
+import io.vertx.lang.scala.json.JsonArray
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.jdk.CollectionConverters._
 
@@ -29,12 +29,12 @@ case class RowLevelAnnotations(finalFlag: Boolean, archivedFlag: Boolean) extend
   override def getJson: JsonObject = {
     val finalFlagJson = finalFlag match {
       case true => Json.obj("final" -> finalFlag)
-      case false => Json.emptyObj()
+      case false => Json.obj()
     }
 
     val archivedFlagJson = archivedFlag match {
       case true => Json.obj("archived" -> archivedFlag)
-      case false => Json.emptyObj()
+      case false => Json.obj()
     }
 
     finalFlagJson.mergeIn(archivedFlagJson)
@@ -116,7 +116,7 @@ object CellLevelAnnotations {
           obj.remove("column_id")
 
           val uuid = obj.getString("uuid")
-          val langtags = obj.getJsonArray("langtags", Json.emptyArr()).asScala.map(_.toString).toList
+          val langtags = obj.getJsonArray("langtags", Json.arr()).asScala.map(_.toString).toList
           val annotationType = CellAnnotationType(obj.getString("type"))
           val value = obj.getString("value")
           val createdAt = DateTime.parse(obj.getString("createdAt"))

@@ -1,10 +1,10 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.database.model.CreateHistoryModel
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.Json
 
 import org.junit.{Assert, Test}
 import org.junit.runner.RunWith
@@ -75,7 +75,7 @@ class MultiLangValueToMap extends TableauxTestBase {
 
   @Test
   def multiLangValueToMap_emptyValueObject(): Unit = {
-    val json = Json.emptyObj()
+    val json = Json.obj()
     val result = JsonUtils.multiLangValueToMap(json)
 
     Assert.assertEquals(Map.empty[String, Option[Any]], result)

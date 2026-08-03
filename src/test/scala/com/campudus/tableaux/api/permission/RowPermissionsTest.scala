@@ -7,15 +7,16 @@ import com.campudus.tableaux.database.domain.Pagination
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel
+import com.campudus.tableaux.helper.Json
+import com.campudus.tableaux.helper.ResultChecker.*
 import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import com.campudus.tableaux.testtools.RequestCreation.{Identifier, TextCol}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json._
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json._
-import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 
@@ -439,7 +440,7 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
     )
     val row2 = Json.obj(
       "id" -> 2,
-      "values" -> Json.arr(Json.arr("table2row2", 2, Json.emptyArr()), "table2row2", 2, Json.emptyArr())
+      "values" -> Json.arr(Json.arr("table2row2", 2, Json.arr()), "table2row2", 2, Json.arr())
     )
     val expectedJson: JsonArray = Json.arr(row1, row2)
 

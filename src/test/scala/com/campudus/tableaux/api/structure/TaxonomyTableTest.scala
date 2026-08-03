@@ -1,13 +1,13 @@
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.JsonAssertable
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 
@@ -46,7 +46,7 @@ class TaxonomyTableTest extends TableauxTestBase {
         Json.obj("name" -> "code", "kind" -> "shorttext"),
         Json.obj("name" -> "parent", "kind" -> "link")
       ),
-      "rows" -> Json.emptyArr()
+      "rows" -> Json.arr()
     )
     for {
       tableId <- initTable()
@@ -133,7 +133,7 @@ class TaxonomyTableTest extends TableauxTestBase {
         Json.obj("name" -> "parent", "kind" -> "link"),
         Json.obj("name" -> "fifth-column", "kind" -> "text")
       ),
-      "rows" -> Json.emptyArr()
+      "rows" -> Json.arr()
     )
     for {
       tableId <- initTable()
@@ -161,7 +161,7 @@ class TaxonomyTableTest extends TableauxTestBase {
         Json.obj("name" -> "parent", "kind" -> "link"),
         Json.obj("name" -> "fifth-columbia", "kind" -> "text")
       ),
-      "rows" -> Json.emptyArr()
+      "rows" -> Json.arr()
     )
     for {
       tableId <- initTable()
@@ -191,7 +191,7 @@ class TaxonomyTableTest extends TableauxTestBase {
         Json.obj("name" -> "code", "kind" -> "shorttext"),
         Json.obj("name" -> "parent", "kind" -> "link")
       ),
-      "rows" -> Json.emptyArr()
+      "rows" -> Json.arr()
     )
     for {
       tableId <- initTable()

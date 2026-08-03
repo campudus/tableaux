@@ -2,11 +2,12 @@ package com.campudus.tableaux.api.auth.permission
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.JsonObject
 
 import org.junit.{Assert, Test}
 
@@ -39,7 +40,7 @@ class PermissionTest {
     SimpleValueColumn(kind, languageType, columnInfo)
   }
 
-  val defaultPermissionJson: JsonObject = Json.fromObjectString(
+  val defaultPermissionJson: JsonObject = new JsonObject(
     """
       |{
       |  "type": "grant",
@@ -75,7 +76,7 @@ class PermissionTest {
     val table2 = createTable(2)
     val table3 = createTable(3)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -101,7 +102,7 @@ class PermissionTest {
     val table1 = createTable(name = "product_model")
     val table2 = createTable(name = "product_model_foo")
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -126,7 +127,7 @@ class PermissionTest {
     val table1 = createTable(hidden = false)
     val table2 = createTable(hidden = true)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -151,7 +152,7 @@ class PermissionTest {
     val genericTable = createTable(tableType = GenericTable)
     val settingsTable = createTable(tableType = SettingsTable)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -176,7 +177,7 @@ class PermissionTest {
     val table2 = createTable(tableGroupOpt = Some(TableGroup(2, Seq.empty)))
     val table3 = createTable(tableGroupOpt = Some(TableGroup(3, Seq.empty)))
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -201,7 +202,7 @@ class PermissionTest {
   def isMatching_table_columnId(): Unit = {
     val column = createSimpleColumn(1)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -227,7 +228,7 @@ class PermissionTest {
     val numericColumn = createSimpleColumn(kind = NumericType)
     val booleanColumn = createSimpleColumn(kind = BooleanType)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -255,7 +256,7 @@ class PermissionTest {
     val column2 = createSimpleColumn(identifier = true)
     val column3 = createSimpleColumn(identifier = false)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -284,7 +285,7 @@ class PermissionTest {
     val column3 = createSimpleColumn(name = "confidential_data_y")
     val column4 = createSimpleColumn(name = "non_confidential_data_y")
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -318,7 +319,7 @@ class PermissionTest {
     val variant_column_low = createSimpleColumn(name = "priority_low", table = variantTable)
     val variant_column_high = createSimpleColumn(name = "priority_high", table = variantTable)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -348,7 +349,7 @@ class PermissionTest {
   def isMatching_singleLanguageColumn_withLangtagCondition(): Unit = {
     val column = createSimpleColumn(1)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -370,7 +371,7 @@ class PermissionTest {
   def isMatching_multiLanguageColumn_withLangtagCondition(): Unit = {
     val column = createSimpleColumn(1, languageType = MultiLanguage)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -389,9 +390,9 @@ class PermissionTest {
       permission.isMatching(EditCellValue, ComparisonObjects(column, "wrong value for columnType"))
     )
 
-    val deValue = Json.fromObjectString("""{ "de": "value-de" }""")
-    val enValue = Json.fromObjectString("""{ "en": "value-en" }""")
-    val deEnValues = Json.fromObjectString("""{ "de": "value-de", "en": "value-en"} """)
+    val deValue = new JsonObject("""{ "de": "value-de" }""")
+    val enValue = new JsonObject("""{ "en": "value-en" }""")
+    val deEnValues = new JsonObject("""{ "de": "value-de", "en": "value-en"} """)
 
     Assert.assertEquals(true, permission.isMatching(EditCellValue, ComparisonObjects(column, deValue)))
     Assert.assertEquals(false, permission.isMatching(EditCellValue, ComparisonObjects(column, enValue)))
@@ -402,7 +403,7 @@ class PermissionTest {
   def isMatching_multiLanguageColumn_withLangtagConditionMultipleLangtags(): Unit = {
     val column = createSimpleColumn(1, languageType = MultiLanguage)
 
-    val json = Json.fromObjectString(
+    val json = new JsonObject(
       """
         |{
         |  "type": "grant",
@@ -421,12 +422,12 @@ class PermissionTest {
       permission.isMatching(EditCellValue, ComparisonObjects(column, "wrong value for columnType"))
     )
 
-    val deValue = Json.fromObjectString("""{ "de": "value-de" }""")
-    val enValue = Json.fromObjectString("""{ "en": "value-en" }""")
-    val frValue = Json.fromObjectString("""{ "fr": "value-fr" }""")
-    val deEnValues = Json.fromObjectString("""{ "de": "value-de", "en": "value-en"} """)
+    val deValue = new JsonObject("""{ "de": "value-de" }""")
+    val enValue = new JsonObject("""{ "en": "value-en" }""")
+    val frValue = new JsonObject("""{ "fr": "value-fr" }""")
+    val deEnValues = new JsonObject("""{ "de": "value-de", "en": "value-en"} """)
 
-    val deEnFrValues = Json.fromObjectString("""{ "de": "value-de", "en": "value-en", "fr": "value-fr"} """)
+    val deEnFrValues = new JsonObject("""{ "de": "value-de", "en": "value-en", "fr": "value-fr"} """)
 
     Assert.assertEquals(true, permission.isMatching(EditCellValue, ComparisonObjects(column, deValue)))
     Assert.assertEquals(true, permission.isMatching(EditCellValue, ComparisonObjects(column, enValue)))

@@ -125,10 +125,7 @@ task runRedeploy(type: JavaExec) {
 }
 
 tasks.withType(ScalaCompile) {
-  scalaCompileOptions.additionalParameters = [
-    "-feature",
-    "-source:3.4-migration",
-    "-rewrite"]
+  scalaCompileOptions.additionalParameters = ["-feature"]
 }
 
 sourceSets {
@@ -152,8 +149,7 @@ scoverage {
   scoverageVersion = '2.2.1'
   minimumRate = 0.85
   excludedPackages = [
-    'io.vertx.scala.*',
-    'org.vertx.scala.*'
+    'io.vertx.scala.*'
   ]
 }
 

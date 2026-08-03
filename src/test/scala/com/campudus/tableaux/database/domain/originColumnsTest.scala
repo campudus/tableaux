@@ -1,9 +1,10 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TestAssertionHelper
 
-import org.vertx.scala.core.json.Json
+import io.vertx.lang.scala.json.JsonObject
 
 import org.junit.Assert._
 import org.junit.Test
@@ -21,8 +22,8 @@ class CreateOriginColumnsTest extends TestAssertionHelper {
                       |  ]
                       |}""".stripMargin)
 
-    val originColumnsJson = Json.fromObjectString(jString)
-    val json = originColumnsJson.getJsonArray("originColumns", Json.emptyArr())
+    val originColumnsJson = new JsonObject(jString)
+    val json = originColumnsJson.getJsonArray("originColumns", Json.arr())
     val originColumns = CreateOriginColumns.parseJson(json)
 
     assertEquals(Map(1 -> 3, 2 -> 2, 3 -> 1), originColumns.tableId2ColumnId)
@@ -30,7 +31,7 @@ class CreateOriginColumnsTest extends TestAssertionHelper {
 
   @Test
   def parseOriginColumns_emptyArray_error(): Unit = {
-    val json = Json.emptyArr()
+    val json = Json.arr()
     assertThrows(classOf[IllegalArgumentException], () => CreateOriginColumns.parseJson(json))
   }
 

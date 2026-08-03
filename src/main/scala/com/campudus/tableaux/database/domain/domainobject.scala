@@ -1,14 +1,15 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
+import com.campudus.tableaux.helper.Json
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.collection.mutable
 import scala.util.Try
 
 object DomainObject extends DomainObject {
-  override def getJson: JsonObject = Json.emptyObj()
+  override def getJson: JsonObject = Json.obj()
 }
 
 trait DomainObjectHelper {
@@ -75,7 +76,7 @@ trait DomainObject extends DomainObjectHelper {
 
 case class EmptyObject() extends DomainObject {
 
-  override def getJson: JsonObject = Json.emptyObj()
+  override def getJson: JsonObject = Json.obj()
 }
 
 case class PlainDomainObject(json: JsonObject) extends DomainObject {
@@ -143,7 +144,7 @@ object MultiLanguageValue {
   }
 
   def fromString[A](str: String): MultiLanguageValue[A] = {
-    MultiLanguageValue[A](Try(Json.fromObjectString(str)).toOption)
+    MultiLanguageValue[A](Try(new JsonObject(str)).toOption)
   }
 }
 
@@ -153,7 +154,7 @@ object MultiLanguageValue {
 case class MultiLanguageValue[A](values: Map[String, A]) extends DomainObject {
 
   override def getJson: JsonObject = {
-    values.foldLeft(Json.emptyObj()) {
+    values.foldLeft(Json.obj()) {
       case (obj, (langtag, value)) =>
         obj.mergeIn(Json.obj(langtag -> value))
     }

@@ -1,11 +1,11 @@
 package com.campudus.tableaux.router.auth.permission
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 
 import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json.Json
 
 import scala.jdk.CollectionConverters._
 
@@ -30,8 +30,8 @@ object TableauxUser extends LazyLogging {
     val roles: JsonArray =
       tokenPayloadOpt match {
         case Some(tokenPayload) =>
-          tokenPayload.getJsonObject("realm_access", Json.emptyObj()).getJsonArray("roles", Json.emptyArr())
-        case None => Json.emptyArr()
+          tokenPayload.getJsonObject("realm_access", Json.obj()).getJsonArray("roles", Json.arr())
+        case None => Json.arr()
       }
     JsonUtils.asSeqOf[String](roles)
   }

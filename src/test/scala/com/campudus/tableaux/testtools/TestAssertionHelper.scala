@@ -1,6 +1,6 @@
 package com.campudus.tableaux.testtools
 
-import org.vertx.scala.core.json.{JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import org.junit.Assert._
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}

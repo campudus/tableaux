@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.domain
 
-import org.vertx.scala.core.json.Json
+import com.campudus.tableaux.helper.Json
 
 import java.util.UUID
 import org.joda.time.DateTime

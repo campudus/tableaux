@@ -12,6 +12,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
@@ -21,7 +22,7 @@ import com.campudus.tableaux.verticles.ValidatorKeys
 
 import io.vertx.core.Vertx
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
@@ -1064,7 +1065,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val kind = TableauxDbType(row.get[String](2))
     val identifier = row.get[Boolean](3)
     val groupColumnIds = Option(row.get[String](4))
-      .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
+      .map(str => new JsonArray(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
       .getOrElse(Seq.empty[ColumnId])
 
     DependentColumnInformation(tableId, columnId, kind, identifier, groupColumnIds)
@@ -1508,14 +1509,14 @@ class ColumnModel(val connection: DatabaseConnection)(
       case MultiLanguage => MultiLanguage
       case c: MultiCountry =>
         val codes = Option(row.get[String](9))
-          .map(str => Json.fromArrayString(str).asScala.map({ case code: String => code }).toSeq)
+          .map(str => new JsonArray(str).asScala.map({ case code: String => code }).toSeq)
           .getOrElse(Seq.empty[String])
 
         MultiCountry(CountryCodes(codes))
     }
 
     val groupColumnIds = Option(row.get[String](10))
-      .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
+      .map(str => new JsonArray(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
       .getOrElse(Seq.empty[ColumnId])
 
     val formatPattern = Option(row.get[String](11))
@@ -1525,7 +1526,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val showMemberColumns = row.get[Boolean](15)
     val decimalDigits = Option(row.get[Int](16))
     val originColumns = Option(row.get[String](17))
-      .map(str => OriginColumns.parseJson(Json.fromArrayString(str)))
+      .map(str => OriginColumns.parseJson(new JsonArray(str)))
 
     val getBasicColumnInfo = BasicColumnInformation(
       table,

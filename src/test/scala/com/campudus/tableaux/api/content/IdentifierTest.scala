@@ -1,5 +1,7 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.helper.Json
+import com.campudus.tableaux.helper.ResultChecker.*
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import com.campudus.tableaux.verticles.EventClient._
@@ -8,7 +10,7 @@ import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.*
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import org.junit.Assert._
 import org.junit.Test
@@ -507,7 +509,7 @@ class IdentifierTest extends TableauxTestBase {
       )
     )
 
-    val expectedCellValue = Json.arr("table1row1", 1, Json.emptyArr())
+    val expectedCellValue = Json.arr("table1row1", 1, Json.arr())
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -515,7 +517,7 @@ class IdentifierTest extends TableauxTestBase {
         expectedCellValue,
         "table1row1",
         1,
-        Json.emptyArr()
+        Json.arr()
       )
     )
 
@@ -806,7 +808,7 @@ class IdentifierTest extends TableauxTestBase {
           _.getJsonArray("value")
         }
     } yield {
-      val expectedCellValueBeforeLink = Json.emptyArr()
+      val expectedCellValueBeforeLink = Json.arr()
       val expectedCellValueAfterLink = Json.arr(
         Json.obj(
           "id" -> linkTableRowId,

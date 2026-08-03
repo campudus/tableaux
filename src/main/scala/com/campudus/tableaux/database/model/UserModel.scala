@@ -4,11 +4,12 @@ import com.campudus.tableaux.UnknownServerException
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -27,7 +28,7 @@ class UserModel(override protected val connection: DatabaseConnection)(
 ) extends DatabaseQuery {
 
   private def parseJsonString(value: String): Object = {
-    Json.fromObjectString(s"""{"value":${value}}""").getValue("value")
+    new JsonObject(s"""{"value":${value}}""").getValue("value")
   }
 
   private def convertJsonArrayToUserSettingGlobal(arr: JsonArray)(implicit user: TableauxUser): UserSettingGlobal[?] = {

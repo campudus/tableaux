@@ -5,7 +5,7 @@ import com.campudus.tableaux.helper.VertxAccess
 import io.vertx.core.Vertx
 import io.vertx.ext.auth.{JWTOptions, PubSecKeyOptions}
 import io.vertx.ext.auth.jwt.{JWTAuth, JWTAuthOptions}
-import org.vertx.scala.core.json.JsonObject
+import io.vertx.lang.scala.json.JsonObject
 
 object TokenHelper {
 

@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{Service, ServiceType}
 import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.verticles.EventClient._
@@ -16,7 +17,6 @@ import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.client.WebClient
 import io.vertx.lang.scala.{ScalaVerticle, *}
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.Json
 
 import scala.compiletime.uninitialized
 import scala.concurrent.{Future, Promise}
@@ -89,7 +89,7 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
     }
 
     val absolutUrl = Option(config.getString("url"))
-    val jsonHeaders = config.getJsonObject("headers", Json.emptyObj())
+    val jsonHeaders = config.getJsonObject("headers", Json.obj())
     val headers = Try(jsonHeaders.fieldNames().asScala
       .foldLeft(MultiMap.caseInsensitiveMultiMap()) { (acc, key) =>
         acc.add(key, jsonHeaders.getValue(key).toString())

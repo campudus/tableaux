@@ -9,15 +9,17 @@ import com.campudus.tableaux.database.domain.{InfoAnnotationType, Pagination}
 import com.campudus.tableaux.database.domain.GenericTable
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.{toCreateColumnSeq, toRowValueSeq}
+import com.campudus.tableaux.helper.ResultChecker.*
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import com.campudus.tableaux.testtools.RequestCreation._
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import java.util.{NoSuchElementException, UUID}
 import org.junit.Assert._
@@ -47,7 +49,7 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
     TableauxController(tableauxConfig, tableauxModel, roleModel)
   }
 
-  def createStructureController(implicit roleModel: RoleModel = RoleModel(Json.emptyObj())): StructureController = {
+  def createStructureController(implicit roleModel: RoleModel = RoleModel(Json.obj())): StructureController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val model = StructureModel(dbConnection)
@@ -1018,7 +1020,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
         assertEquals("whole size of columns is 4", 4, duplicatedRowAllColumns.getJsonArray("values").size())
         // not viewable column values are not duplicated and are therefore empty/null
         assertNull(duplicatedRowAllColumns.getJsonArray("values").get(0))
-        assertJSONEquals(Json.emptyObj(), duplicatedRowAllColumns.getJsonArray("values").getJsonObject(1))
+        assertJSONEquals(Json.obj(), duplicatedRowAllColumns.getJsonArray("values").getJsonObject(1))
       }
     }
 
@@ -1303,8 +1305,8 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     val controller = createTableauxController(roleModel)
 
-    val langtagInfoAnnotation = Json.fromObjectString("""{"langtags": ["de", "en"], "type": "info"}""")
-    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+    val langtagInfoAnnotation = new JsonObject("""{"langtags": ["de", "en"], "type": "info"}""")
+    val infoAnnotation = new JsonObject("""{"type": "info", "value": "this is a comment"}""")
 
     for {
       _ <- createTestTable()
@@ -1331,8 +1333,8 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     val controller = createTableauxController(roleModel)
 
-    val langtagInfoAnnotation = Json.fromObjectString("""{"langtags": ["de", "en"], "type": "info"}""")
-    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+    val langtagInfoAnnotation = new JsonObject("""{"langtags": ["de", "en"], "type": "info"}""")
+    val infoAnnotation = new JsonObject("""{"type": "info", "value": "this is a comment"}""")
 
     for {
       _ <- createTestTable()
@@ -1362,7 +1364,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     val controller = createTableauxController(roleModel)
 
-    val langtagInfoAnnotation = Json.fromObjectString("""{"langtags": ["de", "en"], "type": "info"}""")
+    val langtagInfoAnnotation = new JsonObject("""{"langtags": ["de", "en"], "type": "info"}""")
 
     for {
       _ <- createTestTable()
@@ -1387,7 +1389,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     val controller = createTableauxController(roleModel)
 
-    val langtagInfoAnnotation = Json.fromObjectString("""{"langtags": ["de", "en"], "type": "info"}""")
+    val langtagInfoAnnotation = new JsonObject("""{"langtags": ["de", "en"], "type": "info"}""")
 
     for {
       _ <- createTestTable()
@@ -1502,7 +1504,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     val controller = createTableauxController(roleModel)
 
-    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+    val infoAnnotation = new JsonObject("""{"type": "info", "value": "this is a comment"}""")
 
     for {
       _ <- createTestTable()
@@ -1518,7 +1520,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     val controller = createTableauxController(roleModel)
 
-    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+    val infoAnnotation = new JsonObject("""{"type": "info", "value": "this is a comment"}""")
 
     for {
       _ <- createTestTable()
@@ -1549,7 +1551,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     val controller = createTableauxController(roleModel)
 
-    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+    val infoAnnotation = new JsonObject("""{"type": "info", "value": "this is a comment"}""")
 
     for {
       _ <- createTestTable("table1")
@@ -2005,7 +2007,7 @@ class TableauxControllerAuthTest_translation extends TableauxControllerAuthTest 
       val controller = createTableauxController(roleModel)
 
       val annotation =
-        Json.fromObjectString("""{"langtags": ["en-GB"], "type": "flag", "value": "needs_translation"}""")
+        new JsonObject("""{"langtags": ["en-GB"], "type": "flag", "value": "needs_translation"}""")
 
       for {
         _ <- createTestTable("table1")
@@ -2057,7 +2059,7 @@ class TableauxControllerAuthTest_translation extends TableauxControllerAuthTest 
       val controller = createTableauxController(roleModel)
 
       val annotation =
-        Json.fromObjectString("""{"langtags": ["en-GB"], "type": "flag", "value": "needs_translation"}""")
+        new JsonObject("""{"langtags": ["en-GB"], "type": "flag", "value": "needs_translation"}""")
 
       for {
         _ <- createTestTable("table1")

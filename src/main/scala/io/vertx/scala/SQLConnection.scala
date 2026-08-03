@@ -7,10 +7,10 @@ import io.vertx.core.AsyncResult
 import io.vertx.core.Vertx
 import io.vertx.lang.scala.*
 import io.vertx.lang.scala.ImplicitConversions.vertxFutureVoidToScalaFutureUnit
+import io.vertx.lang.scala.json.JsonArray
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.pgclient.{PgConnection, PgConnectOptions, PgPool}
 import io.vertx.sqlclient.{Pool, PoolOptions, Row, RowSet, SqlClient, SqlConnection => JSqlConnection, Tuple}
-import org.vertx.scala.core.json.JsonArray
-import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.{Future, Promise}
 import scala.language.implicitConversions

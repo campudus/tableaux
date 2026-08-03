@@ -1,11 +1,12 @@
 package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.{TableauxTestBase, TestCustomException}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future
 
@@ -329,7 +330,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         _ <- sendRequest(
           "POST",
           s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-          Json.obj("type" -> "flag", "value" -> "needs_translation", "langtags" -> Json.emptyArr())
+          Json.obj("type" -> "flag", "value" -> "needs_translation", "langtags" -> Json.arr())
         )
 
       } yield ()

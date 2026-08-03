@@ -1,9 +1,10 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TestAssertionHelper
 
-import org.vertx.scala.core.json.Json
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.util.{Failure, Success, Try}
 
@@ -347,17 +348,17 @@ class DisplayInfosTest {
 
   @Test
   def displayInfosFromJson(): Unit = {
-    val json = Json.fromObjectString("""
-                                       |{
-                                       |  "displayName": {
-                                       |    "en": "displayName en",
-                                       |    "fr": "displayName fr"
-                                       |  },
-                                       |  "description" : {
-                                       |    "en": "description en",
-                                       |    "ch": "description ch"
-                                       |  }
-                                       |}
+    val json = new JsonObject("""
+                                |{
+                                |  "displayName": {
+                                |    "en": "displayName en",
+                                |    "fr": "displayName fr"
+                                |  },
+                                |  "description" : {
+                                |    "en": "description en",
+                                |    "ch": "description ch"
+                                |  }
+                                |}
       """.stripMargin)
 
     val expected = List(

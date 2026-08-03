@@ -2,12 +2,21 @@ package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.{DatabaseException, NotFoundInDatabaseException}
 
-import org.vertx.scala.core.json.{JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 /**
   * Checks if database result changed something or not.
   */
 object ResultChecker {
+
+  extension (arr: JsonArray) {
+
+    /**
+      * Positional accessor for values pulled out of a raw JsonArray query result row. Cast is unchecked; callers are
+      * responsible for the requested type matching the column value.
+      */
+    def get[A](pos: Int): A = arr.getValue(pos).asInstanceOf[A]
+  }
 
   def resultObjectToJsonArray(json: JsonObject): Seq[JsonArray] = {
     jsonArrayToSeq(json.getJsonArray("results")).map(_.asInstanceOf[JsonArray])

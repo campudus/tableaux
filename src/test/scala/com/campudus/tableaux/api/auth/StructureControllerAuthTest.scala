@@ -6,14 +6,15 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{CreateSimpleColumn, DisplayInfos, DomainObject, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.util.{Failure, Success, Try}
 
@@ -151,7 +152,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
         "TestTable",
         hidden = false,
         langtags = None,
-        displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
+        displayInfos = DisplayInfos.fromJson(Json.obj()),
         tableType = GenericTable,
         tableGroupId = None,
         attributes = None,
@@ -175,7 +176,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
           "TestTable",
           hidden = false,
           langtags = None,
-          displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
+          displayInfos = DisplayInfos.fromJson(Json.obj()),
           tableType = GenericTable,
           tableGroupId = None,
           attributes = None,
@@ -803,7 +804,7 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       _ <- createDefaultTable("Test2")
       _ <- createDefaultTable("Test3")
 
-      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.arr()))
     } yield {
       assertEquals(3, tables.size())
     }
@@ -833,7 +834,7 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       _ <- createDefaultTable("Test2") // not viewable
       _ <- createDefaultTable("Test3")
 
-      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.arr()))
     } yield {
       assertEquals(2, tables.size())
 
@@ -870,7 +871,7 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       _ <- createDefaultTable("Test2") // not viewable
       _ <- createDefaultTable("Test3")
 
-      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.arr()))
     } yield {
       assertEquals(2, tables.size())
 
@@ -909,7 +910,7 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
         _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test3", "type" -> "settings")) // not viewable
         _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test4"))
 
-        tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+        tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.arr()))
       } yield {
         assertEquals(3, tables.size())
 
@@ -929,7 +930,7 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       _ <- createDefaultTable("Test2")
       _ <- createDefaultTable("Test3")
 
-      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.arr()))
     } yield {
       assertEquals(0, tables.size())
     }

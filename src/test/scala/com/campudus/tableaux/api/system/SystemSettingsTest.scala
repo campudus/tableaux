@@ -1,11 +1,11 @@
 package com.campudus.tableaux.api.system
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.Json
 
 import org.junit.Assert._
 import org.junit.Test
@@ -29,9 +29,9 @@ class SystemSettingsTest extends TableauxTestBase {
 
       langtagsAfterHttpUpdate <- sendRequest("GET", "/system/settings/langtags")
     } yield {
-      assertEquals(Json.arr("de-DE", "en-GB"), langtagsBeforeUpdate.getJsonArray("value", Json.emptyArr()))
-      assertEquals(Json.arr("en-GB"), langtagsAfterUpdate.getJsonArray("value", Json.emptyArr()))
-      assertEquals(Json.arr("de-DE"), langtagsAfterHttpUpdate.getJsonArray("value", Json.emptyArr()))
+      assertEquals(Json.arr("de-DE", "en-GB"), langtagsBeforeUpdate.getJsonArray("value", Json.arr()))
+      assertEquals(Json.arr("en-GB"), langtagsAfterUpdate.getJsonArray("value", Json.arr()))
+      assertEquals(Json.arr("de-DE"), langtagsAfterHttpUpdate.getJsonArray("value", Json.arr()))
     }
   }
 

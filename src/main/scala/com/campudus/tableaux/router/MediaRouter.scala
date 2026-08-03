@@ -5,6 +5,7 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.helper.{AsyncReply, Error, Header, OkBuffer, SendFile}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
@@ -13,7 +14,6 @@ import io.vertx.core.http.{HttpServerFileUpload, HttpServerRequest}
 import io.vertx.ext.web.{Router, RoutingContext}
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.lang.scala.*
-import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
 

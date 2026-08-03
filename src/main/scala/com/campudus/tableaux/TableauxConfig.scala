@@ -4,7 +4,7 @@ import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.helper.VertxAccess
 
 import io.vertx.core.Vertx
-import org.vertx.scala.core.json.JsonObject
+import io.vertx.lang.scala.json.JsonObject
 
 class TableauxConfig(
     override val vertx: Vertx,

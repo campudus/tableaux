@@ -7,12 +7,13 @@ import com.campudus.tableaux.database.domain.{CellAnnotationType, ColumnFilter, 
 import com.campudus.tableaux.database.domain.GenericTable
 import com.campudus.tableaux.database.domain.TableType
 import com.campudus.tableaux.database.model.DuplicateRowOptions
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 import io.vertx.ext.web.{Router, RoutingContext}
 import io.vertx.ext.web.handler.BodyHandler
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -619,7 +620,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          val json = Try(getJson(context)).getOrElse(Json.emptyObj())
+          val json = Try(getJson(context)).getOrElse(Json.obj())
           val optionalValues = Try(getOptionalValues(json))
             .recover({
               case _: NoJsonFoundException => None
@@ -641,7 +642,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         None
       }
 
-    val jsonBody = Try(getJson(context)).getOrElse(Json.emptyObj())
+    val jsonBody = Try(getJson(context)).getOrElse(Json.obj())
     val update = getUpdate(jsonBody).getOrElse(List.empty)
     val rowPermissions = getRowPermissionsOpt("rowPermissions", jsonBody)
 
@@ -665,7 +666,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         None
       }
 
-    val jsonBody = Try(getJson(context)).getOrElse(Json.emptyObj())
+    val jsonBody = Try(getJson(context)).getOrElse(Json.obj())
     val update = getUpdate(jsonBody).getOrElse(List.empty)
     val rowPermissions = getRowPermissionsOpt("rowPermissions", jsonBody)
 

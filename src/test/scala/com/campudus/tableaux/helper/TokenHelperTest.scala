@@ -1,9 +1,9 @@
 package com.campudus.tableaux.helper
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
 
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.Json
 
 import org.junit.{Assert, Test}
 import org.junit.runner.RunWith

@@ -4,6 +4,7 @@ import com.campudus.tableaux._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.UnionTableHelper
@@ -11,7 +12,7 @@ import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -836,7 +837,7 @@ class TableauxModel(
         if (replace && column.languageType == MultiLanguage) {
           val valueJson: JsonObject = value match {
             case j: JsonObject => j
-            case _ => Json.emptyObj()
+            case _ => Json.obj()
           }
 
           val enrichedValue = roleModel.generateLangtagCheckValue(table, valueJson.copy())

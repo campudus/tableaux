@@ -1,8 +1,9 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.{ArgumentCheck, ArgumentChecker, OkArg}
+import com.campudus.tableaux.helper.Json
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 case class Pagination(offset: Option[Long], limit: Option[Long]) extends DomainObject {
 

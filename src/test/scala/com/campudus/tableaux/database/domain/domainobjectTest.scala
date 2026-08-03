@@ -1,6 +1,8 @@
 package com.campudus.tableaux.database.domain
 
-import org.vertx.scala.core.json.{Json, JsonObject}
+import com.campudus.tableaux.helper.Json
+
+import io.vertx.lang.scala.json.JsonObject
 
 import org.junit.Test
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}

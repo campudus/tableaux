@@ -2,13 +2,14 @@ package com.campudus.tableaux.api.permission
 
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import com.campudus.tableaux.testtools.RequestCreation.{Identifier, TextCol}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 
@@ -66,11 +67,11 @@ class CreateRowWithRowPermissionsTest extends TableauxTestBase {
                |WHERE event = 'row_permissions_changed'
                |AND history_type = 'row_permissions'""".stripMargin
           ).map(_.getJsonArray("results"))
-        rowPermissionsHistoryValue1 = Json.fromObjectString(rowPermissionsHistoryResult.getJsonArray(0).getString(0))
-        rowPermissionsHistoryValue2 = Json.fromObjectString(rowPermissionsHistoryResult.getJsonArray(1).getString(0))
+        rowPermissionsHistoryValue1 = new JsonObject(rowPermissionsHistoryResult.getJsonArray(0).getString(0))
+        rowPermissionsHistoryValue2 = new JsonObject(rowPermissionsHistoryResult.getJsonArray(1).getString(0))
       } yield {
         assertJSONEquals(expectedJson, test)
-        assertJSONEquals(rowPermissions, Json.fromArrayString(rowPermissionsResult))
+        assertJSONEquals(rowPermissions, new JsonArray(rowPermissionsResult))
         assertEquals(2, rowPermissionsHistoryResult.size())
         assertJSONEquals(rowPermissions, rowPermissionsHistoryValue1.getJsonArray("value"))
         assertJSONEquals(rowPermissions, rowPermissionsHistoryValue2.getJsonArray("value"))

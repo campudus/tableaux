@@ -3,12 +3,13 @@ package com.campudus.tableaux.database.model
 import com.campudus.tableaux.{ForbiddenException, ShouldBeUniqueException}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.concurrent.Future
 

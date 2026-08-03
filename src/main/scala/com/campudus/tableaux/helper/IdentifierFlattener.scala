@@ -1,6 +1,8 @@
 package com.campudus.tableaux.helper
 
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import com.campudus.tableaux.helper.Json
+
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.jdk.CollectionConverters._
 

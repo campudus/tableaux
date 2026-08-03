@@ -2,14 +2,16 @@ package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.helper.Json
+import com.campudus.tableaux.helper.ResultChecker.*
 import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry, Rows}
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 
@@ -1070,7 +1072,7 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
       for {
         _ <- setupTwoTablesWithEmptyLinks()
 
-        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", Json.fromObjectString(putLinks))
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", new JsonObject(putLinks))
 
         _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/3/order", Json.obj("location" -> "end"))
         _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/5/order", Json.obj("location" -> "start"))
@@ -1309,7 +1311,7 @@ class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
       for {
         _ <- setupTwoTablesWithEmptyLinks()
 
-        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", Json.fromObjectString(putLinks))
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", new JsonObject(putLinks))
 
         _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/3/order", Json.obj("location" -> "end"))
         _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/5/order", Json.obj("location" -> "start"))

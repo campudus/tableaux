@@ -13,6 +13,7 @@ import com.campudus.tableaux.database.model.{
 }
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.FileUtils
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
 import com.campudus.tableaux.verticles._
@@ -22,8 +23,8 @@ import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext, *}
+import io.vertx.lang.scala.json.{JsonObject, _}
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.collection.mutable.ListBuffer
 import scala.compiletime.uninitialized
@@ -57,8 +58,7 @@ class MessagingVerticleTest extends TableauxTestBase {
 
     eventClient = EventClient(vertx)
 
-    val config = Json
-      .fromObjectString(fileConfig.encode())
+    val config = new JsonObject(fileConfig.encode())
       .put("host", fileConfig.getString("host", "127.0.0.1"))
       .put("port", getFreePort)
 
@@ -68,7 +68,7 @@ class MessagingVerticleTest extends TableauxTestBase {
     thumbnailsConfig = config.getJsonObject("thumbnails", Json.obj())
 
     val rolePermissionsPath = config.getString("rolePermissionsPath")
-    val rolePermissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionsPath, Json.emptyObj())
+    val rolePermissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionsPath, Json.obj())
 
     host = config.getString("host")
     port = config.getInteger("port").intValue()

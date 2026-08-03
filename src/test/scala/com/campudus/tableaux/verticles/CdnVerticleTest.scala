@@ -2,6 +2,7 @@ package com.campudus.tableaux.verticles
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain.{ExtendedFile, MultiLanguageValue, TableauxFile}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestCustomException}
 import com.campudus.tableaux.verticles._
@@ -14,7 +15,7 @@ import io.vertx.ext.web.client.{HttpRequest, HttpResponse, WebClient}
 import io.vertx.lang.scala.*
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.lang.scala.VertxExecutionContext
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -43,7 +44,7 @@ class CdnVerticleTest extends VertxAccess {
     val async = context.async()
 
     val options = DeploymentOptions()
-      .setConfig(Json.emptyObj())
+      .setConfig(Json.obj())
 
     vertx
       .deployVerticle(new CdnVerticle(cdnConfig, Option(mockClient)), options)

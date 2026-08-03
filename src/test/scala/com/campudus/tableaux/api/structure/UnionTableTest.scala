@@ -1,6 +1,7 @@
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import com.campudus.tableaux.testtools.TestCustomException
@@ -10,7 +11,6 @@ import io.vertx.core.json._
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -44,7 +44,7 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
             "kind" -> "origintable"
           )
         ),
-        "rows" -> Json.emptyArr()
+        "rows" -> Json.arr()
       )
 
       assertJSONEquals(expectedUnionTable, unionTable)
@@ -1195,7 +1195,7 @@ class RetrieveLinksUnionTableTest extends TableauxTestBase with UnionTableTestHe
         Json.obj("id" -> 1, "values" -> Json.arr("table1row1")),
         Json.obj("id" -> 2, "values" -> Json.arr("table1row2"))
       )
-      assertJSONEquals(Json.emptyArr(), foreignRowsEmpty)
+      assertJSONEquals(Json.arr(), foreignRowsEmpty)
       assertJSONEquals(expectedRows, foreignRowsAvailable)
     }
   }
@@ -1220,8 +1220,8 @@ class RetrieveLinksUnionTableTest extends TableauxTestBase with UnionTableTestHe
       )
       assertJSONEquals(expectedDependentRows, dependentRowsAvailable1)
       assertJSONEquals(expectedDependentRows, dependentRowsAvailable2)
-      assertJSONEquals(Json.emptyArr(), dependentRowsEmpty1)
-      assertJSONEquals(Json.emptyArr(), dependentRowsEmpty2)
+      assertJSONEquals(Json.arr(), dependentRowsEmpty1)
+      assertJSONEquals(Json.arr(), dependentRowsEmpty2)
     }
   }
 }

@@ -1,11 +1,11 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.Json
 
 import org.junit.Assert._
 import org.junit.Test

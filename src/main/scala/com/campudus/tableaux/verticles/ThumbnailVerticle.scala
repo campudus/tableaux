@@ -4,6 +4,7 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.FileModel
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.verticles.EventClient._
@@ -12,8 +13,8 @@ import io.vertx.core.{Vertx, WorkerExecutor}
 import io.vertx.core.eventbus.Message
 import io.vertx.ext.web.client.WebClient
 import io.vertx.lang.scala.{ScalaVerticle, *}
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.{Future, Promise}
 import scala.jdk.CollectionConverters._
@@ -67,7 +68,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
   private val defaultResizeFilter = getIntDefault(thumbnailsConfig, "resizeFilter", ResampleOp.FILTER_TRIANGLE);
   private val enableCacheWarmup = getBooleanDefault(thumbnailsConfig, "enableCacheWarmup", false);
-  private val cacheWarmupWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("cacheWarmupWidths", Json.emptyArr()))
+  private val cacheWarmupWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("cacheWarmupWidths", Json.arr()))
   private val cacheWarmupChunkSize = getIntDefault(thumbnailsConfig, "cacheWarmupChunkSize", 50);
 
   private val msIn6hours = 6 * 60 * 60 * 1000; // 21600000

@@ -2,7 +2,7 @@ package com.campudus.tableaux
 
 import com.campudus.tableaux.database.domain.UnionTable
 
-import org.vertx.scala.core.json.{JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.util.{Failure, Success, Try}
 

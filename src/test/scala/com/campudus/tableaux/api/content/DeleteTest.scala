@@ -1,10 +1,10 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.Json
 
 import org.junit.Assert._
 import org.junit.Test
@@ -47,7 +47,7 @@ class ClearCellTest extends TableauxTestBase {
       otherCellAfterClear <- sendRequest("GET", "/tables/1/columns/2/rows/1")
 
     } yield {
-      assertEquals(Json.emptyObj(), cell.getJsonObject("value"))
+      assertEquals(Json.obj(), cell.getJsonObject("value"))
       assertEquals(cell, cellAfterClear)
 
       assertFalse(otherCellAfterClear.isEmpty)

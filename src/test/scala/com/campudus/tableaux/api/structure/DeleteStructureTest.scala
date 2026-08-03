@@ -1,10 +1,11 @@
 package com.campudus.tableaux.api.structure
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future
 import scala.util.Random
@@ -77,10 +78,10 @@ class DeleteStructureTest extends TableauxTestBase {
       } yield {
         assertEquals(expectedOkJson, test)
 
-        assertEquals(0, shouldBeZeroColumns.getJsonArray("columns", Json.emptyArr()).size())
-        assertEquals(1, shouldBeOneColumns.getJsonArray("columns", Json.emptyArr()).size())
-        assertEquals(2, shouldBeTwoColumns.getJsonArray("columns", Json.emptyArr()).size())
-        assertEquals(1, afterDelete.getJsonArray("columns", Json.emptyArr()).size())
+        assertEquals(0, shouldBeZeroColumns.getJsonArray("columns", Json.arr()).size())
+        assertEquals(1, shouldBeOneColumns.getJsonArray("columns", Json.arr()).size())
+        assertEquals(2, shouldBeTwoColumns.getJsonArray("columns", Json.arr()).size())
+        assertEquals(1, afterDelete.getJsonArray("columns", Json.arr()).size())
       }
     }
   }
@@ -239,7 +240,7 @@ class DeleteStructureTest extends TableauxTestBase {
           s"/tables/$table2/rows",
           Json.obj(
             "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
-            "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test", Json.emptyArr())))
+            "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test", Json.arr())))
           )
         )
 

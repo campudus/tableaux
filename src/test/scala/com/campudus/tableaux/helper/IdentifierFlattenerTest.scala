@@ -1,8 +1,7 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.helper.IdentifierFlattener._
-
-import org.vertx.scala.core.json.Json
+import com.campudus.tableaux.helper.Json
 
 import org.junit.Assert._
 import org.junit.Test
@@ -154,7 +153,7 @@ class MultilanguageConcatenationTest {
       Seq("de", "en"),
       Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> 42)))
     )
-    JSONAssert.assertEquals(expected, actual.getOrElse(Json.emptyObj()).toString, JSONCompareMode.STRICT)
+    JSONAssert.assertEquals(expected, actual.getOrElse(Json.obj()).toString, JSONCompareMode.STRICT)
   }
 
   @Test
