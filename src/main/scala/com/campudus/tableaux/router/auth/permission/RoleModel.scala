@@ -8,7 +8,7 @@ import com.campudus.tableaux.database.domain.RowPermissions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
@@ -40,10 +40,8 @@ case object Enrich extends RoleMethod
   * RoleModel is responsible for providing these main functions:
   *
   *   - checkAuthorization: A check method for `POST`, `PUT`, `PATCH` und `DELETE` requests.
-  *
   *   - filterDomainObjects: A filter method for `GET` requests, to only return viewable items. If a `GET` requests a
   *     specific resource, checkAuthorization should be called instead.
-  *
   *   - enrich...: Enrich methods for `GET` requests, to extend response items with permissions objects e.g.
   *     `enrichServices` or `enrichTableSeq`.
   *
@@ -95,7 +93,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     } else {
       val userRoles: Seq[String] = user.roles
 
-      domainObjects.filter({ obj: A =>
+      domainObjects.filter({ (obj: A) =>
         // for each domainObject generate objects to compare with
         // for media and service there's only a global view permission
         val objects: ComparisonObjects = obj match {

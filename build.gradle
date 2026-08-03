@@ -18,14 +18,8 @@ plugins {
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
-// vertx-lang-scala (and the per-module *-scala artifacts) were never published past 3.9.1 for Scala 2.12 - this is
-// the last available version, and its generated bindings are only binary-compatible with the Java modules at that
-// exact version (later 3.9.x patch releases changed some auth API shapes in a binary-incompatible way). So every
-// Vert.x module that has a corresponding *-scala artifact is pinned at 3.9.1. vertx-pg-client has no scala binding
-// at all (see ADR 0002/0003) and is used directly via its Java API, so it can move independently on the 3.9.x line.
-def vertxVersion = '3.9.1'
-def vertxPgClientVersion = '3.9.16'
-def scalaVersion = '2.12.20'
+def vertxVersion = '4.5.11'
+def scalaVersion = '3.3.6'
 
 java {
   sourceCompatibility = JavaVersion.VERSION_17
@@ -42,26 +36,20 @@ repositories {
 }
 
 dependencies {
-  implementation "org.scala-lang:scala-library:${scalaVersion}"
-
-  // add scala-reflect to keep dependencies up-to-date
-  implementation "org.scala-lang:scala-reflect:${scalaVersion}"
+  implementation "org.scala-lang:scala3-library_3:${scalaVersion}"
 
   implementation "io.vertx:vertx-core:${vertxVersion}"
   implementation "io.vertx:vertx-web:${vertxVersion}"
   implementation "io.vertx:vertx-web-client:${vertxVersion}"
-  implementation "io.vertx:vertx-pg-client:${vertxPgClientVersion}"
+  implementation "io.vertx:vertx-pg-client:${vertxVersion}"
   implementation "io.vertx:vertx-auth-oauth2:${vertxVersion}"
   implementation "com.github.erosb:everit-json-schema:1.14.0"
 
-  // add Vert.x Scala
-  implementation "io.vertx:vertx-lang-scala_2.12:${vertxVersion}"
-  implementation "io.vertx:vertx-web-scala_2.12:${vertxVersion}"
-  implementation "io.vertx:vertx-web-client-scala_2.12:${vertxVersion}"
-  implementation "io.vertx:vertx-auth-oauth2-scala_2.12:${vertxVersion}"
+  // add Vert.x Scala - single consolidated artifact for Vert.x 4 + Scala 3 (see ADR 0001)
+  implementation "io.vertx:vertx-lang-scala_3:${vertxVersion}"
 
   implementation 'joda-time:joda-time:2.10.3'
-  implementation 'com.typesafe.scala-logging:scala-logging_2.12:3.9.4'
+  implementation 'com.typesafe.scala-logging:scala-logging_3:3.9.5'
   implementation 'org.slf4j:slf4j-jdk14:1.7.28'
   implementation 'com.jcabi:jcabi-manifests:1.1'
   implementation 'com.google.guava:guava:33.3.1-jre'
@@ -73,8 +61,8 @@ dependencies {
   compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
   testImplementation "io.vertx:vertx-unit:${vertxVersion}"
-  testImplementation 'junit:junit:4.12'
-  testImplementation "org.scalatest:scalatest_2.12:3.0.8"
+  testImplementation "io.vertx:vertx-auth-jwt:${vertxVersion}"
+  testImplementation 'junit:junit:4.13.2'
   testImplementation 'org.skyscreamer:jsonassert:1.5.0'
   testImplementation 'org.mockito:mockito-core:4.11.0'
 
@@ -136,7 +124,7 @@ task runRedeploy(type: JavaExec) {
 }
 
 tasks.withType(ScalaCompile) {
-  scalaCompileOptions.additionalParameters = ["-feature", "-Xsource:3"]
+  scalaCompileOptions.additionalParameters = ["-feature"]
 }
 
 sourceSets {
@@ -208,7 +196,7 @@ assemble.dependsOn shadowJar
  */
 spotless {
   scala {
-    scalafmt("3.4.0").configFile('.scalafmt.conf')
+    scalafmt("3.9.6").configFile('.scalafmt.conf')
   }
 }
 
@@ -236,6 +224,6 @@ testlogger {
  * Gradle wrapper
  */
 wrapper {
-  gradleVersion = '7.4.1'
+  gradleVersion = '9.6.1'
   distributionType = Wrapper.DistributionType.BIN
 }

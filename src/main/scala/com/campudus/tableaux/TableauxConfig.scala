@@ -1,11 +1,10 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.helper.VertxAccess
 
-import io.vertx.scala.core.Vertx
+import io.vertx.core.Vertx
 import org.vertx.scala.core.json.JsonObject
-
-import scala.reflect.io.Path
 
 class TableauxConfig(
     override val vertx: Vertx,
@@ -26,7 +25,7 @@ class TableauxConfig(
   }
 
   def thumbnailsDirectoryPath(): Path = {
-    uploadsDirectoryPath / Path("thumbnails/")
+    uploadsDirectoryPath() / Path("thumbnails/")
   }
 
   def retrievePath(subpath: String): Path = {

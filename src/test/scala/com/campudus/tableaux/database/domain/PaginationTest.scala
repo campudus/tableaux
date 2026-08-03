@@ -4,7 +4,6 @@ import com.campudus.tableaux._
 
 import org.junit.Assert._
 import org.junit.Test
-import org.scalatest.Matchers._
 
 class PaginationTest {
 
@@ -17,7 +16,7 @@ class PaginationTest {
   @Test
   def checkOffset_negativeValue_returnsFailedArg(): Unit = {
     val p = Pagination(Option(-1), None)
-    p.check shouldBe a[FailArg[_]]
+    assertTrue(p.check.isInstanceOf[FailArg[_]])
   }
 
   @Test
@@ -29,12 +28,12 @@ class PaginationTest {
   @Test
   def checkLimit_negativeValue_returnsFailedArg(): Unit = {
     val p = Pagination(None, Option(-1))
-    p.check shouldBe a[FailArg[_]]
+    assertTrue(p.check.isInstanceOf[FailArg[_]])
   }
 
   @Test
   def checkLimit_checkOffset_negativeValue_returnsFailedArg(): Unit = {
     val p = Pagination(Option(-1), Option(-1))
-    p.check shouldBe a[FailArg[_]]
+    assertTrue(p.check.isInstanceOf[FailArg[_]])
   }
 }

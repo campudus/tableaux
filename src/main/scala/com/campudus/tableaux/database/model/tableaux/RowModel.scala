@@ -1254,6 +1254,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
                       .mapValues(_.map({
                         case (_, _, _, annotation) => annotation
                       }))
+                      .toMap
               })
 
             TableWithCellAnnotations(table, groupedAnnotations)
@@ -1316,6 +1317,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         .mapValues(_.map({
           case (_, annotationTypeCount: CellAnnotationCount) => annotationTypeCount
         }))
+        .toMap
     }
   }
 

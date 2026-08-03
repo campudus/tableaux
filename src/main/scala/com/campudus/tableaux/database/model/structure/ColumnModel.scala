@@ -19,8 +19,8 @@ import com.campudus.tableaux.router.auth.permission.TableauxUser
 import com.campudus.tableaux.verticles.EventClient
 import com.campudus.tableaux.verticles.ValidatorKeys
 
-import io.vertx.scala.core.Vertx
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.core.Vertx
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
@@ -269,9 +269,9 @@ object ColumnModel extends LazyLogging {
             .toSeq
             .flatMap(_.subgroups)
             .distinct
-            .to[SortedSet]
+            .to(SortedSet)
 
-        val columnIDs = groupedColumns.map(_.id).map(_.toString).to[SortedSet]
+        val columnIDs = groupedColumns.map(_.id).map(_.toString).to(SortedSet)
 
         logger.info(
           s"Compare distinct wildcards (${distinctWildcards.mkString(", ")}) " +
@@ -312,7 +312,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   ): Future[ColumnType[_]] = {
 
     val attributes = createColumn.attributes
-    val validator = EventClient(Vertx.currentContext().get.owner())
+    val validator = EventClient(Vertx.currentContext().owner())
 
     def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
       BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
@@ -326,7 +326,7 @@ class ColumnModel(val connection: DatabaseConnection)(
               case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
             })
         } else {
-          Future { Unit }
+          Future(())
         }
       columnCreated <- createColumn match {
         case simpleColumnInfo: CreateSimpleColumn =>
@@ -507,7 +507,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
     val attributes = createColumn.attributes
-    val validator = EventClient(Vertx.currentContext().get.owner())
+    val validator = EventClient(Vertx.currentContext().owner())
 
     def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
       BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
@@ -1445,11 +1445,11 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
 
         val (checkForExpectedValueType, expectedType): (Any => Boolean, String) = column.kind match {
-          case TextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
-          case ShortTextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
-          case RichTextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
-          case NumericType => (valueToCompare => valueToCompare.isInstanceOf[Number], "Number")
-          case BooleanType => (valueToCompare => valueToCompare.isInstanceOf[Boolean], "Boolean")
+          case TextType => ((valueToCompare: Any) => valueToCompare.isInstanceOf[String], "String")
+          case ShortTextType => ((valueToCompare: Any) => valueToCompare.isInstanceOf[String], "String")
+          case RichTextType => ((valueToCompare: Any) => valueToCompare.isInstanceOf[String], "String")
+          case NumericType => ((valueToCompare: Any) => valueToCompare.isInstanceOf[Number], "Number")
+          case BooleanType => ((valueToCompare: Any) => valueToCompare.isInstanceOf[Boolean], "Boolean")
           case _ => throw new WrongStatusColumnKindException(column, StatusColumn.validColumnTypes)
         }
 
@@ -1875,7 +1875,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       optionToValidFuture(
         value,
         t,
-        { v: VALUE_TYPE => t.query(getUpdateQueryFor(columnName, cast), Json.arr(trans(v), tableId, columnId)) }
+        { (v: VALUE_TYPE) => t.query(getUpdateQueryFor(columnName, cast), Json.arr(trans(v), tableId, columnId)) }
       )
     }
 
@@ -1915,7 +1915,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t, _) <- optionToValidFuture(
         kind,
         t,
-        { k: TableauxDbType =>
+        { (k: TableauxDbType) =>
           t.query(
             s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}"
           )

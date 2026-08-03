@@ -9,7 +9,7 @@ import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future

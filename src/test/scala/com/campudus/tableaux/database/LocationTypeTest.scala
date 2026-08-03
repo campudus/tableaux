@@ -3,7 +3,6 @@ package com.campudus.tableaux.database
 import java.util.UUID
 import org.junit.{Assert, Test}
 import org.junit.Assert.assertEquals
-import org.scalatest.Assertions._
 
 class LocationTypeTest {
 
@@ -31,9 +30,10 @@ class LocationTypeTest {
     val uuidString = "XY123"
     assertEquals(LocationStart, LocationType("start", None))
     assertEquals(LocationEnd, LocationType("end", None))
-    assertThrows[IllegalArgumentException] {
-      LocationType("before", Option(UUID.fromString(uuidString)))
-    }
+    Assert.assertThrows(
+      classOf[IllegalArgumentException],
+      () => LocationType("before", Option(UUID.fromString(uuidString)))
+    )
   }
 
   @Test

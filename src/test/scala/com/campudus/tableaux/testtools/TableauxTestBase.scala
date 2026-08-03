@@ -9,21 +9,20 @@ import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
 
+import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.core.Handler
 import io.vertx.core.buffer.Buffer
+import io.vertx.core.http._
 import io.vertx.core.http.HttpMethod
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
+import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext, *}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
-import io.vertx.scala.core.http._
-import io.vertx.scala.core.streams.Pump
 import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.collection.JavaConverters._
+import scala.compiletime.uninitialized
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -48,36 +47,34 @@ trait TableauxTestBase
     with JsonCompatible
     with TestVertxAccess {
 
-  override var vertx: Vertx = _
+  var vertx: Vertx = uninitialized
 
-  override implicit var executionContext: VertxExecutionContext = _
+  implicit var executionContext: VertxExecutionContext = uninitialized
 
-  override var databaseConfig: JsonObject = _
+  var databaseConfig: JsonObject = uninitialized
 
-  override var authConfig: JsonObject = _
+  var authConfig: JsonObject = uninitialized
 
-  override var cdnConfig: JsonObject = _
+  var cdnConfig: JsonObject = uninitialized
 
-  override var thumbnailsConfig: JsonObject = _
+  var thumbnailsConfig: JsonObject = uninitialized
 
-  override var host: String = _
+  var host: String = uninitialized
 
-  override var port: Int = _
+  var port: Int = uninitialized
 
-  override var tableauxConfig: TableauxConfig = _
+  var tableauxConfig: TableauxConfig = uninitialized
 
   // default access token used for all integration tests if no explicit token is provided
-  var wildcardAccessToken: String = _
+  var wildcardAccessToken: String = uninitialized
 
-  implicit var user: TableauxUser = _
+  implicit var user: TableauxUser = uninitialized
 
   @Before
   def before(context: TestContext): Unit = {
     vertx = Vertx.vertx()
 
-    executionContext = VertxExecutionContext(
-      io.vertx.scala.core.Context(vertx.asJava.asInstanceOf[io.vertx.core.Vertx].getOrCreateContext())
-    )
+    executionContext = VertxExecutionContext(vertx, vertx.getOrCreateContext())
 
     val config = Json
       .fromObjectString(fileConfig.encode())
@@ -112,7 +109,7 @@ trait TableauxTestBase
     val options = DeploymentOptions()
       .setConfig(config)
 
-    val completionHandler = {
+    val completionHandler: Try[String] => Unit = {
       case Success(id) =>
         logger.info(s"Verticle deployed with ID $id")
         async.complete()
@@ -121,7 +118,7 @@ trait TableauxTestBase
         logger.error("Verticle couldn't be deployed.", e)
         context.fail(e)
         async.complete()
-    }: Try[String] => Unit
+    }
 
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
@@ -132,7 +129,8 @@ trait TableauxTestBase
       _ <- system.install()
     } yield {
       vertx
-        .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
+        .deployVerticle(ScalaVerticle.nameForVerticle[Starter](), options)
+        .asScala
     }.onComplete(completionHandler)
 
     val tokenHelper = TokenHelper(this.vertxAccess())
@@ -252,7 +250,7 @@ trait TableauxTestBase
 
   def sendRequest(method: String, path: String, tokenOpt: Option[String]): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, tokenOpt).end()
+    httpJsonRequest(method, path, p, tokenOpt).foreach(_.end())
     p.future
   }
 
@@ -262,7 +260,7 @@ trait TableauxTestBase
 
   def sendRequest(method: String, path: String, jsonObj: JsonObject, tokenOpt: Option[String]): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, tokenOpt).end(jsonObj.encode())
+    httpJsonRequest(method, path, p, tokenOpt).foreach(_.end(jsonObj.encode()))
     p.future
   }
 
@@ -272,7 +270,7 @@ trait TableauxTestBase
 
   def sendRequest(method: String, path: String, body: String, tokenOpt: Option[String]): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, tokenOpt).end(body)
+    httpJsonRequest(method, path, p, tokenOpt).foreach(_.end(body))
     p.future
   }
 
@@ -282,13 +280,13 @@ trait TableauxTestBase
 
   def sendStringRequest(method: String, path: String): Future[String] = {
     val p = Promise[String]()
-    httpStringRequest(method, path, p, None).end()
+    httpStringRequest(method, path, p, None).foreach(_.end())
     p.future
   }
 
   def sendStringRequest(method: String, path: String, jsonObj: JsonObject): Future[String] = {
     val p = Promise[String]()
-    httpStringRequest(method, path, p, None).end(jsonObj.encode())
+    httpStringRequest(method, path, p, None).foreach(_.end(jsonObj.encode()))
     p.future
   }
 
@@ -328,7 +326,7 @@ trait TableauxTestBase
       path: String,
       p: Promise[String],
       tokenOpt: Option[String]
-  ): HttpClientRequest = {
+  ): Future[HttpClientRequest] = {
     httpRequest(method, path, createResponseHandler[String](p, _.toString), createExceptionHandler[String](p), tokenOpt)
   }
 
@@ -337,7 +335,7 @@ trait TableauxTestBase
       path: String,
       p: Promise[JsonObject],
       tokenOpt: Option[String]
-  ): HttpClientRequest = {
+  ): Future[HttpClientRequest] = {
     httpRequest(
       method,
       path,
@@ -353,7 +351,7 @@ trait TableauxTestBase
       responseHandler: (HttpClient, HttpClientResponse) => Unit,
       exceptionHandler: (HttpClient, Throwable) => Unit,
       tokenOpt: Option[String]
-  ): HttpClientRequest = {
+  ): Future[HttpClientRequest] = {
     val _method = HttpMethod.valueOf(method.toUpperCase)
 
     val options = HttpClientOptions()
@@ -365,12 +363,24 @@ trait TableauxTestBase
 
     client
       .request(_method, port, host, path)
-      .putHeader("Authorization", s"Bearer $token")
-      .handler(new Handler[HttpClientResponse] {
-        override def handle(resp: HttpClientResponse): Unit = responseHandler(client, resp)
+      .asScala
+      .map(req => {
+        req.putHeader("Authorization", s"Bearer $token")
+        req.response(new Handler[io.vertx.core.AsyncResult[HttpClientResponse]] {
+          override def handle(ar: io.vertx.core.AsyncResult[HttpClientResponse]): Unit = {
+            if (ar.succeeded()) responseHandler(client, ar.result())
+            else exceptionHandler(client, ar.cause())
+          }
+        })
+        req.exceptionHandler(new Handler[Throwable] {
+          override def handle(x: Throwable): Unit = exceptionHandler(client, x)
+        })
+        req
       })
-      .exceptionHandler(new Handler[Throwable] {
-        override def handle(x: Throwable): Unit = exceptionHandler(client, x)
+      .recover({
+        case ex =>
+          exceptionHandler(client, ex)
+          throw ex
       })
   }
 
@@ -386,49 +396,31 @@ trait TableauxTestBase
     val contentLength =
       String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
 
-    futurify({ p: Promise[JsonObject] =>
+    futurify({ (p: Promise[JsonObject]) =>
       def requestHandler(req: HttpClientRequest): Unit = {
         req.putHeader("Content-length", contentLength)
         req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
 
         logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
 
-        req.write(header)
-
-        val asyncFile: Future[AsyncFile] =
-          vertx.fileSystem().openFuture(filePath, OpenOptions())
-
-        asyncFile.map({ file =>
-          val pump = Pump.pump(file, req)
-
-          file.exceptionHandler(new Handler[Throwable] {
-            override def handle(e: Throwable): Unit = {
-              pump.stop()
+        // Test fixtures are only a few MB - read the whole file and send it as a single buffer rather than
+        // streaming it (AsyncFile -> HttpClientRequest streaming via Pump/pipe proved unreliable for larger
+        // fixtures on Vert.x 4, silently truncating the body and leaving the server waiting on bytes that
+        // never arrive).
+        vertx
+          .fileSystem()
+          .readFile(filePath)
+          .asScala
+          .onComplete({
+            case Success(fileContent) =>
+              req.end(Buffer.buffer(header).appendBuffer(fileContent).appendString(footer))
+            case Failure(e) =>
               req.end("")
               p.failure(e)
-            }
           })
-
-          file.endHandler(new Handler[Unit] {
-            override def handle(event: Unit): Unit = {
-              file
-                .closeFuture()
-                .onComplete({
-                  case Success(_) =>
-                    logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
-                    req.end(footer)
-                  case Failure(e) =>
-                    req.end("")
-                    p.failure(e)
-                })
-            }
-          })
-
-          pump.start()
-        })
       }
 
-      requestHandler(httpJsonRequest(method, url, p, None))
+      httpJsonRequest(method, url, p, None).foreach(requestHandler)
     })
   }
 

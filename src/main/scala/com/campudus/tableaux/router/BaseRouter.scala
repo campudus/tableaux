@@ -6,13 +6,15 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.helper._
 import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, TableauxUser}
 
+import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
+import io.vertx.core.http.HttpServerResponse
 import io.vertx.core.json.DecodeException
-import io.vertx.scala.core.Vertx
-import io.vertx.scala.core.http.HttpServerResponse
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
+import io.vertx.lang.scala.*
 import org.vertx.scala.core.json._
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
@@ -92,7 +94,7 @@ trait BaseRouter extends VertxAccess {
   }
 
   private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject])(implicit
-  user: TableauxUser): AsyncReply = {
+      user: TableauxUser): AsyncReply = {
     AsyncReply {
       val catchedReplyFunction = Try(replyFunction) match {
         case Success(future) => future
@@ -118,7 +120,7 @@ trait BaseRouter extends VertxAccess {
 
   def getJson(context: RoutingContext): JsonObject = {
 
-    val buffer = context.getBody().map(_.toString()).getOrElse("")
+    val buffer = Option(context.getBody()).map(_.toString()).getOrElse("")
 
     if (buffer.isEmpty) {
       throw NoJsonFoundException("No JSON found.")
@@ -151,55 +153,55 @@ trait BaseRouter extends VertxAccess {
   }
 
   def getLongParam(name: String, context: RoutingContext): Option[Long] = {
-    context.request().getParam(name).map(_.toLong)
+    Option(context.request().getParam(name)).map(_.toLong)
   }
 
   def getBoolParam(name: String, context: RoutingContext): Option[Boolean] = {
-    context.request().getParam(name).map(_.toBoolean)
+    Option(context.request().getParam(name)).map(_.toBoolean)
   }
 
   def getStringQuery(name: String, context: RoutingContext): Option[String] = {
-    context.queryParams().get(name)
+    Option(context.queryParams().get(name))
   }
 
   def getSeqStringQuery(name: String, context: RoutingContext, separator: String = ","): Option[Seq[String]] = {
     for {
-      str <- context.queryParams().get(name)
+      str <- Option(context.queryParams().get(name))
       seq = str.split(separator).toList.map(_.trim).filter(_.nonEmpty)
       if seq.nonEmpty
     } yield seq
   }
 
   def getBoolQuery(name: String, context: RoutingContext): Option[Boolean] = {
-    context.queryParams().get(name).map(_.toBoolean)
+    Option(context.queryParams().get(name)).map(_.toBoolean)
   }
 
   def getIntQuery(name: String, context: RoutingContext): Option[Int] = {
-    context.queryParams().get(name).map(_.toInt)
+    Option(context.queryParams().get(name)).map(_.toInt)
   }
 
   def getLongQuery(name: String, context: RoutingContext): Option[Long] = {
-    context.queryParams().get(name).map(_.toLong)
+    Option(context.queryParams().get(name)).map(_.toLong)
   }
 
   def getSeqLongQuery(name: String, context: RoutingContext, separator: String = ","): Option[Seq[Long]] = {
     for {
-      str <- context.queryParams().get(name)
+      str <- Option(context.queryParams().get(name))
       seq = str.split(separator).toList.map(_.trim).filter(_.nonEmpty).map(_.toLong)
       if seq.nonEmpty
     } yield seq
   }
 
   def getStringParam(name: String, context: RoutingContext): Option[String] = {
-    context.request().getParam(name)
+    Option(context.request().getParam(name))
   }
 
   def getStringParams(name: String, context: RoutingContext): Seq[String] = {
-    context.request().params().getAll(name)
+    context.request().params().getAll(name).asScala.toSeq
   }
 
   def getStringCookie(name: String, context: RoutingContext): Option[String] = {
-    context.getCookie(name).map(_.getValue())
+    Option(context.getCookie(name)).map(_.getValue())
   }
 
   protected def getTableId(context: RoutingContext): Option[Long] = {
@@ -245,7 +247,9 @@ trait BaseRouter extends VertxAccess {
   private def checkExistence(file: String): Future[String] = {
     vertx
       .fileSystem()
-      .existsFuture(file)
+      .exists(file)
+      .asScala
+      .map(_.booleanValue())
       .flatMap({
         case true => Future.successful(file)
         case false => Future.failed(new FileNotFoundException(file))
@@ -263,7 +267,8 @@ trait BaseRouter extends VertxAccess {
   private def directoryToIndexFile(path: String): Future[String] = {
     vertx
       .fileSystem()
-      .lpropsFuture(path)
+      .props(path)
+      .asScala
       .flatMap({ fp =>
         if (fp.isDirectory) {
           checkExistence(addIndexToDirName(path))

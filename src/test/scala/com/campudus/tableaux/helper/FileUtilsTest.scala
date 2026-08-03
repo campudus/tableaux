@@ -1,11 +1,11 @@
 package com.campudus.tableaux.helper
 
+import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-
-import scala.reflect.io.Path
+import io.vertx.lang.scala.*
 
 import java.io.FileNotFoundException
 import org.junit.Assert._
@@ -26,10 +26,10 @@ class FileUtilsTest extends TableauxTestBase {
 
         _ <- FileUtils(this.vertxAccess()).mkdirs(path)
 
-        exists <- vertx.fileSystem().existsFuture(path.toString())
+        exists <- vertx.fileSystem().exists(path.toString()).asScala.map(_.booleanValue())
 
-        _ <- vertx.fileSystem().deleteFuture(path.toString())
-        _ <- vertx.fileSystem().deleteFuture(path.parent.toString())
+        _ <- vertx.fileSystem().delete(path.toString()).asScala
+        _ <- vertx.fileSystem().delete(path.parent.toString()).asScala
       } yield {
         assertTrue(exists)
       }

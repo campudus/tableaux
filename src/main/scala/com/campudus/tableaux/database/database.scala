@@ -4,9 +4,9 @@ import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.VertxAccess
 
+import io.vertx.core.Vertx
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.{DatabaseAction, SQLConnection}
-import io.vertx.scala.core.Vertx
 import io.vertx.sqlclient.Row
 import io.vertx.sqlclient.RowSet
 import io.vertx.sqlclient.data.Numeric
@@ -166,7 +166,7 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
   def transactionalFoldLeft[A, B](values: Seq[A], fnStartValue: B)(
       fn: (DbTransaction, B, A) => Future[(DbTransaction, B)]
   ): Future[B] = {
-    transactional[B]({ transaction: DbTransaction =>
+    transactional[B]({ (transaction: DbTransaction) =>
       {
         values.foldLeft(Future(transaction, fnStartValue)) { (result, value) =>
           {

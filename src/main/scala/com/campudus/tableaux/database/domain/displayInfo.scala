@@ -96,8 +96,8 @@ sealed trait DisplayInfos {
   protected def createSql(table: String, idColumn: String, idValue: Long): (String, Seq[Any]) = {
     val statement =
       s"INSERT INTO $table ($idColumn, langtag, name, description) VALUES ${entries
-        .map(_ => "(?, ?, ?, ?)")
-        .mkString(", ")}"
+          .map(_ => "(?, ?, ?, ?)")
+          .mkString(", ")}"
     val binds = entries.flatMap(di => List(idValue, di.langtag, di.optionalName.orNull, di.optionalDescription.orNull))
 
     (statement, binds)
@@ -111,8 +111,8 @@ sealed trait DisplayInfos {
         val nameAndDesc = nameOpt.map(_ => "name").toList ::: descriptionOpt.map(_ => "description").toList
         val statement =
           s"INSERT INTO $table (${nameAndDesc.mkString(", ")}, $idColumn, langtag) VALUES (${nameAndDesc
-            .map(_ => "?")
-            .mkString(", ")}, ?, ?)"
+              .map(_ => "?")
+              .mkString(", ")}, ?, ?)"
         val binds = nameOpt.toList ::: descriptionOpt.toList ::: List(idValue, langtag)
 
         resultMap + (langtag -> (statement, binds))
@@ -164,8 +164,8 @@ case class ColumnDisplayInfos(tableId: TableId, columnId: ColumnId, override val
   override def createSql: (String, Seq[Any]) = {
     val statement =
       s"INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description) VALUES ${entries
-        .map(_ => "(?, ?, ?, ?, ?)")
-        .mkString(", ")}"
+          .map(_ => "(?, ?, ?, ?, ?)")
+          .mkString(", ")}"
     val binds =
       entries.flatMap(di => List(tableId, columnId, di.langtag, di.optionalName.orNull, di.optionalDescription.orNull))
 
@@ -178,7 +178,7 @@ case class ColumnDisplayInfos(tableId: TableId, columnId: ColumnId, override val
         val nameAndDesc = nameOpt.map(_ => "name").toList ::: descriptionOpt.map(_ => "description").toList
         val statement =
           s"INSERT INTO system_columns_lang (${nameAndDesc
-            .mkString(", ")}, table_id, column_id, langtag) VALUES (${nameAndDesc.map(_ => "?").mkString(", ")}, ?, ?, ?)"
+              .mkString(", ")}, table_id, column_id, langtag) VALUES (${nameAndDesc.map(_ => "?").mkString(", ")}, ?, ?, ?)"
         val binds = nameOpt.toList ::: descriptionOpt.toList ::: List(tableId, columnId, langtag)
 
         resultMap + (langtag -> (statement, binds))
@@ -191,7 +191,7 @@ case class ColumnDisplayInfos(tableId: TableId, columnId: ColumnId, override val
         val nameAndDesc = nameOpt.map(_ => "name = ?").toList ::: descriptionOpt.map(_ => "description = ?").toList
         val statement =
           s"UPDATE system_columns_lang SET ${nameAndDesc
-            .mkString(", ")} WHERE table_id = ? AND column_id = ? AND langtag = ?"
+              .mkString(", ")} WHERE table_id = ? AND column_id = ? AND langtag = ?"
         val binds = nameOpt.toList ::: descriptionOpt.toList ::: List(tableId, columnId, langtag)
 
         resultMap + (langtag -> (statement, binds))

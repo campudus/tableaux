@@ -5,11 +5,10 @@ import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.VertxAccess
 
 import io.vertx.core.Handler
+import io.vertx.core.Vertx
 import io.vertx.core.json.{JsonArray, JsonObject}
-import io.vertx.scala.core.Vertx
-import io.vertx.scala.ext.auth.User
-import io.vertx.scala.ext.auth.oauth2.KeycloakHelper
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.auth.User
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
 
 import scala.collection.JavaConverters._
@@ -31,10 +30,10 @@ class KeycloakAuthHandler(override val vertx: Vertx, tableauxConfig: TableauxCon
     * principal in requestContext for authorization. If not context fails with statusCode 401.
     */
   override def handle(rc: RoutingContext): Unit = {
-    val user: Option[User] = rc.user()
+    val user: Option[User] = Option(rc.user())
 
     val tokenPayload = user match {
-      case Some(u) => KeycloakHelper.accessToken(u.principal())
+      case Some(u) => u.attributes().getJsonObject("accessToken")
       case _ =>
         val exception = AuthenticationException("No user in context")
         logger.error(exception.getMessage)

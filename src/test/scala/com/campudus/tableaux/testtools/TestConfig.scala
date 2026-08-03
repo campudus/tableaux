@@ -1,11 +1,11 @@
 package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.helper.Path
 
 import org.vertx.scala.core.json._
 
 import scala.io.Source
-import scala.reflect.io.Path
 
 import java.net.ServerSocket
 

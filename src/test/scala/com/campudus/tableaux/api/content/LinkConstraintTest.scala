@@ -831,7 +831,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
   @Test
   def retrieveForeignRowsOfLinkCellWhichAlreadyHitTheLimitButAddedAnotherLinkColumnBefore(implicit
-  c: TestContext): Unit = {
+      c: TestContext): Unit = {
     okTest {
       for {
         // create additional table and links so that system_link_table -> link_id and link_table -> ids are not identical

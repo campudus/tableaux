@@ -18,14 +18,15 @@ import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
 import com.campudus.tableaux.verticles._
 import com.campudus.tableaux.verticles.MessagingVerticle._
 
+import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
+import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext, *}
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import org.vertx.scala.core.json.{JsonObject, _}
 
-import scala.collection.mutable.MutableList
+import scala.collection.mutable.ListBuffer
+import scala.compiletime.uninitialized
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
@@ -39,10 +40,10 @@ import org.mockito.stubbing.Answer
 
 @RunWith(classOf[VertxUnitRunner])
 class MessagingVerticleTest extends TableauxTestBase {
-  val answers: MutableList[JsonObject] = MutableList()
-  var eventClient: EventClient = _
-  var tableauxModel: TableauxModel = _
-  var structureModel: StructureModel = _
+  val answers: ListBuffer[JsonObject] = ListBuffer()
+  var eventClient: EventClient = uninitialized
+  var tableauxModel: TableauxModel = uninitialized
+  var structureModel: StructureModel = uninitialized
 
   def addToAnswers(obj: JsonObject): Unit = {
     answers += obj
@@ -52,9 +53,7 @@ class MessagingVerticleTest extends TableauxTestBase {
   override def before(context: TestContext): Unit = {
     vertx = Vertx.vertx()
 
-    executionContext = VertxExecutionContext(
-      io.vertx.scala.core.Context(vertx.asJava.asInstanceOf[io.vertx.core.Vertx].getOrCreateContext())
-    )
+    executionContext = VertxExecutionContext(vertx, vertx.getOrCreateContext())
 
     eventClient = EventClient(vertx)
 
@@ -87,7 +86,7 @@ class MessagingVerticleTest extends TableauxTestBase {
 
     val async = context.async()
 
-    val completionHandler = {
+    val completionHandler: Try[String] => Unit = {
       case Success(id) =>
         logger.info(s"Verticle deployed with ID $id")
         async.complete()
@@ -96,7 +95,7 @@ class MessagingVerticleTest extends TableauxTestBase {
         logger.error("Verticle couldn't be deployed.", e)
         context.fail(e)
         async.complete()
-    }: Try[String] => Unit
+    }
 
     val verticleConfig =
       Json.obj(
@@ -141,9 +140,9 @@ class MessagingVerticleTest extends TableauxTestBase {
     for {
       _ <- system.uninstall()
       _ <- system.install()
-      _ <- vertx.deployVerticleFuture(new CacheVerticle(tableauxConfig), options)
+      _ <- vertx.deployVerticle(new CacheVerticle(tableauxConfig), options)
     } yield {
-      vertx.deployVerticleFuture(spiedMessagingVerticle, options)
+      vertx.deployVerticle(spiedMessagingVerticle, options)
     }.onComplete(completionHandler)
 
     val tokenHelper = TokenHelper(this.vertxAccess())

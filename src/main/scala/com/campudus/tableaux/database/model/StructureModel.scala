@@ -21,6 +21,6 @@ class StructureModel(override protected[this] val connection: DatabaseConnection
   val tableStruc = new TableModel(connection)
 
   val columnStruc =
-    new CachedColumnModel(connection.vertx.getOrCreateContext().config().getOrElse(Json.obj()), connection)
+    new CachedColumnModel(Option(connection.vertx.getOrCreateContext().config()).getOrElse(Json.obj()), connection)
   val tableGroupStruc = new TableGroupModel(connection)
 }

@@ -10,8 +10,8 @@ import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
-import io.vertx.scala.ext.web.{Router, RoutingContext}
-import io.vertx.scala.ext.web.handler.BodyHandler
+import io.vertx.ext.web.{Router, RoutingContext}
+import io.vertx.ext.web.handler.BodyHandler
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -923,7 +923,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     */
   private def deleteRow(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-    val replacingRowIdStringOpt = context.queryParams().get("replacingRowId")
+    val replacingRowIdStringOpt = Option(context.queryParams().get("replacingRowId"))
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)

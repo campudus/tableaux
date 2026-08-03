@@ -4,7 +4,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, TableauxUser}
 
 import io.vertx.core.json.JsonObject
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
 object TableType {

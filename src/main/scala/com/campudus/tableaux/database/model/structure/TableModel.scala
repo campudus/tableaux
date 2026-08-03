@@ -9,7 +9,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, TableauxUser, ViewTable}
 
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
@@ -424,7 +424,7 @@ class TableModel(val connection: DatabaseConnection)(
       (t, result1) <- optionToValidFuture(
         tableName,
         t,
-        { name: String =>
+        { (name: String) =>
           {
             for {
               t <- t
@@ -449,7 +449,7 @@ class TableModel(val connection: DatabaseConnection)(
       (t, result2) <- optionToValidFuture(
         hidden,
         t,
-        { hidden: Boolean =>
+        { (hidden: Boolean) =>
           {
             t.query(s"UPDATE system_table SET is_hidden = ? WHERE table_id = ?", Json.arr(hidden, tableId))
           }
@@ -458,7 +458,7 @@ class TableModel(val connection: DatabaseConnection)(
       (t, result3) <- optionToValidFuture(
         langtags,
         t,
-        { langtags: Option[Seq[String]] =>
+        { (langtags: Option[Seq[String]]) =>
           {
             t.query(
               s"UPDATE system_table SET langtags = ? WHERE table_id = ?",
@@ -470,7 +470,7 @@ class TableModel(val connection: DatabaseConnection)(
       (t, result4) <- optionToValidFuture(
         tableGroupId,
         t,
-        { tableGroupId: Option[TableGroupId] =>
+        { (tableGroupId: Option[TableGroupId]) =>
           {
             t.query(s"UPDATE system_table SET group_id = ? WHERE table_id = ?", Json.arr(tableGroupId.orNull, tableId))
           }
@@ -479,7 +479,7 @@ class TableModel(val connection: DatabaseConnection)(
       (t, result5) <- optionToValidFuture(
         attributes,
         t,
-        { attributes: JsonObject =>
+        { (attributes: JsonObject) =>
           {
             t.query(
               s"UPDATE system_table SET attributes = ?::json WHERE table_id = ?",
@@ -491,7 +491,7 @@ class TableModel(val connection: DatabaseConnection)(
       (t, result6) <- optionToValidFuture(
         concatFormatPattern,
         t,
-        { concatFormatPattern: String =>
+        { (concatFormatPattern: String) =>
           {
             t.query(
               s"UPDATE system_table SET concat_format_pattern = ? WHERE table_id = ?",

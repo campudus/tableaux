@@ -103,7 +103,7 @@ object MultiLanguageValue {
   def apply[A](obj: JsonObject): MultiLanguageValue[A] = {
     import scala.collection.JavaConverters._
     val fields: Map[String, A] =
-      obj.fieldNames().asScala.map(name => name -> obj.getValue(name).asInstanceOf[A])(collection.breakOut)
+      obj.fieldNames().asScala.map(name => name -> obj.getValue(name).asInstanceOf[A]).toMap
 
     MultiLanguageValue[A](fields)
   }

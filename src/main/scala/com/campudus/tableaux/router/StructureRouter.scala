@@ -6,8 +6,8 @@ import com.campudus.tableaux.database.domain.{ColumnFilter, DisplayInfos, Generi
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
-import io.vertx.scala.ext.web.{Router, RoutingContext}
-import io.vertx.scala.ext.web.handler.BodyHandler
+import io.vertx.ext.web.{Router, RoutingContext}
+import io.vertx.ext.web.handler.BodyHandler
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}

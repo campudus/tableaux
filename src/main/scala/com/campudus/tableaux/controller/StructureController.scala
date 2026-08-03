@@ -294,7 +294,7 @@ class StructureController(
           case ex => throw InvalidJsonException(ex.getMessage(), "attributes")
         }
       }
-      case None => createTable(Unit)
+      case None => createTable(())
     }) map { table =>
       eventClient.tableCreated(table.id)
       table
@@ -645,7 +645,7 @@ class StructureController(
               case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
             })
         } else {
-          Future { Unit }
+          Future(())
         }
       _ <- tableStruc.change(
         tableId,
@@ -765,7 +765,7 @@ class StructureController(
               case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
             })
         } else {
-          Future { Unit }
+          Future(())
         }
 
       _ <-
@@ -779,7 +779,7 @@ class StructureController(
             _ <- columnStruc.retrieveAndValidateDependentStatusColumns(rules.get, table)
           } yield ()
         } else {
-          Future { Unit }
+          Future(())
         }
 
       _ <-

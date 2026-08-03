@@ -7,7 +7,7 @@ import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
@@ -119,16 +119,17 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
       isDashboard: Option[Boolean]
   )(implicit user: TableauxUser): Future[String] = {
 
-    val insert = s"""INSERT INTO $table (
-                    |  name,
-                    |  priority,
-                    |  fg_color,
-                    |  bg_color,
-                    |  display_name,
-                    |  is_multilang,
-                    |  is_dashboard)
-                    |VALUES
-                    |  (?, COALESCE(?, (SELECT MAX(priority) FROM $table) + 1, 1), ?, ?, ?::json, ?, ?) RETURNING name""".stripMargin
+    val insert =
+      s"""INSERT INTO $table (
+         |  name,
+         |  priority,
+         |  fg_color,
+         |  bg_color,
+         |  display_name,
+         |  is_multilang,
+         |  is_dashboard)
+         |VALUES
+         |  (?, COALESCE(?, (SELECT MAX(priority) FROM $table) + 1, 1), ?, ?, ?::json, ?, ?) RETURNING name""".stripMargin
 
     for {
       _ <- checkUniqueName(name)
@@ -161,7 +162,7 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
   }
 
   private def convertJsonArrayToCellAnnotationConfig(arr: JsonArray)(implicit
-  user: TableauxUser): CellAnnotationConfig = {
+      user: TableauxUser): CellAnnotationConfig = {
     CellAnnotationConfig(
       arr.get[String](0), // name
       arr.get[Int](1), // priority

@@ -6,13 +6,13 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, Tabl
 import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.core.Handler
+import io.vertx.core.eventbus.EventBus
+import io.vertx.core.eventbus.Message
 import io.vertx.lang.scala.ScalaVerticle
-import io.vertx.scala.core.eventbus.EventBus
-import io.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.mutable
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.language.implicitConversions
 
 import com.google.common.cache.{Cache => GuavaCache, CacheBuilder}
@@ -81,7 +81,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
   private val rowPermissionsCaches: RowPermissionsCaches = mutable.Map.empty
   private val rowLevelAnnotationsCache: RowLevelAnnotationsCache = mutable.Map.empty
 
-  override def startFuture(): Future[_] = {
+  override def asyncStart: Future[Unit] = {
     logger.info(
       s"CacheVerticle initialized: DEFAULT_MAXIMUM_SIZE: $DEFAULT_MAXIMUM_SIZE, DEFAULT_EXPIRE_AFTER_ACCESS: "
         + s"$DEFAULT_EXPIRE_AFTER_ACCESS TIMEOUT_AFTER_MILLISECONDS: ${CacheVerticle.cacheTimeoutMillis}"
@@ -93,9 +93,15 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
       eventBus: EventBus,
       address: String,
       handler: Handler[Message[JsonObject]]
-  ): Future[Unit] = eventBus.localConsumer(address, handler).completionFuture()
+  ): Future[Unit] = {
+    val promise = Promise[Unit]()
+    eventBus
+      .localConsumer(address, handler)
+      .completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    promise.future
+  }
 
-  private def registerOnEventBus(): Future[_] = {
+  private def registerOnEventBus(): Future[Unit] = {
     Future.sequence(
       Seq(
         // cell
@@ -124,7 +130,7 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
           messageHandlerInvalidateTableRowLevelAnnotations
         )
       )
-    )
+    ).map(_ => ())
   }
 
   private def createCache() = {

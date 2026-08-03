@@ -3,8 +3,8 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper._
 
-import io.vertx.scala.core.http.HttpServerRequest
-import io.vertx.scala.ext.web.{Router, RoutingContext}
+import io.vertx.core.http.HttpServerRequest
+import io.vertx.ext.web.{Router, RoutingContext}
 
 import scala.io.Source
 
@@ -39,7 +39,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
   private def index(context: RoutingContext): Unit = {
     val (scheme, host, basePath) = parseAbsoluteURI(context.request())
 
-    logger.info(s"Headers ${context.request().headers().asJava.asInstanceOf[io.vertx.core.MultiMap].entries()}")
+    logger.info(s"Headers ${context.request().headers().entries()}")
 
     sendReply(
       context,
@@ -114,12 +114,10 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
       * Sometimes we use tableaux behind some weird proxy configurations If so we use x-forwarded headers to figure out
       * how to point to swagger json
       */
-    val forwardedScheme = request
-      .getHeader("x-forwarded-proto")
+    val forwardedScheme = Option(request.getHeader("x-forwarded-proto"))
       .flatMap(_.split(",").headOption)
 
-    val forwardedHost = request
-      .getHeader("x-forwarded-host")
+    val forwardedHost = Option(request.getHeader("x-forwarded-host"))
       .flatMap(_.split(",").headOption)
       .map(forwardedHost => {
         forwardedHost.split(":").toList match {
@@ -129,7 +127,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
         }
       })
 
-    val forwardedUrl = request.getHeader("x-forwarded-url")
+    val forwardedUrl = Option(request.getHeader("x-forwarded-url"))
     val openApiUrl = config.openApiUrl
 
     val uri = (forwardedScheme, forwardedHost, forwardedUrl, openApiUrl) match {

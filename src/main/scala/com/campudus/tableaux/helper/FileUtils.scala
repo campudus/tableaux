@@ -1,13 +1,14 @@
 package com.campudus.tableaux.helper
 
-import io.vertx.scala.core.Vertx
+import com.campudus.tableaux.helper.Path
+
+import io.vertx.core.Vertx
+import io.vertx.lang.scala.*
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.io.Source
-import scala.reflect.io.File
-import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
 import java.nio.file.FileAlreadyExistsException
@@ -28,7 +29,9 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
   def mkdirs(dir: Path): Future[Unit] = {
     vertx
       .fileSystem()
-      .mkdirsFuture(dir.toString())
+      .mkdirs(dir.toString())
+      .asScala
+      .map(_ => ())
       .recoverWith({
         case _: FileAlreadyExistsException =>
           Future.successful(())

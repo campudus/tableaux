@@ -5,14 +5,14 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
 
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import org.junit.{Assert, Test}
 
 class PermissionTest {
 
-  implicit val user = TableauxUser("Test", Seq.empty[String])
+  implicit val user: TableauxUser = TableauxUser("Test", Seq.empty[String])
 
   private def createTable(
       id: Long = 1,

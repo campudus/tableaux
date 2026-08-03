@@ -4,7 +4,7 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import io.vertx.core.json.JsonObject
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
 import org.joda.time.DateTime

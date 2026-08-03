@@ -4,10 +4,10 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestConfig}
 
+import io.vertx.core.Vertx
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.core.Vertx
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -102,11 +102,11 @@ class DatabaseConnectionTest extends VertxAccess with TestConfig with TestAssert
     }
   }
 
-  override var host: String = _
-  override var port: Int = _
-  override var databaseConfig: JsonObject = _
-  override var authConfig: JsonObject = _
-  override var cdnConfig: JsonObject = _
-  override var thumbnailsConfig: JsonObject = _
-  override var tableauxConfig: TableauxConfig = _
+  var host: String = scala.compiletime.uninitialized
+  var port: Int = scala.compiletime.uninitialized
+  var databaseConfig: JsonObject = scala.compiletime.uninitialized
+  var authConfig: JsonObject = scala.compiletime.uninitialized
+  var cdnConfig: JsonObject = scala.compiletime.uninitialized
+  var thumbnailsConfig: JsonObject = scala.compiletime.uninitialized
+  var tableauxConfig: TableauxConfig = scala.compiletime.uninitialized
 }
