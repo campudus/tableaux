@@ -77,7 +77,11 @@ object SQLConnection extends LazyLogging {
             logger.debug(message)
           }
         })
-      case _ => ()
+        // connectHandler must close() the connection itself to release it back to the pool
+        // (see Pool#connectHandler javadoc) - otherwise every new pooled connection hangs forever.
+        conn.close()
+      case conn =>
+        conn.close()
     })
   }
 
