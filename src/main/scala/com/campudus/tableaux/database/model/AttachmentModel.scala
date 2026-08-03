@@ -3,9 +3,10 @@ package com.campudus.tableaux.database.model
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery, DbTransaction}
 import com.campudus.tableaux.database.domain.{DomainObject, ExtendedFile}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, RowId, TableId}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.ResultChecker._
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.concurrent.Future
 
@@ -77,7 +78,7 @@ class AttachmentModel(protected val connection: DatabaseConnection, protected va
                 Json.arr(params*)
               )
             } else {
-              Future.successful((t, Json.emptyObj()))
+              Future.successful((t, Json.obj()))
             }
           }
         } yield (t, ())

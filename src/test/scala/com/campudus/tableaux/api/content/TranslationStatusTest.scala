@@ -1,10 +1,10 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.Json
 
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -194,7 +194,7 @@ class TranslationStatusTest extends TableauxTestBase {
     } yield {
 
       val expectedTranslationStatus = Json.obj(
-        "tables" -> Json.emptyArr(),
+        "tables" -> Json.arr(),
         "translationStatus" -> Json.obj(
           "de-DE" -> 1.0,
           "en-GB" -> 1.0

@@ -1,10 +1,11 @@
 package com.campudus.tableaux.api.structure
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import org.junit.Test
 import org.junit.runner.RunWith

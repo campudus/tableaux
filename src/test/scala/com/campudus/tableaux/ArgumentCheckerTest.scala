@@ -1,8 +1,7 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.ArgumentChecker._
-
-import org.vertx.scala.core.json.Json
+import com.campudus.tableaux.helper.Json
 
 import org.junit.Assert
 import org.junit.Assert._
@@ -237,7 +236,7 @@ class ArgumentCheckerTest {
 
   @Test
   def checkAndConvertToOption(): Unit = {
-    assertEquals(None, hasLong("no_long", Json.emptyObj()).toOption)
+    assertEquals(None, hasLong("no_long", Json.obj()).toOption)
     assertEquals(Some(1L), hasLong("long", Json.obj("long" -> 1L)).toOption)
   }
 }

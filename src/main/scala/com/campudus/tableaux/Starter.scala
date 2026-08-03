@@ -3,6 +3,7 @@ package com.campudus.tableaux
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.UnionTableRow
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router._
 import com.campudus.tableaux.verticles._
 
@@ -10,8 +11,8 @@ import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.core.http.HttpServer
 import io.vertx.core.http.HttpServerOptions
 import io.vertx.lang.scala.{ScalaVerticle, *}
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.compiletime.uninitialized
 import scala.concurrent.Future
@@ -77,7 +78,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       val isRowPermissionCheckEnabled =
         config.getBoolean("isRowPermissionCheckEnabled", Starter.DEFAULT_IS_ROW_PERMISSION_CHECK_ENABLED)
 
-      val rolePermissions = FileUtils(vertxAccessContainer()).readJsonFile(rolePermissionsPath, Json.emptyObj())
+      val rolePermissions = FileUtils(vertxAccessContainer()).readJsonFile(rolePermissionsPath, Json.obj())
 
       val tableauxConfig = new TableauxConfig(
         vertx = this.vertx,
@@ -172,7 +173,7 @@ class Starter extends ScalaVerticle with LazyLogging {
   }
 
   private def deployMessagingVerticle(tableauxConfig: TableauxConfig): Future[String] = {
-    val options = DeploymentOptions().setConfig(Json.emptyObj()) // No options so far
+    val options = DeploymentOptions().setConfig(Json.obj()) // No options so far
     val deployFuture = vertx.deployVerticle(new MessagingVerticle(tableauxConfig), options)
 
     deployFuture.onComplete({
@@ -201,7 +202,7 @@ class Starter extends ScalaVerticle with LazyLogging {
   }
 
   private def deployCdnVerticle(cdnConfig: JsonObject): Future[String] = {
-    val options = DeploymentOptions().setConfig(Json.emptyObj())
+    val options = DeploymentOptions().setConfig(Json.obj())
     val deployFuture = vertx.deployVerticle(new CdnVerticle(cdnConfig), options)
 
     deployFuture.onComplete({
@@ -215,7 +216,7 @@ class Starter extends ScalaVerticle with LazyLogging {
   }
 
   private def deployThumbnailVerticle(thumbnailConfig: JsonObject, tableauxConfig: TableauxConfig): Future[String] = {
-    val options = DeploymentOptions().setConfig(Json.emptyObj())
+    val options = DeploymentOptions().setConfig(Json.obj())
     val deployFuture = vertx.deployVerticle(new ThumbnailVerticle(thumbnailConfig, tableauxConfig), options)
 
     deployFuture.onComplete({

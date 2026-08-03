@@ -6,13 +6,14 @@ import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel, StructureModel, TableauxModel}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission.{DeleteMedia, EditMedia, RoleModel, TableauxUser}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.ext.web.RoutingContext
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import java.util.UUID
 import org.junit.Assert._
@@ -22,7 +23,7 @@ import org.skyscreamer.jsonassert.JSONCompareMode
 
 trait MediaControllerAuthTestBase extends MediaTestBase {
 
-  def createMediaController(implicit roleModel: RoleModel = RoleModel(Json.emptyObj())): MediaController = {
+  def createMediaController(implicit roleModel: RoleModel = RoleModel(Json.obj())): MediaController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val attachmentModel = AttachmentModel(dbConnection)

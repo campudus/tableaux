@@ -3,6 +3,7 @@ package com.campudus.tableaux.verticles
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.domain.RowLevelAnnotations
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.helper.VertxAccess
 
@@ -12,7 +13,7 @@ import io.vertx.core.eventbus.DeliveryOptions
 import io.vertx.core.eventbus.ReplyException
 import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.lang.scala.*
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.concurrent.Future
 
@@ -165,7 +166,7 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
 
     val filterJson = filter match {
       case Some(filterValue) => Json.obj("filter" -> filterValue)
-      case None => Json.emptyObj()
+      case None => Json.obj()
     }
 
     message.mergeIn(filterJson)
@@ -327,6 +328,6 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
   }
 
   def invalidateAll(): Future[?] = {
-    eventBus.request(ADDRESS_INVALIDATE_ALL, Json.emptyObj()).asScala
+    eventBus.request(ADDRESS_INVALIDATE_ALL, Json.obj()).asScala
   }
 }

@@ -1,10 +1,11 @@
 package com.campudus.tableaux.helper
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.Path
 
 import io.vertx.core.Vertx
 import io.vertx.lang.scala.*
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.concurrent.Future
 import scala.io.Source
@@ -53,7 +54,7 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
   def readJsonFile(filename: String, default: JsonObject): JsonObject = {
     Try {
       val rawJsonString = withFile(filename)(_.mkString("\n").replaceAll(commentsRegex, ""))
-      Json.fromObjectString(rawJsonString)
+      new JsonObject(rawJsonString)
     } match {
       case Success(jsonContent) => jsonContent
       case Failure(ex) => {
@@ -67,7 +68,7 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
   def asyncReadJsonFile(filename: String): Future[JsonObject] = {
     for {
       ff <- asyncReadFile(filename)(_.mkString)
-      json = Json.fromObjectString(ff)
+      json = new JsonObject(ff)
     } yield json
   }
 
@@ -107,7 +108,7 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
 
     for {
       indexString <- asyncReadResourceFile("/JsonSchema/index.json")
-      schemas <- readSchemaFromFS(Json.fromArrayString(indexString))
+      schemas <- readSchemaFromFS(new JsonArray(indexString))
     } yield { schemas }
   }
 

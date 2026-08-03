@@ -1,8 +1,9 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.FolderModel.FolderId
+import com.campudus.tableaux.helper.Json
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import java.net.URLEncoder
 import java.util.UUID

@@ -1,9 +1,10 @@
 package com.campudus.tableaux.testtools
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.VertxAccess
 
 import io.vertx.core.Vertx
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.jdk.CollectionConverters._
 

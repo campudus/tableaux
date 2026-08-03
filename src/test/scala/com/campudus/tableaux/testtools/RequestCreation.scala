@@ -2,8 +2,9 @@ package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.database.domain.{Constraint, DefaultConstraint, DomainObject}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import com.campudus.tableaux.helper.Json
 
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 object RequestCreation {
 
@@ -69,7 +70,7 @@ object RequestCreation {
         .mergeIn(
           decimalDigits match {
             case Some(digits) => Json.obj("decimalDigits" -> digits)
-            case None => Json.emptyObj()
+            case None => Json.obj()
           }
         )
     }

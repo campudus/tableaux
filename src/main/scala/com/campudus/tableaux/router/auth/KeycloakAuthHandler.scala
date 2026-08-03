@@ -1,6 +1,7 @@
 package com.campudus.tableaux.router.auth
 
 import com.campudus.tableaux.{AuthenticationException, TableauxConfig}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.VertxAccess
 
@@ -9,7 +10,6 @@ import io.vertx.core.Vertx
 import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.ext.auth.User
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json.Json
 
 import scala.jdk.CollectionConverters._
 import scala.util.Try

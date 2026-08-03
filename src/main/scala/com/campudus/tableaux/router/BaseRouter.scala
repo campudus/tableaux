@@ -12,7 +12,7 @@ import io.vertx.core.http.HttpServerResponse
 import io.vertx.core.json.DecodeException
 import io.vertx.ext.web.RoutingContext
 import io.vertx.lang.scala.*
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json.{Json as _, *}
 
 import scala.concurrent.Future
 import scala.io.Source
@@ -127,10 +127,10 @@ trait BaseRouter extends VertxAccess {
     }
 
     buffer match {
-      case "null" => Json.emptyObj()
+      case "null" => Json.obj()
 
       case _ =>
-        Try(Json.fromObjectString(buffer)) match {
+        Try(new JsonObject(buffer)) match {
           case Success(r) => r
 
           case Failure(ex: DecodeException) =>

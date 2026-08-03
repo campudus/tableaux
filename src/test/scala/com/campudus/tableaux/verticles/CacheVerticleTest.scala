@@ -1,6 +1,7 @@
 package com.campudus.tableaux.verticles
 
 import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestCustomException}
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -12,7 +13,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.*
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.lang.scala.VertxExecutionContext
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -26,11 +27,11 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
 
   override val vertx: Vertx = Vertx.vertx()
 
-  val databaseConfig = Json.emptyObj()
-  val authConfig = Json.emptyObj()
-  val cdnConfig = Json.emptyObj()
-  val thumbnailsConfig = Json.emptyObj()
-  val rolePermissions = Json.emptyObj()
+  val databaseConfig = Json.obj()
+  val authConfig = Json.obj()
+  val cdnConfig = Json.obj()
+  val thumbnailsConfig = Json.obj()
+  val rolePermissions = Json.obj()
 
   val tableauxConfig =
     new TableauxConfig(
@@ -51,7 +52,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
     val async = context.async()
 
     val options = DeploymentOptions()
-      .setConfig(Json.emptyObj())
+      .setConfig(Json.obj())
 
     val completionHandler: Try[String] => Unit = {
       case Success(id) =>
@@ -246,7 +247,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
 
         _ <- vertx
           .eventBus()
-          .request[JsonObject](ADDRESS_INVALIDATE_ALL, Json.emptyObj()).asScala
+          .request[JsonObject](ADDRESS_INVALIDATE_ALL, Json.obj()).asScala
 
         _ <- vertx
           .eventBus()

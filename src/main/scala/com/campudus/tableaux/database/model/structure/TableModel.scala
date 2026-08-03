@@ -6,11 +6,12 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, TableauxUser, ViewTable}
 
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -234,7 +235,7 @@ class TableModel(val connection: DatabaseConnection)(
     systemModel
       .retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(valueOpt =>
-        valueOpt.map(value => Json.fromArrayString(value).asScala.map(_.toString).toSeq).getOrElse(Seq.empty)
+        valueOpt.map(value => new JsonArray(value).asScala.map(_.toString).toSeq).getOrElse(Seq.empty)
       )
   }
 
@@ -376,7 +377,7 @@ class TableModel(val connection: DatabaseConnection)(
       row.getBoolean(2),
       Option(
         Option(row.getString(3))
-          .map(s => convertJsonArrayToSeq(Json.fromArrayString(s), { case f: String => f }))
+          .map(s => convertJsonArrayToSeq(new JsonArray(s), { case f: String => f }))
           .getOrElse(defaultLangtags)
       ),
       List(),
@@ -385,7 +386,7 @@ class TableModel(val connection: DatabaseConnection)(
       Option(row.getString(6)).map(jsonString => new JsonObject(jsonString)),
       Option(row.getString(7)),
       Option(row.getString(8)).map(arrayString =>
-        Json.fromArrayString(arrayString).asScala.toSeq
+        new JsonArray(arrayString).asScala.toSeq
           .map({ case f: java.lang.Integer => f.longValue() })
       )
     )
@@ -546,7 +547,7 @@ class TableModel(val connection: DatabaseConnection)(
     val listOfStatements: List[(String, JsonArray)] = locationType match {
       case LocationStart =>
         List(
-          (s"UPDATE system_table SET ordering = ordering + 1 WHERE ordering >= 1", Json.emptyArr()),
+          (s"UPDATE system_table SET ordering = ordering + 1 WHERE ordering >= 1", Json.arr()),
           (s"UPDATE system_table SET ordering = 1 WHERE table_id = ?", Json.arr(tableId))
         )
       case LocationEnd =>
@@ -628,7 +629,7 @@ class TableModel(val connection: DatabaseConnection)(
           val tableId = arr.get[TableId](0)
           val columnId = arr.get[ColumnId](1)
           val jsonArrayString = arr.getString(2)
-          val jsonArray = Json.fromArrayString(jsonArrayString)
+          val jsonArray = new JsonArray(jsonArrayString)
           val originColumns = OriginColumns.parseJson(jsonArray)
           UnionTableModel(tableId, columnId, originColumns)
         })

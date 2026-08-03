@@ -3,8 +3,9 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.History.RevisionId
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import org.joda.time.DateTime
 
@@ -96,7 +97,7 @@ case class BaseHistory(
 
   override def getJson: JsonObject = {
     val deletedAtJson = optionToString(deletedAt) match {
-      case null => Json.emptyObj()
+      case null => Json.obj()
       case v => Json.obj("deletedAt" -> v)
     }
 
@@ -145,7 +146,7 @@ case class RowPermissionsHistory(baseHistory: BaseHistory, valueType: String, va
       .mergeIn(
         Json.obj(
           "valueType" -> valueType,
-          "value" -> Json.emptyObj()
+          "value" -> Json.obj()
         )
       ).mergeIn(value)
   }
@@ -172,7 +173,7 @@ case class CellFlagHistory(baseHistory: BaseHistory, columnId: ColumnId, languag
         Json.obj(
           "columnId" -> columnId,
           "languageType" -> languageType.toString,
-          "value" -> Json.emptyObj()
+          "value" -> Json.obj()
         )
       )
       .mergeIn(value)
@@ -196,7 +197,7 @@ case class CellHistory(
           "columnId" -> columnId,
           "valueType" -> valueType,
           "languageType" -> languageType.toString,
-          "value" -> Json.emptyObj()
+          "value" -> Json.obj()
         )
       )
       .mergeIn(value)

@@ -2,9 +2,10 @@ package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.database.DbTransaction
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.ResultChecker._
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.concurrent.Future
 import scala.io.Source

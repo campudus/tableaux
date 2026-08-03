@@ -7,9 +7,10 @@ import com.campudus.tableaux.KeyNotFoundInJsonException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
+import com.campudus.tableaux.helper.Json
 
 import io.vertx.core.Vertx
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
@@ -114,7 +115,7 @@ object JsonUtils extends LazyLogging {
             // displayName and description; both multi-language objects
             val displayInfos = DisplayInfos.fromJson(json)
 
-            val originColumnsJson = json.getJsonArray(CreateOriginColumns.fieldName, Json.emptyArr())
+            val originColumnsJson = json.getJsonArray(CreateOriginColumns.fieldName, Json.arr())
             val originColumns = Try(CreateOriginColumns.parseJson(originColumnsJson)).toOption
 
             (tableType) match {
@@ -551,13 +552,13 @@ object JsonUtils extends LazyLogging {
   def parseJson(jsonStringOpt: String): JsonObject = {
     Option(jsonStringOpt) match {
       case Some(jsonString) =>
-        Try(Json.fromObjectString(jsonString)) match {
+        Try(new JsonObject(jsonString)) match {
           case Success(json) => json
           case Failure(_) =>
             logger.error(s"Couldn't parse json. Expected JSON but got: $jsonString")
-            Json.emptyObj()
+            Json.obj()
         }
-      case None => Json.emptyObj()
+      case None => Json.obj()
     }
   }
 

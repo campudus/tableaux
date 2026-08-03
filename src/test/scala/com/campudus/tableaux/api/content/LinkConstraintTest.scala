@@ -3,14 +3,15 @@ package com.campudus.tableaux.api.content
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{Cardinality, Constraint, DefaultCardinality}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.testtools.RequestCreation.{Columns, LinkBiDirectionalCol, Rows}
 import com.campudus.tableaux.testtools.TestCustomException
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 
@@ -671,7 +672,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
-        _ <- sendRequest("POST", s"/tables/$tableId1/rows/$rowId/duplicate", Json.emptyObj())
+        _ <- sendRequest("POST", s"/tables/$tableId1/rows/$rowId/duplicate", Json.obj())
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
@@ -1128,7 +1129,7 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
       } yield {
         assertEquals(4, rowsTable1.size())
         assertEquals(3, rowsTable2.size())
-        assertJSONEquals(Json.arr(11, 22, 33, 44, 1), Json.fromArrayString(replacedRowIds))
+        assertJSONEquals(Json.arr(11, 22, 33, 44, 1), new JsonArray(replacedRowIds))
       }
     }
   }
@@ -1761,7 +1762,7 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
         row <- sendRequest("GET", s"/tables/$tableId1/rows/$rowId1")
       } yield {
         assertJSONEquals(
-          Json.fromObjectString(
+          new JsonObject(
             """|{
                |  "id": 1,
                |  "values": [
@@ -1775,7 +1776,7 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
         )
 
         assertJSONEquals(
-          Json.fromArrayString(
+          new JsonArray(
             """|[
                |  {
                |    "id": 1,

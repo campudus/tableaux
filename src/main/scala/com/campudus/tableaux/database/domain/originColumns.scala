@@ -1,8 +1,9 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.jdk.CollectionConverters._
 
@@ -43,7 +44,7 @@ case class OriginColumns(
 object OriginColumns {
   val fieldName = "originColumns"
 
-  def parseJson(json: JsonArray = Json.emptyArr()): OriginColumns = {
+  def parseJson(json: JsonArray = Json.arr()): OriginColumns = {
     val tableToColumn = OriginColumnsBase.parseJson(json)
     OriginColumns(tableToColumn)
   }
@@ -54,7 +55,7 @@ case class CreateOriginColumns(tableId2ColumnId: Map[TableId, ColumnId]) extends
 object CreateOriginColumns {
   val fieldName = OriginColumns.fieldName
 
-  def parseJson(json: JsonArray = Json.emptyArr()): CreateOriginColumns = {
+  def parseJson(json: JsonArray = Json.arr()): CreateOriginColumns = {
     val tableToColumn = OriginColumnsBase.parseJson(json)
     CreateOriginColumns(tableToColumn)
   }

@@ -1,11 +1,13 @@
 package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.helper.Json
+import com.campudus.tableaux.helper.ResultChecker.*
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.concurrent.Future
 import scala.util.Random
@@ -1178,7 +1180,7 @@ class LinkTest extends LinkTestBase {
           js.getJsonArray("columns")
         }
       } yield {
-        val expectedJson = Json.fromObjectString(
+        val expectedJson = new JsonObject(
           s"""
              |{
              |  "status": "ok",
@@ -1551,7 +1553,7 @@ class LinkTest extends LinkTestBase {
       result <- sendRequest("GET", s"/tables/$table1/rows/$row11/dependent")
       dependentRows11 = result.getJsonArray("dependentRows")
     } yield {
-      val expectedDependentRows11 = Json.emptyArr()
+      val expectedDependentRows11 = Json.arr()
       assertEquals(expectedDependentRows11, dependentRows11)
     }
   }
@@ -1567,7 +1569,7 @@ class LinkTest extends LinkTestBase {
       result <- sendRequest("GET", s"/tables/$table1/rows/$row11/dependent")
       dependentRows11 = result.getJsonArray("dependentRows")
     } yield {
-      val expectedDependentRows11 = Json.emptyArr()
+      val expectedDependentRows11 = Json.arr()
       assertEquals(expectedDependentRows11, dependentRows11)
     }
   }

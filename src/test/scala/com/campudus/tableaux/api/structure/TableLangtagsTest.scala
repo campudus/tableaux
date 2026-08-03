@@ -1,10 +1,10 @@
 package com.campudus.tableaux.api.structure
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.Json
 
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,7 +27,7 @@ class TableLangtagsTest extends TableauxTestBase {
       )
 
       for {
-        langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.emptyArr()))
+        langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.arr()))
 
         tablePost <- sendRequest("POST", "/tables", createTableJson)
         tableId = tablePost.getLong("id").toLong
@@ -115,7 +115,7 @@ class TableLangtagsTest extends TableauxTestBase {
       )
 
       for {
-        langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.emptyArr()))
+        langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.arr()))
 
         tablePost <- sendRequest("POST", "/tables", createTableJson)
         tableId = tablePost.getLong("id").toLong

@@ -12,12 +12,13 @@ import com.campudus.tableaux.database.model.{
 }
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.concurrent.Future
 import scala.io.Source
@@ -194,7 +195,7 @@ class SystemController(
 
   private def readDemoData(name: String): JsonObject = {
     val file = Source.fromInputStream(getClass.getResourceAsStream(s"/demodata/$name.json"), "UTF-8").mkString
-    Json.fromObjectString(file)
+    new JsonObject(file)
   }
 
   private def createTable(tableType: TableType, tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[?]])(
@@ -229,7 +230,7 @@ class SystemController(
   def retrieveLangtags(): Future[DomainObject] = {
     repository
       .retrieveSetting(SystemController.SETTING_LANGTAGS)
-      .map(valueOpt => PlainDomainObject(Json.obj("value" -> valueOpt.map(f => Json.fromArrayString(f)).orNull)))
+      .map(valueOpt => PlainDomainObject(Json.obj("value" -> valueOpt.map(f => new JsonArray(f)).orNull)))
   }
 
   def retrieveSentryUrl(): Future[DomainObject] = {

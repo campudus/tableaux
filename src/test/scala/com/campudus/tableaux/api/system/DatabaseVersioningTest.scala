@@ -3,13 +3,14 @@ package com.campudus.tableaux.api.system
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.SystemRouter
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.JsonArray
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonArray}
 
 import org.junit.Assert._
 import org.junit.Test

@@ -1,11 +1,11 @@
 package com.campudus.tableaux.api.system
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 
@@ -36,7 +36,7 @@ class SystemServiceTest extends TableauxTestBase {
     for {
       emptyServices <- sendRequest("GET", "/system/services")
     } yield {
-      assertEquals(Json.emptyArr(), emptyServices.getJsonArray("services"))
+      assertEquals(Json.arr(), emptyServices.getJsonArray("services"))
     }
   }
 

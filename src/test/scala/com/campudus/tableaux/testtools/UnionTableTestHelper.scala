@@ -5,10 +5,10 @@ import com.campudus.tableaux.database.domain.Cardinality
 import com.campudus.tableaux.database.domain.Constraint
 import com.campudus.tableaux.database.model.TableauxModel.ColumnId
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.RequestCreation._
 
 import io.vertx.core.json._
-import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -124,9 +124,9 @@ trait UnionTableTestHelper extends TableauxTestBase {
       "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 3), Json.obj("id" -> 4), Json.obj("id" -> 2)),
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("color12", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
-        Json.obj("values" -> Json.arr("color13", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color13", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.arr())),
         Json.obj("values" -> Json.arr("color14", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(1))),
-        Json.obj("values" -> Json.arr("color15", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color15", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.arr())),
         Json.obj("values" -> Json.arr("color16", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(1)))
       )
     )
@@ -135,11 +135,11 @@ trait UnionTableTestHelper extends TableauxTestBase {
       "columns" -> Json.arr(Json.obj("id" -> 4), Json.obj("id" -> 2), Json.obj("id" -> 3), Json.obj("id" -> 1)),
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("color4", Json.obj("de" -> "Rot", "en" -> "Red"), 1, Json.arr(1))),
-        Json.obj("values" -> Json.arr("color5", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color5", Json.obj("de" -> "Blau", "en" -> "Blue"), 2, Json.arr())),
         Json.obj("values" -> Json.arr("color6", Json.obj("de" -> "Grün", "en" -> "Green"), 3, Json.arr(2))),
-        Json.obj("values" -> Json.arr("color7", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color7", Json.obj("de" -> "Gelb", "en" -> "Yellow"), 4, Json.arr())),
         Json.obj("values" -> Json.arr("color8", Json.obj("de" -> "Schwarz", "en" -> "Black"), 5, Json.arr(2))),
-        Json.obj("values" -> Json.arr("color9", Json.obj("de" -> "Weiß", "en" -> "White"), 6, Json.emptyArr())),
+        Json.obj("values" -> Json.arr("color9", Json.obj("de" -> "Weiß", "en" -> "White"), 6, Json.arr())),
         Json.obj("values" -> Json.arr("color10", Json.obj("de" -> "Rosa", "en" -> "Pink"), 7, Json.arr(1))),
         Json.obj("values" -> Json.arr("color11", Json.obj("de" -> "Lila", "en" -> "Purple"), 8, Json.arr(2)))
       )

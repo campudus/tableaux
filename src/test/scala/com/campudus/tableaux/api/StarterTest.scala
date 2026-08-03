@@ -1,13 +1,14 @@
 package com.campudus.tableaux.api
 
 import com.campudus.tableaux.Starter
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TestAssertionHelper
 
 import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext, *}
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.util.{Failure, Success, Try}
 

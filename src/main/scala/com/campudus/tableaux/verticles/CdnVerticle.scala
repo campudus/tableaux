@@ -1,11 +1,12 @@
 package com.campudus.tableaux.verticles
 
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.core.eventbus.Message
 import io.vertx.ext.web.client.WebClient
 import io.vertx.lang.scala.{ScalaVerticle, *}
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}

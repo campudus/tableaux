@@ -2,14 +2,15 @@ package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry, Rows}
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 

@@ -5,9 +5,10 @@ import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.database.domain.Folder
 import com.campudus.tableaux.database.model.FolderModel.FolderId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.ResultChecker._
 
-import org.vertx.scala.core.json.{Json, JsonArray}
+import io.vertx.lang.scala.json.JsonArray
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -99,8 +100,7 @@ class FolderModel(override protected val connection: DatabaseConnection) extends
 
   private def convertJsonArrayToFolder(arr: JsonArray): Folder = {
     import scala.jdk.CollectionConverters._
-    val parentIds = Json
-      .fromArrayString(arr.getString(3))
+    val parentIds = new JsonArray(arr.getString(3))
       .asScala
       .toSeq
       .map({

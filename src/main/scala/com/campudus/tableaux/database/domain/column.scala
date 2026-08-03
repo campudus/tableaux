@@ -5,10 +5,11 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database.{LanguageNeutral, _}
 import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.util.{Failure, Success, Try}
 
@@ -319,7 +320,7 @@ sealed trait ColumnType[+A] extends DomainObject {
   protected def getJsonPart(columnInformationFiled: Option[Any], name: String): JsonObject = {
     columnInformationFiled match {
       case Some(v) => Json.obj(name -> v)
-      case None => Json.emptyObj()
+      case None => Json.obj()
     }
   }
 }
@@ -577,7 +578,7 @@ case class LinkColumn(
     )
 
     val constraintJson = linkDirection.constraint.getJson match {
-      case json if json.isEmpty => Json.emptyObj()
+      case json if json.isEmpty => Json.obj()
       case json => Json.obj("constraint" -> json)
     }
 
@@ -757,7 +758,7 @@ case class ConcatColumn(
 
     val formatPatternJson = formatPattern match {
       case Some(pattern) => Json.obj("formatPattern" -> pattern)
-      case None => Json.emptyObj()
+      case None => Json.obj()
     }
 
     super.getJson
@@ -779,12 +780,12 @@ case class GroupColumn(
 
     val formatPatternJson = formatPattern match {
       case Some(pattern) => Json.obj("formatPattern" -> pattern)
-      case None => Json.emptyObj()
+      case None => Json.obj()
     }
 
     val showMemberColumnsJson = showMemberColumns match {
       case true => Json.obj("showMemberColumns" -> showMemberColumns)
-      case false => Json.emptyObj()
+      case false => Json.obj()
     }
 
     super.getJson

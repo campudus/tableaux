@@ -1,14 +1,15 @@
 package com.campudus.tableaux.database
 
 import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestConfig}
 
 import io.vertx.core.Vertx
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}

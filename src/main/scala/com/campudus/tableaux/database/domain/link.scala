@@ -1,8 +1,9 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 case class Cardinality(from: Int, to: Int)
 
@@ -17,7 +18,7 @@ case class Constraint(
 
   override def getJson: JsonObject = {
     if (this == DefaultConstraint) {
-      Json.emptyObj()
+      Json.obj()
     } else {
       Json.obj(
         "cardinality" -> Json.obj(

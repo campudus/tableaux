@@ -6,6 +6,7 @@ import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.FileUtils
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
 
@@ -17,9 +18,9 @@ import io.vertx.core.http.HttpMethod
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext, *}
+import io.vertx.lang.scala.json.{JsonObject, _}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.compiletime.uninitialized
 import scala.concurrent.{Future, Promise}
@@ -44,7 +45,6 @@ trait TableauxTestBase
     extends TestConfig
     with LazyLogging
     with TestAssertionHelper
-    with JsonCompatible
     with TestVertxAccess {
 
   var vertx: Vertx = uninitialized
@@ -76,8 +76,7 @@ trait TableauxTestBase
 
     executionContext = VertxExecutionContext(vertx, vertx.getOrCreateContext())
 
-    val config = Json
-      .fromObjectString(fileConfig.encode())
+    val config = new JsonObject(fileConfig.encode())
       .put("host", fileConfig.getString("host", "127.0.0.1"))
       .put("port", getFreePort)
 
@@ -87,7 +86,7 @@ trait TableauxTestBase
     thumbnailsConfig = config.getJsonObject("thumbnails", Json.obj())
 
     val rolePermissionsPath = config.getString("rolePermissionsPath")
-    val rolePermissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionsPath, Json.emptyObj())
+    val rolePermissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionsPath, Json.obj())
 
     host = config.getString("host")
     port = config.getInteger("port").intValue()
@@ -154,7 +153,7 @@ trait TableauxTestBase
     * Initializes the RoleModel with the given config and also sets up the requestsContext with all provided roles
     */
   def initRoleModel(roleConfig: String): RoleModel = {
-    val roleModel: RoleModel = RoleModel(Json.fromObjectString(roleConfig.stripMargin))
+    val roleModel: RoleModel = RoleModel(new JsonObject(roleConfig.stripMargin))
 
     val roles = collection.immutable.Seq(roleModel.role2permissions.keySet.toSeq*)
 
@@ -339,7 +338,7 @@ trait TableauxTestBase
     httpRequest(
       method,
       path,
-      createResponseHandler[JsonObject](p, Json.fromObjectString),
+      createResponseHandler[JsonObject](p, new JsonObject(_)),
       createExceptionHandler[JsonObject](p),
       tokenOpt
     )

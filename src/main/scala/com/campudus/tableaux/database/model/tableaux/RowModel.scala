@@ -6,11 +6,12 @@ import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.verticles.EventClient
 
-import org.vertx.scala.core.json.{Json, _}
+import io.vertx.lang.scala.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -93,7 +94,7 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
       }
 
       replacedIds = Try(res.getJsonArray("results").getJsonArray(0).getString(0)) match {
-        case Success(value) => Json.fromArrayString(value)
+        case Success(value) => new JsonArray(value)
         case Failure(s) => Json.arr()
       }
 
@@ -957,7 +958,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
             Some(
               UUID.fromString(uuidStr),
-              Json.fromArrayString(langtagsStr).asScala.map(_.asInstanceOf[String]).toList,
+              new JsonArray(langtagsStr).asScala.map(_.asInstanceOf[String]).toList,
               DateTime.parse(createdAt)
             )
           case _ => None
@@ -1218,7 +1219,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
                 CellAnnotationType(annotationType),
                 Option(langtags)
                   .map(_.asInstanceOf[String])
-                  .map(Json.fromArrayString(_).asScala.map(_.toString).toList)
+                  .map(new JsonArray(_).asScala.map(_.toString).toList)
                   .getOrElse(Seq.empty),
                 Option(value).map(_.asInstanceOf[String]).orNull,
                 DateTime.parse(createdAtStr)
@@ -1292,7 +1293,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     for {
       result <-
         if (tables.isEmpty) {
-          Future.successful(Json.emptyObj())
+          Future.successful(Json.obj())
         } else {
           connection.query(query)
         }
@@ -1470,8 +1471,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
           ) =>
         val cellAnnotations = Option(cellAnnotationsStr)
           .map(_.asInstanceOf[String])
-          .map(Json.fromArrayString)
-          .getOrElse(Json.emptyArr())
+          .map(new JsonArray(_))
+          .getOrElse(Json.arr())
         val rawValues = row.drop(5)
 
         val rowPermissions = Option(permissionsStr) match {
@@ -1528,8 +1529,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   private def mapValueByColumnType(column: ColumnType[?], value: Any): Any = {
     (column, Option(value)) match {
       case (MultiLanguageColumn(_: NumberColumn | _: CurrencyColumn), Some(obj)) =>
-        val castedMap = Json
-          .fromObjectString(obj.toString)
+        val castedMap = new JsonObject(obj.toString)
           .asMap
           .view
           .mapValues(Option(_))
@@ -1551,14 +1551,14 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       case (MultiLanguageColumn(_), option) =>
         option
           .map(_.toString)
-          .map(Json.fromObjectString)
-          .getOrElse(Json.emptyObj())
+          .map(new JsonObject(_))
+          .getOrElse(Json.obj())
 
       case (_: LinkColumn, option) =>
         option
           .map(_.toString)
-          .map(Json.fromArrayString)
-          .getOrElse(Json.emptyArr())
+          .map(new JsonArray(_))
+          .getOrElse(Json.arr())
 
       case (_: NumberColumn | _: CurrencyColumn, Some(v: String)) =>
         Try(v.toInt)

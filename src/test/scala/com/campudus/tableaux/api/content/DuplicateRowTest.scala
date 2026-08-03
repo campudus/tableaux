@@ -5,13 +5,14 @@ import com.campudus.tableaux.database.domain.CellAnnotationType
 import com.campudus.tableaux.database.domain.Constraint
 import com.campudus.tableaux.database.model.TableauxModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.JsonAssertable
 import com.campudus.tableaux.testtools.RequestCreation
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future
 

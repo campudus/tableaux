@@ -4,7 +4,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 object UnionTableModel {
 

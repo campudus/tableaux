@@ -5,11 +5,12 @@ import com.campudus.tableaux.database.{MultiCountry, MultiLanguage}
 import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
 import com.campudus.tableaux.database.domain.Row
 import com.campudus.tableaux.database.domain.RowPermissions
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -28,7 +29,7 @@ object RoleModel {
     }
   }
 
-  def apply(): RoleModel = new RoleModel(Json.emptyObj())
+  def apply(): RoleModel = new RoleModel(Json.obj())
 }
 
 sealed trait RoleMethod
@@ -176,7 +177,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     def getEditCellValuePermission: Any = {
 
       def getCellValueJson(langtags: Seq[String]) = {
-        val editCellValueJson = Json.emptyObj()
+        val editCellValueJson = Json.obj()
 
         langtags.foreach(lt => {
           // generate dummy value for only this specific langtag
@@ -392,7 +393,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
    * object and enrich it with all configured languages (table or system). This way `checkAuthorization`
    * automatically checks for all languages.
    */
-  def generateLangtagCheckValue(table: Table, value: JsonObject = Json.emptyObj()): JsonObject = {
+  def generateLangtagCheckValue(table: Table, value: JsonObject = Json.obj()): JsonObject = {
     val langtags: Seq[String] = table.langtags.getOrElse(Seq.empty[String])
 
     langtags.foreach(lt =>
@@ -408,7 +409,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   * This class provides a legacy mode for downward compatibility purposes. If no authorization configuration is
   * specified, the service starts without verifying access tokens and without authorizing user roles and permissions.
   */
-class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
+class RoleModelStub extends RoleModel(Json.obj()) with LazyLogging {
 
   override def checkAuthorization(
       action: Action,

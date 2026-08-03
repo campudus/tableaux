@@ -1,23 +1,24 @@
 package com.campudus.tableaux.database
 
 import com.campudus.tableaux.DatabaseException
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.VertxAccess
 
 import io.vertx.core.Vertx
 import io.vertx.lang.scala.VertxExecutionContext
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 import io.vertx.scala.{DatabaseAction, SQLConnection}
 import io.vertx.sqlclient.Row
 import io.vertx.sqlclient.RowSet
 import io.vertx.sqlclient.data.Numeric
-import org.vertx.scala.core.json.{Json, JsonArray, JsonCompatible, JsonObject}
 
 import scala.concurrent.Future
 
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 
-trait DatabaseQuery extends JsonCompatible with LazyLogging {
+trait DatabaseQuery extends LazyLogging {
   protected val connection: DatabaseConnection
 
   implicit val executionContext: VertxExecutionContext = connection.executionContext
@@ -44,7 +45,7 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
   protected def convertJsonArrayToSeq[A](arr: JsonArray, converter: AnyRef => A): Seq[A] = {
     import scala.jdk.CollectionConverters._
 
-    Option(arr).getOrElse(Json.emptyArr()).asScala.toSeq.map(converter)
+    Option(arr).getOrElse(Json.arr()).asScala.toSeq.map(converter)
   }
 }
 
@@ -160,7 +161,7 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
   def transactionalFoldLeft[A](values: Seq[A])(
       fn: (DbTransaction, JsonObject, A) => Future[(DbTransaction, JsonObject)]
   ): Future[JsonObject] = {
-    transactionalFoldLeft(values, Json.emptyObj())(fn)
+    transactionalFoldLeft(values, Json.obj())(fn)
   }
 
   def transactionalFoldLeft[A, B](values: Seq[A], fnStartValue: B)(
@@ -301,7 +302,7 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     case u: java.util.UUID => u.toString
     // The reactive client auto-decodes jsonb columns into JsonObject/JsonArray; every call site in this codebase
     // expects the old client's behaviour instead - the raw JSON text as a String, parsed explicitly via
-    // Json.fromObjectString/fromArrayString where needed.
+    // Json.obj/arr where needed.
     case obj: JsonObject => obj.encode()
     case arr: JsonArray => arr.encode()
     // text[]/other array columns come back as a plain Java array; JsonObject only understands JsonArray.

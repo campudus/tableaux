@@ -11,13 +11,14 @@ import com.campudus.tableaux.database.model.{
   SystemModel,
   TableauxModel
 }
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 
@@ -28,7 +29,7 @@ import org.skyscreamer.jsonassert.JSONCompareMode
 
 trait SystemControllerAuthTest extends TableauxTestBase {
 
-  def createSystemController(implicit roleModel: RoleModel = RoleModel(Json.emptyObj())): SystemController = {
+  def createSystemController(implicit roleModel: RoleModel = RoleModel(Json.obj())): SystemController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val systemModel = SystemModel(dbConnection)

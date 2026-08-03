@@ -14,13 +14,14 @@ import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.toCreateColumnSeq
 import com.campudus.tableaux.helper.JsonUtils.toJsonObjectSeq
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 import com.campudus.tableaux.verticles.ValidatorKeys
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.concurrent.Future
 

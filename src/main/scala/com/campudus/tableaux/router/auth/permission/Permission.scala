@@ -2,7 +2,7 @@ package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 
-import org.vertx.scala.core.json.JsonObject
+import io.vertx.lang.scala.json.JsonObject
 
 import com.typesafe.scalalogging.LazyLogging
 

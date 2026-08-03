@@ -4,15 +4,15 @@ import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
-import org.vertx.scala.core.json.Json
-import org.vertx.scala.core.json.JsonObject
 
 import java.net.URLEncoder
 import org.junit.Assert._

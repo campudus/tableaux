@@ -3,7 +3,7 @@ package com.campudus.tableaux.testtools
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper.Path
 
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json._
 
 import scala.io.Source
 
@@ -35,7 +35,7 @@ trait TestConfig {
   private def readTextFile(filePath: String): String = Source.fromFile(filePath).getLines().mkString
 
   private def jsonFromFile(filePaths: String*): JsonObject = {
-    filePaths.find(Path(_).exists).map(path => Json.fromObjectString(readTextFile(path))).get
+    filePaths.find(Path(_).exists).map(path => new JsonObject(readTextFile(path))).get
   }
 
   private def autoClose[A, B <: AutoCloseable](resource: B, block: (B) => A): A = {

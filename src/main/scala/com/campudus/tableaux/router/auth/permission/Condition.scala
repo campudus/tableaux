@@ -3,8 +3,9 @@ package com.campudus.tableaux.router.auth.permission
 import com.campudus.tableaux.database.{LanguageNeutral, MultiCountry, MultiLanguage}
 import com.campudus.tableaux.database.domain.Row
 import com.campudus.tableaux.database.domain.RowPermissions
+import com.campudus.tableaux.helper.Json
 
-import org.vertx.scala.core.json.{Json, JsonObject, _}
+import io.vertx.lang.scala.json.{JsonObject, _}
 
 import scala.jdk.CollectionConverters._
 
@@ -14,7 +15,7 @@ object ConditionContainer {
 
   def apply(jsonObjectOpt: Option[JsonObject]): ConditionContainer = {
 
-    val jsonObject: JsonObject = jsonObjectOpt.getOrElse(Json.emptyObj())
+    val jsonObject: JsonObject = jsonObjectOpt.getOrElse(Json.obj())
 
     val conditionTable: ConditionOption =
       Option(jsonObject.getJsonObject("table")).map(ConditionTable.apply).getOrElse(NoneCondition)
@@ -206,6 +207,6 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
 
 }
 
-case object NoneCondition extends ConditionOption(Json.emptyObj()) {
+case object NoneCondition extends ConditionOption(Json.obj()) {
   override def isMatching(objects: ComparisonObjects): Boolean = true
 }

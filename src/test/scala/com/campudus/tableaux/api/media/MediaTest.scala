@@ -1,8 +1,10 @@
 package com.campudus.tableaux.api.media
 
 import com.campudus.tableaux.database.model.FolderModel.FolderId
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.Path
+import com.campudus.tableaux.helper.ResultChecker.*
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
 import com.campudus.tableaux.testtools.JsonTestHelper._
 import com.campudus.tableaux.testtools.RequestCreation.AttachmentCol
@@ -13,8 +15,8 @@ import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.*
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.FutureHelper._
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.{Future, Promise}
 import scala.jdk.CollectionConverters._
@@ -1442,7 +1444,7 @@ class FileTest extends MediaTestBase {
         files <- sendRequest("GET", s"/folders?langtag=de-DE")
         _ <- sendRequest("DELETE", s"/files/$fileUuid1")
       } yield {
-        assertEquals(1, files.getJsonArray("files", Json.emptyArr()).size())
+        assertEquals(1, files.getJsonArray("files", Json.arr()).size())
 
         assertEquals(
           fileAfterPut1.getJsonObject("internalName").getString("de-DE"),
@@ -1474,12 +1476,12 @@ class FileTest extends MediaTestBase {
         _ <- sendRequest("DELETE", s"/files/$fileUuid2")
         _ <- sendRequest("DELETE", s"/files/$fileUuid3")
       } yield {
-        assertEquals(3, files.getJsonArray("files", Json.emptyArr()).size())
+        assertEquals(3, files.getJsonArray("files", Json.arr()).size())
 
         assertEquals(
           "A.pdf",
           files
-            .getJsonArray("files", Json.emptyArr())
+            .getJsonArray("files", Json.arr())
             .getJsonObject(0)
             .getJsonObject("externalName")
             .getString("de-DE")
@@ -1487,7 +1489,7 @@ class FileTest extends MediaTestBase {
         assertEquals(
           "B.pdf",
           files
-            .getJsonArray("files", Json.emptyArr())
+            .getJsonArray("files", Json.arr())
             .getJsonObject(1)
             .getJsonObject("externalName")
             .getString("de-DE")
@@ -1495,7 +1497,7 @@ class FileTest extends MediaTestBase {
         assertEquals(
           "C.pdf",
           files
-            .getJsonArray("files", Json.emptyArr())
+            .getJsonArray("files", Json.arr())
             .getJsonObject(2)
             .getJsonObject("externalName")
             .getString("de-DE")

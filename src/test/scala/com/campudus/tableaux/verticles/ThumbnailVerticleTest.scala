@@ -3,6 +3,7 @@ package com.campudus.tableaux.verticles
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain.{ExtendedFile, MultiLanguageValue, TableauxFile}
 import com.campudus.tableaux.helper.FileUtils
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -17,8 +18,8 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.*
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.lang.scala.VertxExecutionContext
+import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.FutureHelper.futurify
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}

@@ -5,11 +5,12 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, RowPermissionSeq, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
+import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -320,7 +321,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       oldCell: Option[Cell[?]] = None
   )(implicit user: TableauxUser): Future[Unit] = {
 
-    val oldCellJson = oldCell.map(_.getJson).getOrElse(Json.emptyObj())
+    val oldCellJson = oldCell.map(_.getJson).getOrElse(Json.obj())
     val oldCellValueMap = JsonUtils.multiLangValueToMap(oldCellJson.getJsonObject("value"))
 
     values.foldLeft(Future.successful(())) {
@@ -332,7 +333,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
             Future.successful(())
           }
 
-          val valueJson: JsonObject = cleanMap.foldLeft(Json.emptyObj()) {
+          val valueJson: JsonObject = cleanMap.foldLeft(Json.obj()) {
             case (obj, (langtag, value)) =>
               obj.mergeIn(Json.obj(langtag -> value.orNull))
           }
@@ -872,7 +873,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       implicit user: TableauxUser
   ): Future[?] = {
     val futureSequence = columns.map(column =>
-      insertCellHistory(table, rowId, column.id, column.kind, column.languageType, Json.obj("value" -> Json.emptyArr()))
+      insertCellHistory(table, rowId, column.id, column.kind, column.languageType, Json.obj("value" -> Json.arr()))
     )
 
     Future.sequence(futureSequence)
