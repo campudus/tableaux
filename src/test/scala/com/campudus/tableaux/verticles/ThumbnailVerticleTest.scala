@@ -23,8 +23,11 @@ import org.vertx.scala.core.json.{Json, JsonObject}
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
+import java.awt.image.BufferedImage
+import java.io.ByteArrayInputStream
 import java.net.URLEncoder
 import java.util.UUID
+import javax.imageio.ImageIO
 import org.joda.time.DateTime
 import org.junit.{After, Before, Test}
 import org.junit.Assert._
@@ -32,6 +35,39 @@ import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 class ThumbnailVerticleTest extends TableauxTestBase {
+
+  // PNG re-encoding (e.g. Deflater/zlib) can differ byte-for-byte across JDK builds for identical
+  // pixel data, especially for filters like Lanczos that involve floating-point resampling, which can
+  // shift a channel by 1 depending on JVM/CPU rounding. Compare decoded pixels with a small per-channel
+  // tolerance instead of raw bytes to avoid fixture flakiness unrelated to actual image content.
+  private def assertImagesEqual(expected: Buffer, actual: Buffer): Unit = {
+    val channelTolerance = 2
+
+    def decode(buffer: Buffer): BufferedImage = ImageIO.read(new ByteArrayInputStream(buffer.getBytes))
+    def channels(argb: Int): Seq[Int] = Seq(argb >> 24, argb >> 16, argb >> 8, argb).map(_ & 0xff)
+
+    val expectedImage = decode(expected)
+    val actualImage = decode(actual)
+
+    assertEquals("Thumbnail width should match", expectedImage.getWidth, actualImage.getWidth)
+    assertEquals("Thumbnail height should match", expectedImage.getHeight, actualImage.getHeight)
+
+    for {
+      x <- 0 until expectedImage.getWidth
+      y <- 0 until expectedImage.getHeight
+    } {
+      val expectedChannels = channels(expectedImage.getRGB(x, y))
+      val actualChannels = channels(actualImage.getRGB(x, y))
+
+      (expectedChannels zip actualChannels).foreach {
+        case (expectedChannel, actualChannel) =>
+          assertTrue(
+            s"Pixel at ($x, $y) should match within tolerance, expected: $expectedChannels but was: $actualChannels",
+            Math.abs(expectedChannel - actualChannel) <= channelTolerance
+          )
+      }
+    }
+  }
 
   @Test
   def testThumbnailCreation(implicit c: TestContext): Unit = {
@@ -95,7 +131,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
         _ <- vertx.fileSystem().delete(thumbnailPath.toString()).asScala
       } yield {
         assertEquals(false, doesThumbnailExistBeforeRequest)
-        assertEquals("Should be the expected file", thumbnailBufferExpected, thumbnailBuffer)
+        assertImagesEqual(thumbnailBufferExpected, thumbnailBuffer)
         assertEquals(true, doesThumbnailExistAfterRequest)
       }
     }
@@ -260,7 +296,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
         _ <- vertx.fileSystem().delete(thumbnailPath.toString()).asScala
       } yield {
         assertEquals(false, doesThumbnailExistBeforeRequest)
-        assertEquals("Should be the expected file", thumbnailBufferExpected, thumbnailBuffer)
+        assertImagesEqual(thumbnailBufferExpected, thumbnailBuffer)
         assertEquals(true, doesThumbnailExistAfterRequest)
       }
     }
