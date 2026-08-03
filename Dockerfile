@@ -1,7 +1,7 @@
 # to use APP_HOME in other stages, we need to redeclare it in each stage (not on docker for mac)
 ARG APP_HOME=/usr/src/app
 
-FROM gradle:7.4.1-jdk17 AS cacher
+FROM gradle:9.6.1-jdk17 AS cacher
 ARG APP_HOME
 ENV GRADLE_USER_HOME /cache
 WORKDIR $APP_HOME
