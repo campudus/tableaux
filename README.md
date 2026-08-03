@@ -18,17 +18,17 @@ To check if gradle is working, you can use the following command, which will pri
 gradlew -v
 
 > ------------------------------------------------------------
-> Gradle 7.4.1
+> Gradle 9.6.1
 > ------------------------------------------------------------
 > 
-> Build time:   2022-03-09 15:04:47 UTC
-> Revision:     36dc52588e09b4b72f2010bc07599e0ee0434e2e
+> Build time:    2026-06-26 14:25:50 UTC
+> Revision:      309d128bd9fe8c0b71311878fc660b9cbaa07c51
 > 
-> Kotlin:       1.5.31
-> Groovy:       3.0.9
-> Ant:          Apache Ant(TM) version 1.10.11 compiled on July 10 2021
-> JVM:          17.0.2 (Homebrew 17.0.2+0)
-> OS:           Mac OS X 12.2.1 x86_64
+> Kotlin:        2.3.21
+> Groovy:        4.0.32
+> Ant:           Apache Ant(TM) version 1.10.17 compiled on April 6 2026
+> Launcher JVM:  17.0.20 (Homebrew 17.0.20+0)
+> OS:            Mac OS X 26.5.2 aarch64
 ```
 
 ### Setup
