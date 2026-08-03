@@ -156,7 +156,6 @@ class StructureController(
       ) =>
         next match {
           case (id, columns) => mapAccum + (id -> columns)
-          case _ => mapAccum
         }
 
     val emptyMap = Map[TableId, ColumnSeq]()

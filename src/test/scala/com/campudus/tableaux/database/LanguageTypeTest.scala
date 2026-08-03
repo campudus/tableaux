@@ -53,7 +53,7 @@ class LanguageTypeTest {
     multiCountry match {
       case MultiCountry(countryCodes) =>
         assertEquals(Seq("DE", "AT", "GB"), countryCodes.codes)
-      case _ =>
+      case null =>
         Assert.fail("should match with MultiCountry")
     }
 

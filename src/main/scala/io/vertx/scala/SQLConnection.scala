@@ -7,14 +7,16 @@ import io.vertx.core.AsyncResult
 import io.vertx.core.Vertx
 import io.vertx.lang.scala.*
 import io.vertx.lang.scala.ImplicitConversions.vertxFutureVoidToScalaFutureUnit
-import io.vertx.pgclient.{PgConnectOptions, PgPool}
+import io.vertx.pgclient.{PgConnection, PgConnectOptions, PgPool}
 import io.vertx.sqlclient.{Pool, PoolOptions, Row, RowSet, SqlClient, SqlConnection => JSqlConnection, Tuple}
 import org.vertx.scala.core.json.JsonArray
 import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.{Future, Promise}
+import scala.language.implicitConversions
 import scala.util.control.NonFatal
 
+import com.typesafe.scalalogging.LazyLogging
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 sealed trait DatabaseAction extends VertxAccess {
@@ -39,7 +41,12 @@ sealed trait DatabaseAction extends VertxAccess {
     SQLConnection.runQuery(client, sql, params)
 }
 
-object SQLConnection {
+object SQLConnection extends LazyLogging {
+
+  // Postgres severities below WARNING (e.g. the NOTICE emitted by DROP ... CASCADE during a schema reset) are
+  // routine and not worth WARNING-level log noise; vertx-pg-client's default notice handler logs everything as
+  // a warning (see PgNotice.log), so we install our own to log by actual severity instead.
+  private val warnSeverities = Set("WARNING", "ERROR", "FATAL", "PANIC")
 
   def apply(vertxAccess: VertxAccess, config: JsonObject): SQLConnection = {
     new SQLConnection(vertxAccess, config)
@@ -58,7 +65,20 @@ object SQLConnection {
   }
 
   private def pool(vertx: Vertx, config: JsonObject): Pool = {
-    PgPool.pool(vertx, connectOptions(config), new PoolOptions())
+    PgPool.pool(vertx, connectOptions(config), new PoolOptions()).connectHandler({
+      case conn: PgConnection =>
+        conn.noticeHandler(notice => {
+          val message =
+            s"Backend notice: severity='${notice.getSeverity}', code='${notice.getCode}', message='${notice.getMessage}'"
+
+          if (warnSeverities.contains(notice.getSeverity)) {
+            logger.warn(message)
+          } else {
+            logger.debug(message)
+          }
+        })
+      case _ => ()
+    })
   }
 
   /**
@@ -84,12 +104,12 @@ object SQLConnection {
   private val IsoDatePattern = "^\\d{4}-\\d{2}-\\d{2}$".r
 
   private def isStringArray(arr: JsonArray): Boolean = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     arr.getList.asScala.forall(_.isInstanceOf[String])
   }
 
   private def stringArrayOf(arr: JsonArray): Array[String] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     arr.getList.asScala.map(_.asInstanceOf[String]).toArray
   }
 
@@ -138,7 +158,7 @@ object SQLConnection {
   }
 
   private def toTuple(params: JsonArray, hasJsonCast: Boolean): Tuple = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val values = params.getList.asInstanceOf[java.util.List[Object]].asScala.map(toBindValue(_, hasJsonCast))
     Tuple.tuple(values.asJava)
   }

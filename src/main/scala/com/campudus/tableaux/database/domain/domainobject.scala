@@ -26,7 +26,7 @@ trait DomainObjectHelper {
   }
 
   private def compatibilitySeq[A](returnType: ReturnType)(values: Seq[A]): java.util.List[?] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     values
       .map({
@@ -101,7 +101,7 @@ object MultiLanguageValue {
     * Generates MultiLanguageValue based on JSON
     */
   def apply[A](obj: JsonObject): MultiLanguageValue[A] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val fields: Map[String, A] =
       obj.fieldNames().asScala.map(name => name -> obj.getValue(name).asInstanceOf[A]).toMap
 

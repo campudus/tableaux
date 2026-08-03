@@ -9,8 +9,8 @@ import com.campudus.tableaux.helper.ResultChecker._
 
 import org.vertx.scala.core.json.{Json, JsonArray}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 object FolderModel {
   type FolderId = Long
@@ -98,7 +98,7 @@ class FolderModel(override protected val connection: DatabaseConnection) extends
   }
 
   private def convertJsonArrayToFolder(arr: JsonArray): Folder = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val parentIds = Json
       .fromArrayString(arr.getString(3))
       .asScala

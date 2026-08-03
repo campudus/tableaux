@@ -6,7 +6,7 @@ import org.vertx.scala.core.json.Json
 import org.vertx.scala.core.json.JsonArray
 import org.vertx.scala.core.json.JsonObject
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import java.util.UUID
 import org.joda.time.DateTime
@@ -174,9 +174,9 @@ case class TableWithCellAnnotations(table: Table, annotations: Map[RowId, Map[Co
     extends DomainObject {
 
   override def getJson: JsonObject = {
-    val rows = annotations.seq.map({
+    val rows = annotations.map({
       case (rowId, annotationsByRow) =>
-        val columns = annotationsByRow.seq.map({
+        val columns = annotationsByRow.map({
           case (columnId, annotationsByColumn) =>
             Json.obj(
               "id" -> columnId,

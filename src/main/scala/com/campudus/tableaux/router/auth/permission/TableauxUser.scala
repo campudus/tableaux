@@ -7,7 +7,7 @@ import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -37,8 +37,7 @@ object TableauxUser extends LazyLogging {
   }
 
   private def getCookieValue(defaultValue: String, name: String, rc: RoutingContext): String =
-    rc.cookieMap().asScala
-      .get(name)
+    rc.request().cookies(name).asScala.headOption
       .map(_.getValue())
       .getOrElse(defaultValue)
 

@@ -11,7 +11,7 @@ import io.vertx.ext.auth.User
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 object KeycloakAuthHandler {

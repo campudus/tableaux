@@ -86,7 +86,7 @@ class DatabaseVersioningTest extends TableauxTestBase {
 
         assertTrue(tablesOrdering.getJsonArray("results").size() > 0)
 
-        import scala.collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
         for {
           (tableId, ordering) <- tablesOrdering
             .getJsonArray("results")

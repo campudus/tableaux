@@ -14,9 +14,9 @@ import io.vertx.ext.web.RoutingContext
 import io.vertx.lang.scala.*
 import org.vertx.scala.core.json._
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.io.Source
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -120,7 +120,7 @@ trait BaseRouter extends VertxAccess {
 
   def getJson(context: RoutingContext): JsonObject = {
 
-    val buffer = Option(context.getBody()).map(_.toString()).getOrElse("")
+    val buffer = Option(context.body().buffer()).map(_.toString()).getOrElse("")
 
     if (buffer.isEmpty) {
       throw NoJsonFoundException("No JSON found.")
@@ -201,7 +201,7 @@ trait BaseRouter extends VertxAccess {
   }
 
   def getStringCookie(name: String, context: RoutingContext): Option[String] = {
-    Option(context.getCookie(name)).map(_.getValue())
+    Option(context.request().getCookie(name)).map(_.getValue())
   }
 
   protected def getTableId(context: RoutingContext): Option[Long] = {
@@ -226,7 +226,7 @@ trait BaseRouter extends VertxAccess {
       Error(
         RouterException(
           message =
-            s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
+            s"No route found for path ${context.request().method().toString} ${context.normalizedPath()}",
           id = "NOT FOUND",
           statusCode = 404
         )
@@ -330,7 +330,7 @@ trait BaseRouter extends VertxAccess {
           val inputStream = getClass.getResourceAsStream(path)
 
           if (byteResponse) {
-            val bytes = Stream.continually(inputStream.read).takeWhile(_ != -1).map(_.toByte).toArray
+            val bytes = LazyList.continually(inputStream.read).takeWhile(_ != -1).map(_.toByte).toArray
             resp.end(Buffer.buffer(bytes))
           } else {
             val file = Source.fromInputStream(inputStream, "UTF-8").mkString

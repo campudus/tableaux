@@ -146,7 +146,7 @@ object ArgumentChecker {
   }
 
   def checkForAllValues[A](json: JsonObject, predicate: (A => Boolean), name: String): ArgumentCheck[JsonObject] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val fields = json.fieldNames().asScala.toList
     val failedFields = fields.filter(field => {
       Try(predicate(json.getValue(field).asInstanceOf[A])) match {
@@ -168,7 +168,7 @@ object ArgumentChecker {
   }
 
   def checkAllValuesOfArray[A](arr: JsonArray, p: (A => Boolean), name: String): ArgumentCheck[JsonArray] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val tail = arr.asScala.dropWhile(value => Try(p(value.asInstanceOf[A])).getOrElse(false))
 
     if (tail.isEmpty) {

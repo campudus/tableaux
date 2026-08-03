@@ -1318,7 +1318,7 @@ class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", s"/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 1)
       } yield {
-        import scala.collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
 
         assertEquals(
           List(5, 4, 3),

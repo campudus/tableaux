@@ -7,7 +7,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.junit.{Ignore, Test}
 import org.junit.Assert._

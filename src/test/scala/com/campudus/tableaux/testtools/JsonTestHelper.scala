@@ -5,7 +5,7 @@ import com.campudus.tableaux.helper.VertxAccess
 import io.vertx.core.Vertx
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object JsonTestHelper {
 

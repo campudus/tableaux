@@ -11,8 +11,8 @@ import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 import com.typesafe.scalalogging.LazyLogging
 

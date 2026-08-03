@@ -10,8 +10,8 @@ import com.campudus.tableaux.testtools.RequestCreation._
 import io.vertx.core.json._
 import org.vertx.scala.core.json.Json
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 trait UnionTableTestHelper extends TableauxTestBase {
 

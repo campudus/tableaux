@@ -6,7 +6,7 @@ import com.campudus.tableaux.database.domain.RowPermissions
 
 import org.vertx.scala.core.json.{Json, JsonObject, _}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -17,13 +17,13 @@ object ConditionContainer {
     val jsonObject: JsonObject = jsonObjectOpt.getOrElse(Json.emptyObj())
 
     val conditionTable: ConditionOption =
-      Option(jsonObject.getJsonObject("table")).map(ConditionTable).getOrElse(NoneCondition)
+      Option(jsonObject.getJsonObject("table")).map(ConditionTable.apply).getOrElse(NoneCondition)
 
     val conditionColumn: ConditionOption =
-      Option(jsonObject.getJsonObject("column")).map(ConditionColumn).getOrElse(NoneCondition)
+      Option(jsonObject.getJsonObject("column")).map(ConditionColumn.apply).getOrElse(NoneCondition)
 
     val conditionRow: ConditionOption =
-      Option(jsonObject.getJsonObject("row")).map(ConditionRow).getOrElse(NoneCondition)
+      Option(jsonObject.getJsonObject("row")).map(ConditionRow.apply).getOrElse(NoneCondition)
 
     val conditionLangtag: ConditionOption =
       Option(jsonObject.getString("langtag"))
@@ -77,7 +77,7 @@ case class ConditionContainer(
         // global actions are already filtered by filterPermissions
         true
       }
-      case _ => throw new IllegalArgumentException(s"Unknown action")
+      case null => throw new IllegalArgumentException(s"Unknown action")
     }
   }
 }
@@ -181,7 +181,7 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
       case Some(column) =>
         column.languageType match {
 
-          case MultiLanguage | MultiCountry(_) =>
+          case MultiLanguage | (_: MultiCountry) =>
             objects.valueOpt match {
               case Some(json: JsonObject) => {
                 val regex: String = conditionMap.getOrElse("langtag", ".*")

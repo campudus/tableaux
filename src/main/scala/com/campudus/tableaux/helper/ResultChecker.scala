@@ -14,7 +14,7 @@ object ResultChecker {
   }
 
   def jsonArrayToSeq(json: JsonArray): Seq[Any] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     Option(json).map(_.asScala.toSeq.asInstanceOf[Seq[Any]]).getOrElse(Seq.empty)
   }
 

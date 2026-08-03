@@ -16,8 +16,8 @@ import io.vertx.lang.scala.*
 import io.vertx.scala.FutureHelper._
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
+import scala.jdk.CollectionConverters._
 
 import java.util.UUID
 import org.junit.Assert._
@@ -1596,6 +1596,7 @@ class FileTest extends MediaTestBase {
       } yield {
         exception match {
           case ex: Throwable => throw ex
+          case other => fail(s"Expected the request to fail, but it succeeded with: $other")
         }
       }
     }
@@ -1637,6 +1638,7 @@ class FileTest extends MediaTestBase {
       } yield {
         exception match {
           case ex: Throwable => throw ex
+          case other => fail(s"Expected the request to fail, but it succeeded with: $other")
         }
       }
     }
@@ -1678,6 +1680,7 @@ class FileTest extends MediaTestBase {
       } yield {
         exception match {
           case ex: Throwable => throw ex
+          case other => fail(s"Expected the request to fail, but it succeeded with: $other")
         }
       }
     }
@@ -1719,6 +1722,7 @@ class FileTest extends MediaTestBase {
       } yield {
         exception match {
           case ex: Throwable => throw ex
+          case other => fail(s"Expected the request to fail, but it succeeded with: $other")
         }
       }
     }

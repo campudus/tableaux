@@ -12,8 +12,8 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.Json
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 import org.junit.Assert._
 import org.junit.Test

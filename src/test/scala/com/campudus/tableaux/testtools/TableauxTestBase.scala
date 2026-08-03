@@ -21,9 +21,9 @@ import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.{JsonObject, _}
 
-import scala.collection.JavaConverters._
 import scala.compiletime.uninitialized
 import scala.concurrent.{Future, Promise}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
@@ -704,11 +704,12 @@ trait TableauxTestBase
         s"/tables/$tableId/columns",
         Json.obj("columns" -> Json.arr(columnTypes.map(_.getJson)*))
       )
-      columnIds = column.getJsonArray("columns").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
+      columnIds =
+        column.getJsonArray("columns").asScala.to(LazyList).map(_.asInstanceOf[JsonObject].getLong("id").toLong)
       columnsPost = Json.arr(columnIds.map(id => Json.obj("id" -> id))*)
       rowsPost = Json.arr(rows.map(values => Json.obj("values" -> Json.arr(values*)))*)
       rowPost <- sendRequest("POST", s"/tables/$tableId/rows", Json.obj("columns" -> columnsPost, "rows" -> rowsPost))
-      rowIds = rowPost.getJsonArray("rows").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
+      rowIds = rowPost.getJsonArray("rows").asScala.to(LazyList).map(_.asInstanceOf[JsonObject].getLong("id").toLong)
     } yield (tableId, columnIds, rowIds)
   }
 

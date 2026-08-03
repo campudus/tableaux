@@ -54,10 +54,10 @@ class CellAnnotationConfigModel(override protected val connection: DatabaseConne
         // Only MultiLanguageValue needs stringifying - priority (Int) and is_multilang/is_dashboard (Boolean)
         // need to reach the reactive Postgres client as their natural type, not as a String. display_name is a
         // `json` column, so the pre-stringified value needs an explicit cast (see SQLConnection.toBindValue).
-        val (bindValue: AnyRef, cast) = value match {
+        val (bindValue: AnyRef, cast) = (value match {
           case m: MultiLanguageValue[_] => (m.getJson.toString, "::json")
-          case a: AnyRef => (a, "")
-        }
+          case _ => (value, "")
+        }): @unchecked
 
         s"$columnName = ?$cast" -> bindValue
     })

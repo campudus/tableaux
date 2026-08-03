@@ -159,7 +159,7 @@ class AttachmentModel(protected val connection: DatabaseConnection, protected va
   }
 
   def retrieveFile(file: UUID, ordering: Ordering): Future[AttachmentFile] = {
-    fileModel.retrieve(file).map(ExtendedFile).map(f => AttachmentFile(f, ordering))
+    fileModel.retrieve(file).map(ExtendedFile.apply).map(f => AttachmentFile(f, ordering))
   }
 
   def retrieveCells(file: UUID): Future[Seq[(TableId, ColumnId, RowId)]] = {

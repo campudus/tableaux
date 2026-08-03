@@ -2,7 +2,7 @@ package com.campudus.tableaux.helper
 
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 object IdentifierFlattener {
 

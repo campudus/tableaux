@@ -232,6 +232,9 @@ object ColumnType {
 
       case ((s, m, l, a), c: AttachmentColumn) =>
         (s, m, l, c :: a)
+
+      case (_, c) =>
+        throw new ClassCastException(s"unknown column: $c")
     }
   }
 }
@@ -346,7 +349,7 @@ object MultiLanguageColumn {
                       s"Invalid value at key $key for MultiLanguage column ${columnType.name}",
                       ex
                     )
-                  case MultiCountry(_) | LanguageNeutral =>
+                  case (_: MultiCountry) | LanguageNeutral =>
                     throw new IllegalArgumentException(
                       s"Invalid value at key $key for MultiCountry column ${columnType.name}",
                       ex
@@ -611,7 +614,7 @@ case class LinkColumn(
           }
 
         case x: JsonObject if x.containsKey("values") =>
-          import scala.collection.JavaConverters._
+          import scala.jdk.CollectionConverters._
           Try(
             checked(hasArray("values", x)).asScala
               .map(_.asInstanceOf[java.lang.Integer].longValue())
@@ -630,7 +633,7 @@ case class LinkColumn(
           throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
 
         case x: JsonArray =>
-          import scala.collection.JavaConverters._
+          import scala.jdk.CollectionConverters._
           x.asScala
             .map({
               // need to check for java.lang.Integer because we are mapping over AnyRefs
@@ -691,7 +694,7 @@ case class AttachmentColumn(override val columnInformation: ColumnInformation)(
           Seq((UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong)))
 
         case attachments: JsonArray =>
-          import scala.collection.JavaConverters._
+          import scala.jdk.CollectionConverters._
           attachments.asScala
             .map({
               case attachment: JsonObject =>
@@ -703,7 +706,7 @@ case class AttachmentColumn(override val columnInformation: ColumnInformation)(
             })
             .toSeq
 
-        case attachments: Stream[_] =>
+        case attachments: LazyList[_] =>
           attachments.map({
             case file: AttachmentFile =>
               (file.file.file.uuid, Some(file.ordering))

@@ -10,8 +10,8 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
@@ -36,7 +36,7 @@ class PerformanceTest extends TableauxTestBase {
         )
     )
 
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     for {
       tableId <- sendRequest("POST", "/tables", Json.obj("name" -> tableName)) map (_.getLong("id"))
       columns <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn)
@@ -206,6 +206,8 @@ class PerformanceTest extends TableauxTestBase {
         }) match {
         case List(id1, id2, id3) =>
           (id1, id2, id3)
+        case other =>
+          throw new AssertionError(s"Expected exactly 3 link column ids, got: $other")
       }
 
       _ = logger.info(s"Start writing rows data...")

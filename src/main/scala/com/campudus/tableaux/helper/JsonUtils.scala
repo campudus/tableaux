@@ -11,7 +11,7 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
 import io.vertx.core.Vertx
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging

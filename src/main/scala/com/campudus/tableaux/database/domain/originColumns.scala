@@ -4,7 +4,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 
 import org.vertx.scala.core.json._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 sealed trait OriginColumnsBase {
   val tableId2ColumnId: Map[TableId, ColumnId]

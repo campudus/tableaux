@@ -74,7 +74,7 @@ class MediaController(
       parents <- repository.retrieveParentfolders(folder)
       subfolders <- repository.retrieveSubfolders(folder)
       files <- fileModel.retrieveFromFolder(folder, sortByLangtag)
-    } yield ExtendedFolder(folder, parents, subfolders, files.map(ExtendedFile))
+    } yield ExtendedFolder(folder, parents, subfolders, files.map(ExtendedFile.apply))
   }
 
   def addNewFolder(name: String, description: String, parentId: Option[FolderId])(
@@ -121,7 +121,7 @@ class MediaController(
   )(implicit user: TableauxUser): Future[TemporaryFile] = {
     for {
       _ <- roleModel.checkAuthorization(CreateMedia)
-      file <- fileModel.add(title, description, externalName, folder).map(TemporaryFile)
+      file <- fileModel.add(title, description, externalName, folder).map(TemporaryFile.apply)
     } yield file
   }
 
@@ -183,7 +183,7 @@ class MediaController(
                 folder = oldFile.file.folders.lastOption,
                 mimeType = mimeType
               )
-              .map(ExtendedFile)
+              .map(ExtendedFile.apply)
           }
 
           // invalidate cdn cache for old file
@@ -220,7 +220,7 @@ class MediaController(
         .asScala
         .map(_.booleanValue())
         .recover({
-          case ex => UnknownServerException("Error in vertx filesystem exists check", ex)
+          case ex => throw UnknownServerException("Error in vertx filesystem exists check", ex)
         })
         .flatMap({
           case true => Future.successful(())
@@ -229,6 +229,7 @@ class MediaController(
     }
 
     val internalNameChecks = internalName.values
+      .view
       .mapValues(Option.apply)
       .map({
         case (_, None) =>
