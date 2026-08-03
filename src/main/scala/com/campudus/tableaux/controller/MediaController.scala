@@ -4,17 +4,18 @@ import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownSe
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel, StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
+import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.router.RouterException
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
 import io.vertx.core.eventbus.{ReplyException, ReplyFailure}
+import io.vertx.ext.web.RoutingContext
+import io.vertx.lang.scala.*
 import io.vertx.scala.FutureHelper._
-import io.vertx.scala.ext.web.RoutingContext
 
 import scala.concurrent.{Future, Promise}
-import scala.reflect.io.Path
 import scala.util.{Failure, Success}
 
 import java.util.UUID
@@ -127,89 +128,79 @@ class MediaController(
   def replaceFile(uuid: UUID, langtag: String, upload: UploadAction)(
       implicit user: TableauxUser
   ): Future[ExtendedFile] = {
-    futurify { p: Promise[ExtendedFile] =>
-      {
-        val ext = Path(upload.fileName).extension
-        val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
+    val ext = Path(upload.fileName).extension
+    val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
 
-        upload.exceptionHandler({ ex: Throwable =>
-          logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
-
-          vertx
-            .fileSystem()
-            .deleteFuture(filePath.toString())
-            .onComplete({
-              case Success(_) | Failure(_) => p.failure(ex)
-            })
-        })
-
-        upload.endHandler({ () =>
-          logger.info(s"Uploading of file ${upload.fileName} into ${filePath.name} done, making database entry.")
-
-          val internalName = MultiLanguageValue(Map(langtag -> filePath.name))
-          val externalName = MultiLanguageValue(Map(langtag -> upload.fileName))
-          val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
-
-          (for {
-            _ <- roleModel.checkAuthorization(EditMedia)
-
-            (oldFile, paths) <- {
-              logger.info("retrieve file")
-              retrieveFile(uuid, withTmp = true)
-            }
-
-            path = paths.get(langtag)
-
-            _ <- {
-              logger.info(s"delete old file $path")
-              if (path.isDefined) {
-                deleteFile(path.get)
-              } else {
-                Future.successful(())
-              }
-            }
-
-            updatedFile <- {
-              fileModel
-                .update(
-                  uuid = oldFile.file.uuid,
-                  title = oldFile.file.title,
-                  description = oldFile.file.description,
-                  internalName = internalName,
-                  externalName = externalName,
-                  folder = oldFile.file.folders.lastOption,
-                  mimeType = mimeType
-                )
-                .map(ExtendedFile)
-            }
-
-            // invalidate cdn cache for old file
-            _ <- eventClient.fileChanged(oldFile)
-
-            // retrieve cells with this file for cache invalidation
-            cellsForFiles <- attachmentModel.retrieveCells(uuid)
-            // invalidate cache for cells with this file
-            _ <- Future.sequence(cellsForFiles.map({
-              case (tableId, columnId, rowId) => eventClient.invalidateCellValue(tableId, columnId, rowId)
-            }))
-          } yield {
-            p.success(updatedFile)
-          }) recover {
-            case ex =>
-              logger.error("Making database entry failed.", ex)
-
-              vertx
-                .fileSystem()
-                .deleteFuture(filePath.toString())
-                .onComplete({
-                  case Success(_) | Failure(_) => p.failure(ex)
-                })
-          }
-        })
-
-        upload.streamToFile(filePath.toString())
-      }
+    def deleteFileAndFail(ex: Throwable): Future[ExtendedFile] = {
+      vertx
+        .fileSystem()
+        .delete(filePath.toString())
+        .asScala
+        .transformWith(_ => Future.failed(ex))
     }
+
+    upload
+      .streamToFile(filePath.toString())
+      .recoverWith({
+        case ex =>
+          logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
+          deleteFileAndFail(ex)
+      })
+      .flatMap({ _ =>
+        logger.info(s"Uploading of file ${upload.fileName} into ${filePath.name} done, making database entry.")
+
+        val internalName = MultiLanguageValue(Map(langtag -> filePath.name))
+        val externalName = MultiLanguageValue(Map(langtag -> upload.fileName))
+        val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
+
+        (for {
+          _ <- roleModel.checkAuthorization(EditMedia)
+
+          (oldFile, paths) <- {
+            logger.info("retrieve file")
+            retrieveFile(uuid, withTmp = true)
+          }
+
+          path = paths.get(langtag)
+
+          _ <- {
+            logger.info(s"delete old file $path")
+            if (path.isDefined) {
+              deleteFile(path.get)
+            } else {
+              Future.successful(())
+            }
+          }
+
+          updatedFile <- {
+            fileModel
+              .update(
+                uuid = oldFile.file.uuid,
+                title = oldFile.file.title,
+                description = oldFile.file.description,
+                internalName = internalName,
+                externalName = externalName,
+                folder = oldFile.file.folders.lastOption,
+                mimeType = mimeType
+              )
+              .map(ExtendedFile)
+          }
+
+          // invalidate cdn cache for old file
+          _ <- eventClient.fileChanged(oldFile)
+
+          // retrieve cells with this file for cache invalidation
+          cellsForFiles <- attachmentModel.retrieveCells(uuid)
+          // invalidate cache for cells with this file
+          _ <- Future.sequence(cellsForFiles.map({
+            case (tableId, columnId, rowId) => eventClient.invalidateCellValue(tableId, columnId, rowId)
+          }))
+        } yield updatedFile) recoverWith {
+          case ex =>
+            logger.error("Making database entry failed.", ex)
+            deleteFileAndFail(ex)
+        }
+      })
   }
 
   def changeFile(
@@ -225,7 +216,9 @@ class MediaController(
     def checkInternalName(internalName: String): Future[Unit] = {
       vertx
         .fileSystem()
-        .existsFuture((uploadsDirectory / Path(internalName)).toString())
+        .exists((uploadsDirectory / Path(internalName)).toString())
+        .asScala
+        .map(_.booleanValue())
         .recover({
           case ex => UnknownServerException("Error in vertx filesystem exists check", ex)
         })
@@ -376,12 +369,16 @@ class MediaController(
   private def deleteFile(path: Path): Future[Unit] = {
     vertx
       .fileSystem()
-      .deleteFuture(path.toString())
+      .delete(path.toString())
+      .asScala
+      .map(_ => ())
       .recoverWith({
         case deleteEx =>
           vertx
             .fileSystem()
-            .existsFuture(path.toString())
+            .exists(path.toString())
+            .asScala
+            .map(_.booleanValue())
             .flatMap({
               case true =>
                 logger.warn(s"Couldn't delete uploaded file $path: ${deleteEx.toString}")

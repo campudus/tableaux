@@ -3,23 +3,24 @@ package com.campudus.tableaux.verticles
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain.{ExtendedFile, MultiLanguageValue, TableauxFile}
 import com.campudus.tableaux.helper.FileUtils
+import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.TableauxTestBase
 import com.campudus.tableaux.testtools.TestCustomException
 import com.campudus.tableaux.verticles._
 
+import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.core.buffer.Buffer
+import io.vertx.core.http.{HttpClient, HttpClientResponse}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.*
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.FutureHelper.futurify
-import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import io.vertx.scala.core.http.{HttpClient, HttpClientResponse}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.{Future, Promise}
-import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
 import java.net.URLEncoder
@@ -42,7 +43,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
       val thumbnailMimeType = "image/png"
       val thumbnailWidth = 400
       val thumbnailFilter = 3 // default
-      val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
+      val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath()
       val thumbnailPathExpected = s"/com/campudus/tableaux/uploads/Screen.Shot_${thumbnailWidth}_${thumbnailFilter}.png"
       val thumbnailBufferExpected =
         vertx.fileSystem.readFileBlocking(getClass.getResource(thumbnailPathExpected).toURI.getPath)
@@ -62,7 +63,8 @@ class ThumbnailVerticleTest extends TableauxTestBase {
         thumbnailName = s"${internalUuid}_${thumbnailWidth}_${thumbnailFilter}.png"
         thumbnailPath = thumbnailsDirectoryPath / Path(thumbnailName)
 
-        doesThumbnailExistBeforeRequest <- vertx.fileSystem().existsFuture(thumbnailPath.toString)
+        doesThumbnailExistBeforeRequest <-
+          vertx.fileSystem().exists(thumbnailPath.toString).asScala.map(_.booleanValue())
 
         thumbnailBuffer <- futurify((p: Promise[Buffer]) =>
           httpRequest(
@@ -70,7 +72,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
             s"/files/$fileUuid/de-DE/$fileName?width=$thumbnailWidth",
             (client: HttpClient, resp: HttpClientResponse) => {
               assertEquals(200, resp.statusCode())
-              assertEquals("Should get the correct MIME type", Some(thumbnailMimeType), resp.getHeader("content-type"))
+              assertEquals("Should get the correct MIME type", thumbnailMimeType, resp.getHeader("content-type"))
 
               resp.bodyHandler((buffer: Buffer) => {
                 client.close()
@@ -83,13 +85,14 @@ class ThumbnailVerticleTest extends TableauxTestBase {
               p.failure(x)
             },
             None
-          ).end()
+          ).foreach(_.end())
         )
 
-        doesThumbnailExistAfterRequest <- vertx.fileSystem().existsFuture(thumbnailPath.toString)
+        doesThumbnailExistAfterRequest <-
+          vertx.fileSystem().exists(thumbnailPath.toString).asScala.map(_.booleanValue())
 
         _ <- sendRequest("DELETE", s"/files/$fileUuid")
-        _ <- vertx.fileSystem().deleteFuture(thumbnailPath.toString())
+        _ <- vertx.fileSystem().delete(thumbnailPath.toString()).asScala
       } yield {
         assertEquals(false, doesThumbnailExistBeforeRequest)
         assertEquals("Should be the expected file", thumbnailBufferExpected, thumbnailBuffer)
@@ -140,7 +143,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
               p.failure(x)
             },
             None
-          ).end()
+          ).foreach(_.end())
         )
       } yield ()
     }
@@ -189,7 +192,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
               p.failure(x)
             },
             None
-          ).end()
+          ).foreach(_.end())
         )
       } yield ()
     }
@@ -205,7 +208,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
       val thumbnailMimeType = "image/png"
       val thumbnailWidth = 400
       val thumbnailFilter = 13
-      val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
+      val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath()
       val thumbnailPathExpected = s"/com/campudus/tableaux/uploads/Screen.Shot_${thumbnailWidth}_${thumbnailFilter}.png"
       val thumbnailBufferExpected =
         vertx.fileSystem.readFileBlocking(getClass.getResource(thumbnailPathExpected).toURI.getPath)
@@ -225,7 +228,8 @@ class ThumbnailVerticleTest extends TableauxTestBase {
         thumbnailName = s"${internalUuid}_${thumbnailWidth}_${thumbnailFilter}.png"
         thumbnailPath = thumbnailsDirectoryPath / Path(thumbnailName)
 
-        doesThumbnailExistBeforeRequest <- vertx.fileSystem().existsFuture(thumbnailPath.toString)
+        doesThumbnailExistBeforeRequest <-
+          vertx.fileSystem().exists(thumbnailPath.toString).asScala.map(_.booleanValue())
 
         thumbnailBuffer <- futurify((p: Promise[Buffer]) =>
           httpRequest(
@@ -233,7 +237,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
             s"/files/$fileUuid/de-DE/$fileName?width=$thumbnailWidth&filter=$thumbnailFilter",
             (client: HttpClient, resp: HttpClientResponse) => {
               assertEquals(200, resp.statusCode())
-              assertEquals("Should get the correct MIME type", Some(thumbnailMimeType), resp.getHeader("content-type"))
+              assertEquals("Should get the correct MIME type", thumbnailMimeType, resp.getHeader("content-type"))
 
               resp.bodyHandler((buffer: Buffer) => {
                 client.close()
@@ -246,13 +250,14 @@ class ThumbnailVerticleTest extends TableauxTestBase {
               p.failure(x)
             },
             None
-          ).end()
+          ).foreach(_.end())
         )
 
-        doesThumbnailExistAfterRequest <- vertx.fileSystem().existsFuture(thumbnailPath.toString)
+        doesThumbnailExistAfterRequest <-
+          vertx.fileSystem().exists(thumbnailPath.toString).asScala.map(_.booleanValue())
 
         _ <- sendRequest("DELETE", s"/files/$fileUuid")
-        _ <- vertx.fileSystem().deleteFuture(thumbnailPath.toString())
+        _ <- vertx.fileSystem().delete(thumbnailPath.toString()).asScala
       } yield {
         assertEquals(false, doesThumbnailExistBeforeRequest)
         assertEquals("Should be the expected file", thumbnailBufferExpected, thumbnailBuffer)
@@ -304,7 +309,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
               p.failure(x)
             },
             None
-          ).end()
+          ).foreach(_.end())
         )
       } yield ()
     }

@@ -9,17 +9,18 @@ import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.verticles.EventClient._
 
+import io.vertx.core.MultiMap
+import io.vertx.core.Vertx
+import io.vertx.core.eventbus.Message
 import io.vertx.core.json.JsonObject
-import io.vertx.lang.scala.ScalaVerticle
+import io.vertx.ext.web.client.WebClient
+import io.vertx.lang.scala.{ScalaVerticle, *}
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.core.MultiMap
-import io.vertx.scala.core.Vertx
-import io.vertx.scala.core.eventbus.Message
-import io.vertx.scala.ext.web.client.WebClient
 import org.vertx.scala.core.json.Json
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import scala.compiletime.uninitialized
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
@@ -62,13 +63,13 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
 
   import MessagingVerticle._
 
-  private var tableauxModel: TableauxModel = _
-  private var serviceModel: ServiceModel = _
-  private var structureModel: StructureModel = _
+  private var tableauxModel: TableauxModel = uninitialized
+  private var serviceModel: ServiceModel = uninitialized
+  private var structureModel: StructureModel = uninitialized
 
-  private var listeners: Map[String, Seq[Service]] = _
+  private var listeners: Map[String, Seq[Service]] = uninitialized
 
-  private implicit var user: TableauxUser = _
+  private implicit var user: TableauxUser = uninitialized
 
   private lazy val eventBus = vertx.eventBus()
 
@@ -203,7 +204,7 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
 
   }
 
-  override def startFuture(): Future[_] = {
+  override def asyncStart: Future[Unit] = {
     logger.info("start future")
 
     val isAuthorization: Boolean = !tableauxConfig.authConfig.isEmpty
@@ -232,9 +233,15 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
 
   }
 
+  private def completionAsFuture(consumer: io.vertx.core.eventbus.MessageConsumer[_]): Future[Unit] = {
+    val promise = Promise[Unit]()
+    consumer.completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    promise.future
+  }
+
   private def registerConsumers(): Future[Unit] = {
     def listen(address: String, handler: Message[JsonObject] => Future[Seq[Any]]): Future[Unit] = {
-      eventBus.consumer(address, errorHandler(handler) _).completionFuture()
+      completionAsFuture(eventBus.consumer(address, errorHandler(handler) _))
     }
 
     listen(ADDRESS_CELL_CHANGED, messageHandlerCellChanged)
@@ -249,7 +256,7 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
     listen(ADDRESS_ROW_ANNOTATION_CHANGED, messageHandlerRowAnnotationChanged)
     listen(ADDRESS_CELL_ANNOTATION_CHANGED, messageHandlerCellAnnotationChanged)
 
-    eventBus.consumer(ADDRESS_SERVICES_CHANGED, messageHandlerUpdateListeners).completionFuture()
+    completionAsFuture(eventBus.consumer(ADDRESS_SERVICES_CHANGED, messageHandlerUpdateListeners))
   }
 
   private def messageHandlerUpdateListeners(message: Message[JsonObject]): Unit = {
@@ -306,17 +313,26 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
       absoluteUrl match {
         case Some(url) =>
           logger.info(s"Sending message, Service: $name, Absolut URL: $url")
-          webClient.postAbs(url).putHeaders(headers).sendJsonObjectFuture(payLoad).recover { case err: Throwable =>
-            logger.error(s"$baseErrorMsg Absolut URL: $url, Reason: ${err.getMessage}")
-          }
+          webClient
+            .postAbs(url)
+            .putHeaders(headers)
+            .sendJsonObject(payLoad)
+            .asScala
+            .recover { case err: Throwable =>
+              logger.error(s"$baseErrorMsg Absolut URL: $url, Reason: ${err.getMessage}")
+            }
         case None =>
           relativeUrl match {
             case Some((host, port, route)) =>
               logger.info(s"Sending message, Service: $name, Relative URL: $host:$port$route")
-              webClient.post(port, host, route).putHeaders(headers).sendJsonObjectFuture(payLoad).recover {
-                case err: Throwable =>
+              webClient
+                .post(port, host, route)
+                .putHeaders(headers)
+                .sendJsonObject(payLoad)
+                .asScala
+                .recover { case err: Throwable =>
                   logger.error(s"$baseErrorMsg Relative URL: $host:$port$route, Reason: ${err.getMessage}")
-              }
+                }
             case None =>
               Future.failed(new Exception(s"$baseErrorMsg neither absolute nor relative URL is set"))
           }

@@ -2,12 +2,12 @@ package com.campudus.tableaux.verticles
 
 import com.campudus.tableaux.verticles.EventClient._
 
-import io.vertx.lang.scala.ScalaVerticle
-import io.vertx.scala.core.eventbus.Message
-import io.vertx.scala.ext.web.client.WebClient
+import io.vertx.core.eventbus.Message
+import io.vertx.ext.web.client.WebClient
+import io.vertx.lang.scala.{ScalaVerticle, *}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
@@ -21,8 +21,12 @@ class CdnVerticle(cdnConfig: JsonObject, customWebClient: Option[WebClient] = No
     case None => WebClient.create(vertx)
   }
 
-  override def startFuture(): Future[_] = {
-    eventBus.consumer(ADDRESS_FILE_CHANGED, purgeCdnFileUrl).completionFuture()
+  override def asyncStart: Future[Unit] = {
+    val promise = Promise[Unit]()
+    eventBus
+      .consumer(ADDRESS_FILE_CHANGED, purgeCdnFileUrl)
+      .completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    promise.future
   }
 
   private def purgeCdnFileUrl(message: Message[JsonObject]): Unit = {
@@ -39,7 +43,7 @@ class CdnVerticle(cdnConfig: JsonObject, customWebClient: Option[WebClient] = No
     request.addQueryParam("url", cdnFileUrl)
     request.putHeader("AccessKey", cdnApiKey)
 
-    request.sendFuture().onComplete {
+    request.send().asScala.onComplete {
       case Success(_) =>
         message.reply("ok")
       case Failure(exception) =>

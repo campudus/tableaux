@@ -8,7 +8,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
 
-import io.vertx.scala.core.Vertx
+import io.vertx.core.Vertx
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters._
@@ -58,7 +58,7 @@ object JsonUtils extends LazyLogging {
   private def checkForJsonObject(seq: Seq[JsonObject]): ArgumentCheck[Seq[JsonObject]] = {
     tryMap(
       (y: Seq[JsonObject]) => {
-        y map { x: JsonObject =>
+        y map { (x: JsonObject) =>
           {
             x
           }
@@ -88,8 +88,8 @@ object JsonUtils extends LazyLogging {
         {
           for {
             // required fields
-            name <- notNull(json.getString("name"), "name")
-            kind <- notNull(json.getString("kind"), "kind")
+            name <- hasString("name", json)
+            kind <- hasString("kind", json)
 
             dbType <- toTableauxType(kind)
           } yield {
@@ -211,7 +211,7 @@ object JsonUtils extends LazyLogging {
 
                     val (groupIds, groupNames) = parseGroupReferences(json)
 
-                    val formatPattern = Try(notNull(json.getString("formatPattern"), "formatPattern").get).toOption
+                    val formatPattern = Try(hasString("formatPattern", json).get).toOption
                     val showMemberColumns = json.getBoolean("showMemberColumns", false)
 
                     CreateGroupColumn(
@@ -430,7 +430,7 @@ object JsonUtils extends LazyLogging {
       Option[String]
   ) = {
 
-    val name = Try(notNull(json.getString("name"), "name").get).toOption
+    val name = Try(hasString("name", json).get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
     val identifier = Try(json.getBoolean("identifier").booleanValue()).toOption
@@ -463,7 +463,7 @@ object JsonUtils extends LazyLogging {
     val maxLength = getNullableJsonIntegerValue("maxLength", json).toOption
     val minLength = getNullableJsonIntegerValue("minLength", json).toOption
     val decimalDigits = parseDecimalDigits(json)
-    val formatPattern = Try(notNull(json.getString("formatPattern"), "formatPattern").get).toOption
+    val formatPattern = Try(hasString("formatPattern", json).get).toOption
 
     (
       name,
@@ -531,7 +531,7 @@ object JsonUtils extends LazyLogging {
 
   def toLocationType[T](json: JsonObject)(implicit parser: IdParser[T]): LocationType[T] = {
     (for {
-      location <- notNull(json.getString("location"), "location")
+      location <- hasString("location", json)
       location <- oneOf(location, List("start", "end", "before"), "location")
     } yield {
       val relativeTo =

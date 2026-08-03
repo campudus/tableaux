@@ -8,7 +8,7 @@ import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters._
@@ -615,7 +615,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   private def createTranslationInit(table: Table, rowId: RowId, langtagColumns: List[SimpleValueColumn[_]])(implicit
-  user: TableauxUser): Future[Seq[Unit]] = {
+      user: TableauxUser): Future[Seq[Unit]] = {
 
     def createIfNotEmpty(column: SimpleValueColumn[_]): Future[Unit] = {
       for {
@@ -662,7 +662,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   private def retrieveCellValue(table: Table, column: ColumnType[_], rowId: RowId)(implicit
-  user: TableauxUser): Future[Option[Any]] = {
+      user: TableauxUser): Future[Option[Any]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
     } yield {

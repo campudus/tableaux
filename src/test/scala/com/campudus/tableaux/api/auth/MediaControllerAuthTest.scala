@@ -10,8 +10,8 @@ import com.campudus.tableaux.router.auth.permission.{DeleteMedia, EditMedia, Rol
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.ext.web.RoutingContext
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import java.util.UUID

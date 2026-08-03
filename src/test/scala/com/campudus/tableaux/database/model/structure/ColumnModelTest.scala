@@ -10,10 +10,10 @@ import org.junit.Assert._
 
 class ColumnModelTest {
 
-  implicit val user = TableauxUser("Test", Seq.empty[String])
+  implicit val user: TableauxUser = TableauxUser("Test", Seq.empty[String])
 
-  var col1: SimpleValueColumn[_] = _
-  var col2: SimpleValueColumn[_] = _
+  var col1: SimpleValueColumn[_] = scala.compiletime.uninitialized
+  var col2: SimpleValueColumn[_] = scala.compiletime.uninitialized
 
   @Before
   def setup(): Unit = {

@@ -4,8 +4,10 @@ import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.helper.VertxAccess
 
 import io.vertx.core.AsyncResult
+import io.vertx.core.Vertx
+import io.vertx.lang.scala.*
+import io.vertx.lang.scala.ImplicitConversions.vertxFutureVoidToScalaFutureUnit
 import io.vertx.pgclient.{PgConnectOptions, PgPool}
-import io.vertx.scala.core.Vertx
 import io.vertx.sqlclient.{Pool, PoolOptions, Row, RowSet, SqlClient, SqlConnection => JSqlConnection, Tuple}
 import org.vertx.scala.core.json.JsonArray
 import org.vertx.scala.core.json.JsonObject
@@ -56,8 +58,7 @@ object SQLConnection {
   }
 
   private def pool(vertx: Vertx, config: JsonObject): Pool = {
-    val jvertx: io.vertx.core.Vertx = vertx.asJava.asInstanceOf[io.vertx.core.Vertx]
-    PgPool.pool(jvertx, connectOptions(config), new PoolOptions())
+    PgPool.pool(vertx, connectOptions(config), new PoolOptions())
   }
 
   /**
@@ -291,7 +292,7 @@ class Transaction(val vertxAccess: VertxAccess, private val conn: JSqlConnection
     if (completed.compareAndSet(false, true)) {
       SQLConnection
         .runQuery(conn, "COMMIT", None)
-        .map(_ => conn.close())
+        .flatMap(_ => conn.close())
         .recoverDatabaseException("commit")
     } else {
       Future.successful(())
@@ -302,7 +303,7 @@ class Transaction(val vertxAccess: VertxAccess, private val conn: JSqlConnection
     if (completed.compareAndSet(false, true)) {
       SQLConnection
         .runQuery(conn, "ROLLBACK", None)
-        .map(_ => conn.close())
+        .flatMap(_ => conn.close())
         .recoverDatabaseException("rollback")
     } else {
       Future.successful(())

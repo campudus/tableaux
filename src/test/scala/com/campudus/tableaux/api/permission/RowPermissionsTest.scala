@@ -22,7 +22,6 @@ import scala.concurrent.Future
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.scalatest.Ignore
 
 trait TestHelper extends TableauxTestBase {
 

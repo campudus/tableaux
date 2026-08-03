@@ -376,7 +376,7 @@ class TableauxController(
   }
 
   def duplicateRow(tableId: TableId, rowId: RowId, duplicateOptions: Option[DuplicateRowOptions])(implicit
-  user: TableauxUser): Future[RowLike] = {
+      user: TableauxUser): Future[RowLike] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"duplicateRow $tableId $rowId")
     for {

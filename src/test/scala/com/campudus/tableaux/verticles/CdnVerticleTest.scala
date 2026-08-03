@@ -6,13 +6,14 @@ import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestCustomException}
 import com.campudus.tableaux.verticles._
 
+import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.core.buffer.Buffer
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.ext.web.client.{HttpRequest, HttpResponse, WebClient}
+import io.vertx.lang.scala.*
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.lang.scala.VertxExecutionContext
-import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import io.vertx.scala.ext.web.client.{HttpRequest, HttpResponse, WebClient}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -38,14 +39,14 @@ class CdnVerticleTest extends VertxAccess {
   private var deploymentId: String = "CdnVerticleTest"
 
   @Before
-  def before(context: TestContext) {
+  def before(context: TestContext): Unit = {
     val async = context.async()
 
     val options = DeploymentOptions()
       .setConfig(Json.emptyObj())
 
     vertx
-      .deployVerticleFuture(new CdnVerticle(cdnConfig, Option(mockClient)), options)
+      .deployVerticle(new CdnVerticle(cdnConfig, Option(mockClient)), options)
       .onComplete({
         case Success(id) =>
           logger.info(s"Verticle deployed with ID $id")
@@ -60,14 +61,15 @@ class CdnVerticleTest extends VertxAccess {
   }
 
   @After
-  def after(context: TestContext) {
+  def after(context: TestContext): Unit = {
     val async = context.async()
 
     reset(mockClient)
     reset(mockRequest)
 
     vertx
-      .undeployFuture(deploymentId)
+      .undeploy(deploymentId)
+      .asScala
       .onComplete({
         case Success(_) =>
           logger.info("Verticle undeployed!")
@@ -114,7 +116,7 @@ class CdnVerticleTest extends VertxAccess {
     val mockResponse = mock(classOf[HttpResponse[Buffer]])
 
     when(mockClient.postAbs("http://my.cdn.url/purge")).thenReturn(mockRequest)
-    when(mockRequest.sendFuture()).thenReturn(Future.successful(mockResponse))
+    when(mockRequest.send()).thenReturn(io.vertx.core.Future.succeededFuture(mockResponse))
 
     okTest {
       for {

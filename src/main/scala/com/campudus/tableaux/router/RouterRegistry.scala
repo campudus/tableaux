@@ -13,13 +13,12 @@ import com.campudus.tableaux.database.model._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 import com.campudus.tableaux.router.auth.permission.RoleModel
 
+import io.vertx.core.Vertx
+import io.vertx.ext.auth.oauth2.OAuth2Options
+import io.vertx.ext.auth.oauth2.providers.KeycloakAuth
+import io.vertx.ext.web.{Router, RoutingContext}
+import io.vertx.ext.web.handler.OAuth2AuthHandler
 import io.vertx.lang.scala.VertxExecutionContext
-import io.vertx.scala.core.Vertx
-import io.vertx.scala.ext.auth.oauth2.OAuth2ClientOptions
-import io.vertx.scala.ext.auth.oauth2.providers.KeycloakAuth
-import io.vertx.scala.ext.web.{Router, RoutingContext}
-import io.vertx.scala.ext.web.handler.CookieHandler
-import io.vertx.scala.ext.web.handler.OAuth2AuthHandler
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -37,6 +36,23 @@ object RouterRegistry extends LazyLogging {
     implicit val roleModel: RoleModel = RoleModel(tableauxConfig.rolePermissions, isAuth)
 
     val mainRouter: Router = Router.router(vertx)
+
+    // Vert.x 4's OAuth2AuthHandler lets a raw RuntimeException from the underlying JWK signature check escape
+    // uncaught (instead of properly failing the context with a 401 HttpException like it does for other token
+    // validation problems, e.g. expiry/audience), which otherwise surfaces to clients as a bare 500. Recognize
+    // that one known case and report it as an authentication failure instead of an internal server error.
+    mainRouter.errorHandler(
+      500,
+      context => {
+        val cause = context.failure()
+        val looksLikeSignatureFailure =
+          cause != null && Option(cause.getMessage).exists(_.toLowerCase.contains("signature"))
+
+        if (!context.response().ended()) {
+          context.response().setStatusCode(if (looksLikeSignatureFailure) 401 else 500).end()
+        }
+      }
+    )
 
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
@@ -64,11 +80,10 @@ object RouterRegistry extends LazyLogging {
     val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel, roleModel))
     val mediaRouter =
       MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel, roleModel, tableauxModel))
-    val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel, roleModel))
+    val structureRouter =
+      StructureRouter(tableauxConfig, config => StructureController(config, structureModel, roleModel)())
     val documentationRouter = DocumentationRouter(tableauxConfig)
     val userRouter = UserRouter(tableauxConfig, UserController(_, userModel, roleModel))
-
-    mainRouter.route().handler(CookieHandler.create())
 
     def registerCommonRoutes(router: Router) = {
       router.mountSubRouter("/system", systemRouter.route)
@@ -91,7 +106,7 @@ object RouterRegistry extends LazyLogging {
 
     def initManualAuth() = {
       val keycloakAuthProvider = KeycloakAuth.create(vertx, tableauxConfig.authConfig)
-      val keycloakAuthHandler = OAuth2AuthHandler.create(keycloakAuthProvider)
+      val keycloakAuthHandler = OAuth2AuthHandler.create(vertx, keycloakAuthProvider)
       mainRouter.route().handler(keycloakAuthHandler)
 
       val tableauxKeycloakAuthHandler = new KeycloakAuthHandler(vertx, tableauxConfig)
@@ -101,9 +116,9 @@ object RouterRegistry extends LazyLogging {
     }
 
     def initAutoDiscoverAuth() = {
-      val clientOptions: OAuth2ClientOptions = OAuth2ClientOptions()
+      val clientOptions: OAuth2Options = new OAuth2Options()
         .setSite(tableauxConfig.authConfig.getString("issuer"))
-        .setClientID(tableauxConfig.authConfig.getString("resource"))
+        .setClientId(tableauxConfig.authConfig.getString("resource"))
 
       val tableauxKeycloakAuthHandler = new KeycloakAuthHandler(vertx, tableauxConfig)
 
@@ -115,7 +130,7 @@ object RouterRegistry extends LazyLogging {
             registerPublicRoutes(mainRouter)
 
             val keycloakAuthProvider = handler.result()
-            val keycloakAuthHandler = OAuth2AuthHandler.create(keycloakAuthProvider)
+            val keycloakAuthHandler = OAuth2AuthHandler.create(vertx, keycloakAuthProvider)
             mainRouter.route().handler(keycloakAuthHandler)
             mainRouter.route().handler(tableauxKeycloakAuthHandler)
 

@@ -7,6 +7,7 @@ import com.campudus.tableaux.verticles.EventClient._
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.*
 import org.vertx.scala.core.json._
 
 import org.junit.Assert._
@@ -712,17 +713,17 @@ class IdentifierTest extends TableauxTestBase {
       // invalidate caches of both tables because inserting rows does also caching
       _ <- vertx
         .eventBus()
-        .sendFuture[JsonObject](
+        .request[JsonObject](
           ADDRESS_INVALIDATE_TABLE,
-          Some(Json.obj("tableId" -> 1))
-        )
+          Json.obj("tableId" -> 1)
+        ).asScala
 
       _ <- vertx
         .eventBus()
-        .sendFuture[JsonObject](
+        .request[JsonObject](
           ADDRESS_INVALIDATE_TABLE,
-          Some(Json.obj("tableId" -> 2))
-        )
+          Json.obj("tableId" -> 2)
+        ).asScala
 
       _ <- sendRequest("GET", "/tables/1/columns/3/rows/1")
     } yield {

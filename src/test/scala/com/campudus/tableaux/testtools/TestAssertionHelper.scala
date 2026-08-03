@@ -39,7 +39,7 @@ trait TestAssertionHelper {
       expected: T,
       actual: U,
       compareMode: JSONCompareMode = JSONCompareMode.LENIENT
-  ) {
+  ): Unit = {
     val expectedString = implicitly[JsonAssertable[T]].serialize(expected)
     val actualString = implicitly[JsonAssertable[U]].serialize(actual)
 

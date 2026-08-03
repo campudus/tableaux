@@ -5,18 +5,18 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.FileModel
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.helper.JsonUtils._
+import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.verticles.EventClient._
 
-import io.vertx.lang.scala.ScalaVerticle
+import io.vertx.core.{Vertx, WorkerExecutor}
+import io.vertx.core.eventbus.Message
+import io.vertx.ext.web.client.WebClient
+import io.vertx.lang.scala.{ScalaVerticle, *}
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.core.{Vertx, WorkerExecutor}
-import io.vertx.scala.core.eventbus.Message
-import io.vertx.scala.ext.web.client.WebClient
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
-import scala.reflect.io.Path
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 import com.twelvemonkeys.image.ResampleOp
@@ -62,8 +62,8 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     .appendMillis().appendSuffix("ms")
     .toFormatter()
 
-  private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
-  private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
+  private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath()
+  private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath()
 
   private val defaultResizeFilter = getIntDefault(thumbnailsConfig, "resizeFilter", ResampleOp.FILTER_TRIANGLE);
   private val enableCacheWarmup = getBooleanDefault(thumbnailsConfig, "enableCacheWarmup", false);
@@ -93,7 +93,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     override val vertx: Vertx = ThumbnailVerticle.this.vertx
   }
 
-  override def startFuture(): Future[_] = {
+  override def asyncStart: Future[Unit] = {
     logger.info("start future")
 
     vertx.setPeriodic(cacheClearPollingInterval, _ => clearOldThumbnails())
@@ -116,7 +116,11 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       }
     }
 
-    eventBus.consumer(ADDRESS_THUMBNAIL_RETRIEVE, retrieveThumbnailPath).completionFuture()
+    val promise = Promise[Unit]()
+    eventBus
+      .consumer(ADDRESS_THUMBNAIL_RETRIEVE, retrieveThumbnailPath)
+      .completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    promise.future
   }
 
   private def getIntDefault(config: JsonObject, field: String, default: Int): Int = {
@@ -138,19 +142,23 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
   }
 
   private def createThumbnailsDirectory(): Future[Unit] = {
-    FileUtils(this.vertxAccess).mkdirs(thumbnailsDirectoryPath)
+    FileUtils(this.vertxAccess()).mkdirs(thumbnailsDirectoryPath)
   }
 
   private def checkExistence(thumbnailPath: Path): Future[Boolean] = {
     vertx
       .fileSystem()
-      .existsFuture(thumbnailPath.toString)
+      .exists(thumbnailPath.toString)
+      .asScala
+      .map(_.booleanValue())
   }
 
   private def checkSourceFile(filePath: Path): Future[Unit] = {
     vertx
       .fileSystem()
-      .existsFuture(filePath.toString)
+      .exists(filePath.toString)
+      .asScala
+      .map(_.booleanValue())
       .flatMap {
         case true => Future.successful(())
         case false => Future.failed(new FileNotFoundException("Source file not found"))
@@ -197,16 +205,17 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         ImageIO.write(resizeImage, "png", resizeFile)
       },
       false
-    );
+    ).asScala.map(_.booleanValue());
   }
 
   private def updateThumbnailTimestamps(thumbnailPath: Path): Future[Unit] = {
     workerExecutor.executeBlocking(
       () => {
         Files.setLastModifiedTime(thumbnailPath.jfile.toPath, FileTime.from(Instant.now()))
+        ()
       },
       false
-    );
+    ).asScala;
   }
 
   private def retrieveThumbnailPath(
@@ -274,7 +283,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         }
       },
       false
-    );
+    ).asScala;
   }
 
   private def generateThumbnailsForExistingImages(): Future[Seq[Option[Path]]] = {

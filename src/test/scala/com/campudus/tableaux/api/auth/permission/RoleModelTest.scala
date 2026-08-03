@@ -5,7 +5,6 @@ import com.campudus.tableaux.router.auth.permission._
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import org.junit.{Assert, Test}
-import org.scalatest.Assertions._
 
 class RoleModelTest {
 
@@ -97,11 +96,7 @@ class RoleModelTest {
                                                    |  ]
                                                    |}""".stripMargin)
 
-    import org.scalatest.Assertions._
-
-    assertThrows[IllegalArgumentException] {
-      RoleModel(json)
-    }
+    Assert.assertThrows(classOf[IllegalArgumentException], () => RoleModel(json))
   }
 
   @Test
@@ -117,11 +112,7 @@ class RoleModelTest {
                                                    |  ]
                                                    |}""".stripMargin)
 
-    import org.scalatest.Assertions._
-
-    assertThrows[IllegalArgumentException] {
-      RoleModel(json)
-    }
+    Assert.assertThrows(classOf[IllegalArgumentException], () => RoleModel(json))
   }
 
   @Test

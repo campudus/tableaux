@@ -24,7 +24,7 @@ class StructureControllerTest extends TableauxTestBase {
     implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
     val model = StructureModel(dbConnection)
 
-    StructureController(tableauxConfig, model, roleModel)
+    StructureController(tableauxConfig, model, roleModel)()
   }
 
   @Test
@@ -124,7 +124,7 @@ class StructureControllerTest extends TableauxTestBase {
   private def illegalArgumentTest[A](f: => Future[A])(implicit c: TestContext): Unit = {
     val async = c.async()
     try {
-      f map { _: A =>
+      f map { (_: A) =>
         c.fail("should get an IllegalArgumentException")
         async.complete()
       }

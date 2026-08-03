@@ -10,7 +10,7 @@ import com.campudus.tableaux.helper.UnionTableHelper
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
@@ -1465,7 +1465,7 @@ class TableauxModel(
   }
 
   private def filterRows(columns: Seq[ColumnType[_]], rows: Seq[RowLike])(implicit
-  user: TableauxUser): Future[Seq[RowLike]] = {
+      user: TableauxUser): Future[Seq[RowLike]] = {
     if (config.isRowPermissionCheckEnabled) {
       removeUnauthorizedForeignValuesFromRows(columns, rows)
     } else {
@@ -1763,7 +1763,7 @@ class TableauxModel(
   }
 
   def duplicateRow(table: Table, rowId: RowId, options: Option[DuplicateRowOptions])(implicit
-  user: TableauxUser): Future[RowLike] = {
+      user: TableauxUser): Future[RowLike] = {
     val isConstrainedLink = (link: LinkColumn) => link.linkDirection.constraint.cardinality.from > 0
     val shouldAnnotateSkipped = options.fold(false)(_.annotateSkipped)
     val shouldSkipConstrained = options.fold(false)(_.skipConstrainedFrom)

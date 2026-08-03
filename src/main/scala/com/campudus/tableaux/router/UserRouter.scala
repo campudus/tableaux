@@ -6,8 +6,8 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 import com.campudus.tableaux.verticles.EventClient
 
-import io.vertx.scala.ext.web.{Router, RoutingContext}
-import io.vertx.scala.ext.web.handler.BodyHandler
+import io.vertx.ext.web.{Router, RoutingContext}
+import io.vertx.ext.web.handler.BodyHandler
 
 import scala.concurrent.Future
 import scala.util.Try

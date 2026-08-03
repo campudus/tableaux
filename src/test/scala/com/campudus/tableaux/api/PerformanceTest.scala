@@ -242,7 +242,7 @@ class PerformanceTest extends TableauxTestBase {
           future.flatMap({ _ =>
             {
               Future
-                .sequence(group.map({ rowId: Int =>
+                .sequence(group.map({ (rowId: Int) =>
                   {
                     sendStringRequest(
                       "POST",

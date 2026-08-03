@@ -123,7 +123,12 @@ object ArgumentChecker {
 
   def hasLong(field: String, json: JsonObject): ArgumentCheck[Long] = notNull(json.getLong(field).longValue(), field)
 
-  def hasString(field: String, json: JsonObject): ArgumentCheck[String] = notNull(json.getString(field), field)
+  // Note: don't use json.getString(field) here - Vert.x 4's JsonObject.getString() falls back to
+  // calling toString() on any non-string value instead of throwing, so e.g. a JSON number would
+  // silently be accepted as a valid string. Cast to CharSequence ourselves so a type mismatch still
+  // throws a ClassCastException, which notNull() turns into the expected InvalidJsonException.
+  def hasString(field: String, json: JsonObject): ArgumentCheck[String] =
+    notNull(json.getValue(field).asInstanceOf[CharSequence].toString, field)
 
   def tryCast[A](elem: Any): ArgumentCheck[A] = {
     tryMap(

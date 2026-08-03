@@ -2,8 +2,8 @@ package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.helper.VertxAccess
 
+import io.vertx.core.Vertx
 import io.vertx.lang.scala.VertxExecutionContext
-import io.vertx.scala.core.Vertx
 
 import com.typesafe.scalalogging.LazyLogging
 

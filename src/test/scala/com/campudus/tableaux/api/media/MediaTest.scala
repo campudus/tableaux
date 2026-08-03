@@ -2,21 +2,22 @@ package com.campudus.tableaux.api.media
 
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.helper.JsonUtils
+import com.campudus.tableaux.helper.Path
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
 import com.campudus.tableaux.testtools.JsonTestHelper._
 import com.campudus.tableaux.testtools.RequestCreation.AttachmentCol
 
 import io.vertx.core.buffer.Buffer
+import io.vertx.core.http.{HttpClient, HttpClientResponse}
 import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.*
 import io.vertx.scala.FutureHelper._
-import io.vertx.scala.core.http.{HttpClient, HttpClientResponse}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
-import scala.reflect.io.Path
 
 import java.util.UUID
 import org.junit.Assert._
@@ -1127,7 +1128,7 @@ class FileTest extends MediaTestBase {
 
         file <- sendRequest("GET", s"/files/${file.getString("uuid")}")
 
-        _ <- futurify { p: Promise[Unit] =>
+        _ <- futurify { (p: Promise[Unit]) =>
           {
             val url = file.getJsonObject("url").getString("de-DE")
 
@@ -1138,14 +1139,14 @@ class FileTest extends MediaTestBase {
                 {
                   assertEquals(200, resp.statusCode())
 
-                  assertEquals("Should get the correct MIME type", Some(mimetype), resp.getHeader("content-type"))
+                  assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
                   assertEquals(
                     "Should get the correct content length",
-                    Some(size.toString),
+                    size.toString,
                     resp.getHeader("content-length")
                   )
 
-                  resp.bodyHandler { buf: Buffer =>
+                  resp.bodyHandler { (buf: Buffer) =>
                     client.close()
 
                     assertEquals("Should get the same size back as the file really is", size, buf.length())
@@ -1159,7 +1160,7 @@ class FileTest extends MediaTestBase {
                 p.failure(x)
               },
               None
-            ).end()
+            ).foreach(_.end())
           }
         }
 
@@ -1193,7 +1194,7 @@ class FileTest extends MediaTestBase {
 
         file <- sendRequest("GET", s"/files/${file.getString("uuid")}")
 
-        _ <- futurify { p: Promise[Unit] =>
+        _ <- futurify { (p: Promise[Unit]) =>
           {
             val url = file.getJsonObject("url").getString("de")
 
@@ -1204,14 +1205,14 @@ class FileTest extends MediaTestBase {
                 {
                   assertEquals(200, resp.statusCode())
 
-                  assertEquals("Should get the correct MIME type", Some(mimetype), resp.getHeader("content-type"))
+                  assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
                   assertEquals(
                     "Should get the correct content length",
-                    Some(size.toString),
+                    size.toString,
                     resp.getHeader("content-length")
                   )
 
-                  resp.bodyHandler { buf: Buffer =>
+                  resp.bodyHandler { (buf: Buffer) =>
                     client.close()
 
                     assertEquals("Should get the same size back as the file really is", size, buf.length())
@@ -1225,7 +1226,7 @@ class FileTest extends MediaTestBase {
                 p.failure(x)
               },
               None
-            ).end()
+            ).foreach(_.end())
           }
         }
 
@@ -1409,7 +1410,8 @@ class FileTest extends MediaTestBase {
           // delete tmp file
           vertx
             .fileSystem()
-            .deleteFuture(path.toString())
+            .delete(path.toString())
+            .asScala
         }
 
         result <- sendRequest("DELETE", s"/files/${tmpFile.getString("uuid")}")

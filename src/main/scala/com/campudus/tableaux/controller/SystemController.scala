@@ -16,7 +16,7 @@ import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -370,7 +370,7 @@ class SystemController(
   }
 
   def retrieveCellAnnotationConfig(annotationName: String)(implicit
-  user: TableauxUser): Future[CellAnnotationConfig] = {
+      user: TableauxUser): Future[CellAnnotationConfig] = {
     logger.info(s"retrieveCellAnnotationConfig $annotationName")
 
     for {

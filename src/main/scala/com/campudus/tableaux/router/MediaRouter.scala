@@ -9,9 +9,10 @@ import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 import io.vertx.core.buffer.Buffer
-import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
-import io.vertx.scala.ext.web.{Router, RoutingContext}
-import io.vertx.scala.ext.web.handler.BodyHandler
+import io.vertx.core.http.{HttpServerFileUpload, HttpServerRequest}
+import io.vertx.ext.web.{Router, RoutingContext}
+import io.vertx.ext.web.handler.BodyHandler
+import io.vertx.lang.scala.*
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
@@ -25,9 +26,7 @@ sealed trait FileAction
 case class UploadAction(
     fileName: String,
     mimeType: String,
-    exceptionHandler: (Throwable => Unit) => _,
-    endHandler: (() => Unit) => _,
-    streamToFile: String => _
+    streamToFile: String => Future[Unit]
 ) extends FileAction
 
 object MediaRouter {
@@ -382,18 +381,19 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     )
 
     // TODO this only can handle one file upload per request
-    req.uploadHandler({ upload: HttpServerFileUpload =>
+    req.uploadHandler({ (upload: HttpServerFileUpload) =>
       {
         logger.info("Received a file upload")
 
         vertx.cancelTimer(timerId)
 
-        val setExceptionHandler = (exHandler: Throwable => Unit) => upload.exceptionHandler(t => exHandler(t))
-        val setEndHandler = (fn: () => Unit) => upload.endHandler(_ => fn())
-        val setStreamToFile = (fPath: String) => upload.streamToFileSystem(fPath)
+        // Note: don't call upload.endHandler/exceptionHandler here - streamToFileSystem() internally
+        // pipes the upload through a Pipe that installs its own endHandler/exceptionHandler on the
+        // upload, silently overwriting any handler set beforehand. The returned Future is the only
+        // reliable way to observe completion/failure of the write.
+        val setStreamToFile = (fPath: String) => upload.streamToFileSystem(fPath).asScala.map(_ => ())
 
-        val action =
-          UploadAction(upload.filename(), upload.contentType(), setExceptionHandler, setEndHandler, setStreamToFile)
+        val action = UploadAction(upload.filename(), upload.contentType(), setStreamToFile)
 
         fn(action)
           .map(p.success)

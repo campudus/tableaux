@@ -4,8 +4,10 @@ import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 
 import io.vertx.core.json.{JsonArray, JsonObject}
-import io.vertx.lang.scala.json.Json
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.ext.web.RoutingContext
+import org.vertx.scala.core.json.Json
+
+import scala.collection.JavaConverters._
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -35,8 +37,8 @@ object TableauxUser extends LazyLogging {
   }
 
   private def getCookieValue(defaultValue: String, name: String, rc: RoutingContext): String =
-    rc.cookies().toSet
-      .find(_.getName() == name)
+    rc.cookieMap().asScala
+      .get(name)
       .map(_.getValue())
       .getOrElse(defaultValue)
 

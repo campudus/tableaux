@@ -2,11 +2,11 @@ package com.campudus.tableaux.verticles
 
 import com.campudus.tableaux.verticles.EventClient._
 
+import io.vertx.core.eventbus.Message
 import io.vertx.lang.scala.ScalaVerticle
-import io.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
@@ -30,9 +30,15 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
     SchemaLoader.load(new JSONObject(schemaString))
   }
 
-  override def startFuture(): Future[_] = {
-    eventBus.consumer(ADDRESS_JSON_SCHEMA_VALIDATE, messageHandlerValidateJson).completionFuture()
-    eventBus.consumer(ADDRESS_JSON_SCHEMA_REGISTER, messageHandlerRegisterSchema).completionFuture()
+  private def completionAsFuture(consumer: io.vertx.core.eventbus.MessageConsumer[_]): Future[Unit] = {
+    val promise = Promise[Unit]()
+    consumer.completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    promise.future
+  }
+
+  override def asyncStart: Future[Unit] = {
+    completionAsFuture(eventBus.consumer(ADDRESS_JSON_SCHEMA_VALIDATE, messageHandlerValidateJson))
+    completionAsFuture(eventBus.consumer(ADDRESS_JSON_SCHEMA_REGISTER, messageHandlerRegisterSchema))
   }
 
   private def messageHandlerRegisterSchema(message: Message[JsonObject]): Unit = {

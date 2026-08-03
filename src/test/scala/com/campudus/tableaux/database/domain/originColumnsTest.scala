@@ -7,7 +7,6 @@ import org.vertx.scala.core.json.Json
 
 import org.junit.Assert._
 import org.junit.Test
-import org.scalatest.Assertions._
 
 class CreateOriginColumnsTest extends TestAssertionHelper {
 
@@ -32,15 +31,11 @@ class CreateOriginColumnsTest extends TestAssertionHelper {
   @Test
   def parseOriginColumns_emptyArray_error(): Unit = {
     val json = Json.emptyArr()
-    assertThrows[IllegalArgumentException] {
-      CreateOriginColumns.parseJson(json)
-    }
+    assertThrows(classOf[IllegalArgumentException], () => CreateOriginColumns.parseJson(json))
   }
 
   @Test
   def parseOriginColumns_missingArray_error(): Unit = {
-    assertThrows[IllegalArgumentException] {
-      CreateOriginColumns.parseJson()
-    }
+    assertThrows(classOf[IllegalArgumentException], () => CreateOriginColumns.parseJson())
   }
 }

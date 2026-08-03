@@ -3,10 +3,10 @@ package com.campudus.tableaux.api
 import com.campudus.tableaux.Starter
 import com.campudus.tableaux.testtools.TestAssertionHelper
 
+import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
-import io.vertx.scala.core.{DeploymentOptions, Vertx}
+import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext, *}
 import org.vertx.scala.core.json._
 
 import scala.util.{Failure, Success, Try}
@@ -20,9 +20,7 @@ class StarterTest extends LazyLogging with TestAssertionHelper {
 
   val vertx: Vertx = Vertx.vertx()
 
-  implicit lazy val executionContext: VertxExecutionContext = VertxExecutionContext(
-    io.vertx.scala.core.Context(vertx.asJava.asInstanceOf[io.vertx.core.Vertx].getOrCreateContext())
-  )
+  implicit lazy val executionContext: VertxExecutionContext = VertxExecutionContext(vertx, vertx.getOrCreateContext())
 
   @Test
   def deployStarterVerticleWithEmptyConfig(implicit c: TestContext): Unit = {
@@ -32,7 +30,7 @@ class StarterTest extends LazyLogging with TestAssertionHelper {
       // will fail because of empty config
       .setConfig(Json.obj())
 
-    val completionHandler = {
+    val completionHandler: Try[String] => Unit = {
       case Success(id) =>
         logger.error(s"Verticle deployed with ID $id but shouldn't.")
 
@@ -40,10 +38,11 @@ class StarterTest extends LazyLogging with TestAssertionHelper {
       case Failure(e) =>
         logger.info("Verticle couldn't be deployed.", e)
         async.complete()
-    }: Try[String] => Unit
+    }
 
     vertx
-      .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
+      .deployVerticle(ScalaVerticle.nameForVerticle[Starter](), options)
+      .asScala
       .onComplete(completionHandler)
   }
 
@@ -63,7 +62,7 @@ class StarterTest extends LazyLogging with TestAssertionHelper {
         )
       )
 
-    val completionHandler = {
+    val completionHandler: Try[String] => Unit = {
       case Success(id) =>
         logger.error(s"Verticle deployed with ID $id but shouldn't.")
 
@@ -71,10 +70,11 @@ class StarterTest extends LazyLogging with TestAssertionHelper {
       case Failure(e) =>
         logger.info("Verticle couldn't be deployed.", e)
         async.complete()
-    }: Try[String] => Unit
+    }
 
     vertx
-      .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
+      .deployVerticle(ScalaVerticle.nameForVerticle[Starter](), options)
+      .asScala
       .onComplete(completionHandler)
   }
 }
