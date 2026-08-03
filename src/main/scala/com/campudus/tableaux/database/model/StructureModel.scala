@@ -15,7 +15,7 @@ object StructureModel {
   }
 }
 
-class StructureModel(override protected[this] val connection: DatabaseConnection)(
+class StructureModel(override protected val connection: DatabaseConnection)(
     implicit roleModel: RoleModel
 ) extends DatabaseQuery {
   val tableStruc = new TableModel(connection)

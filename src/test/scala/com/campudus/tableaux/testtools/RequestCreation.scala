@@ -22,12 +22,12 @@ object RequestCreation {
               valueObject.getValue(column.getString("name"))
             })
 
-          Json.obj("values" -> Json.arr(valuesArray: _*))
+          Json.obj("values" -> Json.arr(valuesArray*))
         })
 
       Json.obj(
         "columns" -> columns,
-        "rows" -> Json.arr(rowObjects: _*)
+        "rows" -> Json.arr(rowObjects*)
       )
     }
   }
@@ -35,14 +35,14 @@ object RequestCreation {
   object Columns {
 
     def apply(): Columns = {
-      new Columns(Seq.empty: _*)
+      new Columns(Seq.empty*)
     }
   }
 
   case class Columns(columns: ColumnType*) extends DomainObject {
 
     def add(column: ColumnType): Columns = {
-      Columns(columns.:+(column): _*)
+      Columns(columns.:+(column)*)
     }
 
     def getJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
@@ -119,7 +119,7 @@ object RequestCreation {
 
     override val biDirectional: Boolean = true
 
-    override def getJson: JsonObject = super.getJson mergeIn Json.obj("constraint" -> constraint.getJson)
+    override def getJson: JsonObject = super.getJson `mergeIn` Json.obj("constraint" -> constraint.getJson)
   }
 
   case class LinkUniDirectionalCol(name: String, linkTo: TableId) extends LinkCol {
@@ -142,7 +142,7 @@ object RequestCreation {
         .mergeIn(
           Json.obj(
             "languageType" -> "country",
-            "countryCodes" -> Json.arr(countryCodes: _*)
+            "countryCodes" -> Json.arr(countryCodes*)
           )
         )
     }

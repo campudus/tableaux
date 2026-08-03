@@ -92,7 +92,7 @@ class StructureController(
 
   def retrieveColumn(tableId: TableId, columnId: ColumnId)(
       implicit user: TableauxUser
-  ): Future[ColumnType[_]] = {
+  ): Future[ColumnType[?]] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"))
     logger.info(s"retrieveColumn $tableId $columnId")
 
@@ -121,8 +121,8 @@ class StructureController(
       table <- tableStruc.retrieve(tableId)
       columns <- columnStruc.retrieveAll(table)
     } yield {
-      val filteredColumns: Seq[ColumnType[_]] =
-        roleModel.filterDomainObjects[ColumnType[_]](
+      val filteredColumns: Seq[ColumnType[?]] =
+        roleModel.filterDomainObjects[ColumnType[?]](
           ViewColumn,
           columns,
           ComparisonObjects(table),
@@ -133,14 +133,14 @@ class StructureController(
   }
 
   def retrieveStructure()(implicit user: TableauxUser): Future[TablesStructure] = {
-    type ColumnSeq = Seq[ColumnType[_]]
+    type ColumnSeq = Seq[ColumnType[?]]
     type IdColumnTuple = (TableId, ColumnSeq)
 
     def collectColumns(table: Table): Future[IdColumnTuple] = {
       columnStruc
         .retrieveAll(table)
         .map(columns =>
-          (table.id -> roleModel.filterDomainObjects[ColumnType[_]](
+          (table.id -> roleModel.filterDomainObjects[ColumnType[?]](
             ViewColumn,
             columns,
             ComparisonObjects(table),
@@ -172,13 +172,13 @@ class StructureController(
 
   private def collectTablesAndColumns(
       tableIds: Seq[TableId]
-  )(implicit user: TableauxUser): Future[(Seq[Table], Seq[Seq[ColumnType[_]]])] = {
+  )(implicit user: TableauxUser): Future[(Seq[Table], Seq[Seq[ColumnType[?]]])] = {
 
     def recursionLoop(
         remainingIds: Seq[TableId],
         accTables: Seq[Table],
-        accColumns: Seq[Seq[ColumnType[_]]]
-    ): Future[(Seq[Table], Seq[Seq[ColumnType[_]]])] = {
+        accColumns: Seq[Seq[ColumnType[?]]]
+    ): Future[(Seq[Table], Seq[Seq[ColumnType[?]]])] = {
       if (remainingIds.isEmpty) {
         Future.successful((accTables, accColumns))
       } else {
@@ -186,7 +186,7 @@ class StructureController(
           newTables <- Future.sequence(remainingIds.map(id => tableStruc.retrieve(id)))
           newColumns <- Future.sequence(newTables.map(table =>
             columnStruc.retrieveAll(table).map(cols =>
-              roleModel.filterDomainObjects[ColumnType[_]](
+              roleModel.filterDomainObjects[ColumnType[?]](
                 ViewColumn,
                 cols,
                 ComparisonObjects(table),
@@ -697,7 +697,7 @@ class StructureController(
       showMemberColumns: Option[Boolean] = None,
       decimalDigits: Option[Int] = None,
       formatPattern: Option[String] = None
-  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
+  )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),

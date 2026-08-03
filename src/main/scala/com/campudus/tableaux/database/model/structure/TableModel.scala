@@ -56,7 +56,7 @@ class TableModel(val connection: DatabaseConnection)(
                 .arr(
                   name,
                   hidden,
-                  langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull,
+                  langtags.flatMap(_.map(f => Json.arr(f*))).orNull,
                   tableType.NAME,
                   tableGroupIdOpt.orNull,
                   attributes match {
@@ -131,7 +131,7 @@ class TableModel(val connection: DatabaseConnection)(
     if (displayInfos.nonEmpty) {
       val (statement, binds) = displayInfos.createSql
       for {
-        (t, result) <- t.query(statement, Json.arr(binds: _*))
+        (t, result) <- t.query(statement, Json.arr(binds*))
       } yield (t, result)
     } else {
       Future.successful((t, Json.obj()))
@@ -150,7 +150,7 @@ class TableModel(val connection: DatabaseConnection)(
     val binds = Json.arr(originTableIds.zipWithIndex.flatMap {
       // ensure to keep the order of the incoming originTableIds
       case (oid, index) => Seq(id, oid, index * 10 + 10)
-    }: _*)
+    }*)
 
     for {
       (t, _) <- t.query(stmt, binds)
@@ -462,7 +462,7 @@ class TableModel(val connection: DatabaseConnection)(
           {
             t.query(
               s"UPDATE system_table SET langtags = ? WHERE table_id = ?",
-              Json.arr(langtags.map(f => Json.arr(f: _*)).orNull, tableId)
+              Json.arr(langtags.map(f => Json.arr(f*)).orNull, tableId)
             )
           }
         }
@@ -533,7 +533,7 @@ class TableModel(val connection: DatabaseConnection)(
                 } else {
                   dis.insertSql(di.langtag)
                 }
-              (t, _) <- t.query(statement, Json.arr(binds: _*))
+              (t, _) <- t.query(statement, Json.arr(binds*))
             } yield t
         }
       case None => Future.successful(t)
@@ -582,7 +582,7 @@ class TableModel(val connection: DatabaseConnection)(
           } yield (lastT, results :+ result)
       }
 
-      _ <- Future(checkUpdateResults(results: _*)) recoverWith t.rollbackAndFail()
+      _ <- Future(checkUpdateResults(results*)) recoverWith t.rollbackAndFail()
       _ <- t.commit()
     } yield ()
   }
@@ -597,7 +597,7 @@ class TableModel(val connection: DatabaseConnection)(
     }
 
     val binds = Json.arr(
-      Seq(originTableId) ++ originColumnIdOpt.toSeq: _*
+      Seq(originTableId) ++ originColumnIdOpt.toSeq*
     )
 
     for {

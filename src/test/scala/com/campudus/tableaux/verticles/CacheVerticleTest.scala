@@ -89,7 +89,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
       })
   }
 
-  def okTest(f: => Future[_])(implicit context: TestContext): Unit = {
+  def okTest(f: => Future[?])(implicit context: TestContext): Unit = {
     val async = context.async()
     (try {
       f

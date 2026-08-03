@@ -19,7 +19,7 @@ object FileModel {
   }
 }
 
-class FileModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
+class FileModel(override protected val connection: DatabaseConnection) extends DatabaseQuery {
   val table: String = "file"
 
   /**
@@ -59,7 +59,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     }
   }
 
-  private def addTranslations(uuid: UUID, map: Map[String, Map[String, _]]): Future[Seq[JsonObject]] = {
+  private def addTranslations(uuid: UUID, map: Map[String, Map[String, ?]]): Future[Seq[JsonObject]] = {
     Future.sequence(map.foldLeft(Seq.empty[Future[JsonObject]]) {
       case (result, (langtag, columnsValueMap)) =>
         val columns = columnsValueMap.keySet.toSeq
@@ -73,7 +73,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
         val update =
           s"UPDATE file_lang SET ${columns.map(column => s"$column = ?").mkString(", ")} WHERE uuid = ? AND langtag = ?"
 
-        val binds = Json.arr(values: _*).add(uuid.toString).add(langtag)
+        val binds = Json.arr(values*).add(uuid.toString).add(langtag)
 
         val future = connection.transactional({
           case t =>

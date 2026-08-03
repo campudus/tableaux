@@ -162,7 +162,7 @@ case class UserSettingFilter[T](
 }
 
 case class UserSettingSeq(
-    settings: Seq[UserSetting[_]]
+    settings: Seq[UserSetting[?]]
 )(implicit roleModel: RoleModel, user: TableauxUser)
     extends DomainObject {
 

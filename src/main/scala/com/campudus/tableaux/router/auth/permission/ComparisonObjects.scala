@@ -14,19 +14,19 @@ object ComparisonObjects {
     new ComparisonObjects(Some(table))
   }
 
-  def apply(table: Table, column: ColumnType[_]): ComparisonObjects = {
+  def apply(table: Table, column: ColumnType[?]): ComparisonObjects = {
     new ComparisonObjects(Some(table), Some(column))
   }
 
-  def apply(column: ColumnType[_]): ComparisonObjects = {
+  def apply(column: ColumnType[?]): ComparisonObjects = {
     new ComparisonObjects(columnOpt = Some(column))
   }
 
-  def apply(column: ColumnType[_], value: Any): ComparisonObjects = {
+  def apply(column: ColumnType[?], value: Any): ComparisonObjects = {
     new ComparisonObjects(columnOpt = Some(column), valueOpt = Option(value))
   }
 
-  def apply(table: Table, column: ColumnType[_], value: Any): ComparisonObjects = {
+  def apply(table: Table, column: ColumnType[?], value: Any): ComparisonObjects = {
     new ComparisonObjects(Some(table), Some(column), Option(value))
   }
 
@@ -45,13 +45,13 @@ object ComparisonObjects {
   */
 case class ComparisonObjects(
     tableOpt: Option[Table] = None,
-    columnOpt: Option[ColumnType[_]] = None,
+    columnOpt: Option[ColumnType[?]] = None,
     valueOpt: Option[Any] = None,
     rowOpt: Option[Row] = None,
     rowPermissionsOpt: Option[RowPermissions] = None
 ) {
 
-  def merge(column: ColumnType[_]): ComparisonObjects = {
+  def merge(column: ColumnType[?]): ComparisonObjects = {
     new ComparisonObjects(this.tableOpt, Some(column))
   }
 

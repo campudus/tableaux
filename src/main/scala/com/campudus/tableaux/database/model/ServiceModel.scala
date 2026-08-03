@@ -25,7 +25,7 @@ object ServiceModel {
   }
 }
 
-class ServiceModel(override protected[this] val connection: DatabaseConnection)(
+class ServiceModel(override protected val connection: DatabaseConnection)(
     implicit roleModel: RoleModel
 ) extends DatabaseQuery {
   val table: String = "system_services"
@@ -75,7 +75,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
     val columnsString = columnString2value.keys.mkString(", ")
     val update = s"UPDATE $table SET $columnsString, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
 
-    val binds = Json.arr(columnString2value.values.toSeq: _*).add(serviceId)
+    val binds = Json.arr(columnString2value.values.toSeq*).add(serviceId)
 
     for {
       _ <- name.map(checkUniqueName).getOrElse(Future.successful(()))

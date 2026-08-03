@@ -529,7 +529,7 @@ class MessagingVerticleTest extends TableauxTestBase {
     }
   }
 
-  def createDefaultTableWithColumn(): Future[(Table, ColumnType[_])] = {
+  def createDefaultTableWithColumn(): Future[(Table, ColumnType[?])] = {
     val defaultColumnToCreate = CreateSimpleColumn(
       "test_column_1",
       None,

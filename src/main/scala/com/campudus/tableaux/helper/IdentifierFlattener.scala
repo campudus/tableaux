@@ -73,7 +73,7 @@ object IdentifierFlattener {
       (langtag, concatenateSingleLang(valueList))
     })
 
-    Json.obj(jsonTuples: _*)
+    Json.obj(jsonTuples*)
   }
 
   /**

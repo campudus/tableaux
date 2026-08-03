@@ -44,7 +44,7 @@ case class RowLevelAnnotations(finalFlag: Boolean, archivedFlag: Boolean) extend
 object RowPermissions {
 
   def apply(rowPermissionSeq: RowPermissionSeq): RowPermissions = {
-    val jsonArray = Json.arr(rowPermissionSeq.map(_.toString()): _*)
+    val jsonArray = Json.arr(rowPermissionSeq.map(_.toString())*)
     new RowPermissions(jsonArray)
   }
 }
@@ -108,7 +108,7 @@ case object FlagAnnotationType extends CellAnnotationType {
 
 object CellLevelAnnotations {
 
-  def apply(columns: Seq[ColumnType[_]], annotationsAsJsonArray: JsonArray): CellLevelAnnotations = {
+  def apply(columns: Seq[ColumnType[?]], annotationsAsJsonArray: JsonArray): CellLevelAnnotations = {
     val annotations = annotationsAsJsonArray.asScala.toSeq
       .map({
         case obj: JsonObject =>
@@ -158,7 +158,7 @@ case class CellLevelAnnotation(
   }
 }
 
-case class CellLevelAnnotations(columns: Seq[ColumnType[_]], annotations: Map[ColumnId, Seq[CellLevelAnnotation]])
+case class CellLevelAnnotations(columns: Seq[ColumnType[?]], annotations: Map[ColumnId, Seq[CellLevelAnnotation]])
     extends DomainObject {
 
   def isDefined: Boolean = annotations.values.exists(_.nonEmpty)

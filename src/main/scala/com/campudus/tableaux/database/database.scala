@@ -18,15 +18,15 @@ import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 
 trait DatabaseQuery extends JsonCompatible with LazyLogging {
-  protected[this] val connection: DatabaseConnection
+  protected val connection: DatabaseConnection
 
   implicit val executionContext: VertxExecutionContext = connection.executionContext
 
-  protected[this] def checkUpdateResults(seq: JsonObject*): Unit = {
+  protected def checkUpdateResults(seq: JsonObject*): Unit = {
     seq.map(json => if (json.containsKey("message")) updateNotNull(json))
   }
 
-  protected[this] def optionToValidFuture[A, B](
+  protected def optionToValidFuture[A, B](
       opt: Option[A],
       trans: B,
       someCase: A => Future[(B, JsonObject)]
@@ -37,11 +37,11 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
     }
   }
 
-  protected[this] def convertStringToDateTime(str: String): Option[DateTime] = {
+  protected def convertStringToDateTime(str: String): Option[DateTime] = {
     Option(str).map(DateTime.parse)
   }
 
-  protected[this] def convertJsonArrayToSeq[A](arr: JsonArray, converter: AnyRef => A): Seq[A] = {
+  protected def convertJsonArrayToSeq[A](arr: JsonArray, converter: AnyRef => A): Seq[A] = {
     import scala.collection.JavaConverters._
 
     Option(arr).getOrElse(Json.emptyArr()).asScala.toSeq.map(converter)
@@ -258,19 +258,19 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     import scala.collection.JavaConverters._
 
     val columnNames = rowSet.columnsNames().asScala.toSeq
-    val results = Json.arr(rowSet.iterator().asScala.map(rowToJsonArray(_, columnNames.size)).toSeq: _*)
+    val results = Json.arr(rowSet.iterator().asScala.map(rowToJsonArray(_, columnNames.size)).toSeq*)
 
     Json.obj(
       "status" -> "ok",
       "rows" -> results.size(),
       "message" -> s"SELECT ${results.size()}",
-      "fields" -> Json.arr(columnNames: _*),
+      "fields" -> Json.arr(columnNames*),
       "results" -> results
     )
   }
 
   private def rowToJsonArray(row: Row, columnCount: Int): JsonArray = {
-    Json.arr((0 until columnCount).map(pos => normalizeValue(row.getValue(pos))): _*)
+    Json.arr((0 until columnCount).map(pos => normalizeValue(row.getValue(pos)))*)
   }
 
   /**
@@ -305,7 +305,7 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     case obj: JsonObject => obj.encode()
     case arr: JsonArray => arr.encode()
     // text[]/other array columns come back as a plain Java array; JsonObject only understands JsonArray.
-    case arr: Array[AnyRef @unchecked] => Json.arr(arr.map(normalizeValue): _*)
+    case arr: Array[AnyRef @unchecked] => Json.arr(arr.map(normalizeValue)*)
     case other => other
   }
 }

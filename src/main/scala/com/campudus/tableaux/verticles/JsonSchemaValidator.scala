@@ -30,7 +30,7 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
     SchemaLoader.load(new JSONObject(schemaString))
   }
 
-  private def completionAsFuture(consumer: io.vertx.core.eventbus.MessageConsumer[_]): Future[Unit] = {
+  private def completionAsFuture(consumer: io.vertx.core.eventbus.MessageConsumer[?]): Future[Unit] = {
     val promise = Promise[Unit]()
     consumer.completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
     promise.future

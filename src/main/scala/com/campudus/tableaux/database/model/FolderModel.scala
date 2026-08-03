@@ -20,7 +20,7 @@ object FolderModel {
   }
 }
 
-class FolderModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
+class FolderModel(override protected val connection: DatabaseConnection) extends DatabaseQuery {
   val table: String = "folder"
 
   def add(name: String, description: String, parentId: Option[FolderId]): Future[Folder] = {

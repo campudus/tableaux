@@ -27,7 +27,7 @@ object AttachmentModel {
   }
 }
 
-class AttachmentModel(protected[this] val connection: DatabaseConnection, protected[this] val fileModel: FileModel)
+class AttachmentModel(protected val connection: DatabaseConnection, protected val fileModel: FileModel)
     extends DatabaseQuery {
   val table = "system_attachment"
 
@@ -74,7 +74,7 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
             if (params.nonEmpty) {
               t.query(
                 s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr",
-                Json.arr(params: _*)
+                Json.arr(params*)
               )
             } else {
               Future.successful((t, Json.emptyObj()))

@@ -12,8 +12,8 @@ class ColumnModelTest {
 
   implicit val user: TableauxUser = TableauxUser("Test", Seq.empty[String])
 
-  var col1: SimpleValueColumn[_] = scala.compiletime.uninitialized
-  var col2: SimpleValueColumn[_] = scala.compiletime.uninitialized
+  var col1: SimpleValueColumn[?] = scala.compiletime.uninitialized
+  var col2: SimpleValueColumn[?] = scala.compiletime.uninitialized
 
   @Before
   def setup(): Unit = {

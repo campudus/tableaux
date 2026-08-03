@@ -38,7 +38,7 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
       val (statement, binds) = TableGroupDisplayInfos(tableGroupId, displayInfos).createSql
 
       for {
-        (t, result) <- t.query(statement, Json.arr(binds: _*))
+        (t, result) <- t.query(statement, Json.arr(binds*))
       } yield (t, result)
     } else {
       Future.successful((t, Json.obj()))
@@ -131,7 +131,7 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
                 } else {
                   dis.insertSql(di.langtag)
                 }
-              (t, _) <- t.query(statement, Json.arr(binds: _*))
+              (t, _) <- t.query(statement, Json.arr(binds*))
             } yield t
         }
       case None => Future.successful(t)

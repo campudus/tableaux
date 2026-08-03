@@ -106,7 +106,7 @@ case class ExtendedFile(file: TableauxFile) extends DomainObject {
   }
 }
 
-case class FileDependentRow(column: ColumnType[_], row: Row) extends DomainObject {
+case class FileDependentRow(column: ColumnType[?], row: Row) extends DomainObject {
 
   override def getJson: JsonObject = {
     Json.obj(
@@ -116,7 +116,7 @@ case class FileDependentRow(column: ColumnType[_], row: Row) extends DomainObjec
   }
 }
 
-case class FileDependentRows(table: Table, column: ColumnType[_], rows: Seq[FileDependentRow]) extends DomainObject {
+case class FileDependentRows(table: Table, column: ColumnType[?], rows: Seq[FileDependentRow]) extends DomainObject {
 
   override def getJson: JsonObject = {
     Json.obj(

@@ -125,7 +125,10 @@ task runRedeploy(type: JavaExec) {
 }
 
 tasks.withType(ScalaCompile) {
-  scalaCompileOptions.additionalParameters = ["-feature"]
+  scalaCompileOptions.additionalParameters = [
+    "-feature",
+    "-source:3.4-migration",
+    "-rewrite"]
 }
 
 sourceSets {

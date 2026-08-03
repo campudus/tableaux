@@ -1,6 +1,6 @@
 package org.vertx.scala.core.json
 
-class ScalaJsonArray(list: java.util.List[_]) extends JsonArray(list) {
+class ScalaJsonArray(list: java.util.List[?]) extends JsonArray(list) {
 
   def get[A](pos: Int): A = super.getValue(pos).asInstanceOf[A]
 }

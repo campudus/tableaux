@@ -114,7 +114,7 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
         .toSeq
 
       assertJSONEquals(expected, rows)
-      assertJSONEquals(Json.arr(expectedOnlyGroupColumn: _*), rowsOnlyGroupColumn)
+      assertJSONEquals(Json.arr(expectedOnlyGroupColumn*), rowsOnlyGroupColumn)
     }
   }
 

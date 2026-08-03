@@ -16,7 +16,7 @@ case class RawRow(
     rowLevelAnnotations: RowLevelAnnotations,
     rowPermissions: RowPermissions,
     cellLevelAnnotations: CellLevelAnnotations,
-    values: Seq[_]
+    values: Seq[?]
 )
 
 trait RowLike extends DomainObject {
@@ -25,7 +25,7 @@ trait RowLike extends DomainObject {
   val rowLevelAnnotations: RowLevelAnnotations
   val rowPermissions: RowPermissions
   val cellLevelAnnotations: CellLevelAnnotations
-  val values: Seq[_]
+  val values: Seq[?]
 
   protected def buildBaseJson: JsonObject = {
     val json = Json.obj(
@@ -63,7 +63,7 @@ case class Row(
     rowLevelAnnotations: RowLevelAnnotations,
     rowPermissions: RowPermissions,
     cellLevelAnnotations: CellLevelAnnotations,
-    values: Seq[_]
+    values: Seq[?]
 ) extends RowLike
 
 case class UnionTableRow(
@@ -72,7 +72,7 @@ case class UnionTableRow(
     rowLevelAnnotations: RowLevelAnnotations,
     rowPermissions: RowPermissions,
     cellLevelAnnotations: CellLevelAnnotations,
-    values: Seq[_]
+    values: Seq[?]
 ) extends RowLike {
 
   override def getJson: JsonObject = {
@@ -94,7 +94,7 @@ case class RowSeq(rows: Seq[RowLike], page: Page = Page(Pagination(None, None), 
   }
 }
 
-case class DependentRows(table: Table, column: ColumnType[_], rows: Seq[JsonObject]) extends DomainObject {
+case class DependentRows(table: Table, column: ColumnType[?], rows: Seq[JsonObject]) extends DomainObject {
 
   override def getJson: JsonObject = {
     Json.obj(

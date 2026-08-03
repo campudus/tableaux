@@ -173,7 +173,7 @@ object Json {
     a
   }
 
-  private def listToJsArr(a: Seq[_]) = Json.arr(a: _*)
+  private def listToJsArr(a: Seq[?]) = Json.arr(a*)
 
   private def addToArray[T: JsonElemOps](a: core.json.JsonArray, fieldValue: T) = {
     if (fieldValue == null) {

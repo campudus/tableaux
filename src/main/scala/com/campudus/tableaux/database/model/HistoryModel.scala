@@ -17,11 +17,11 @@ import scala.util.{Failure, Success}
 
 import java.util.UUID
 
-case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
+case class RetrieveHistoryModel(protected val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieveCell(
       table: Table,
-      column: ColumnType[_],
+      column: ColumnType[?],
       rowId: RowId,
       langtagOpt: Option[String],
       typeOpt: Option[String],
@@ -33,7 +33,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
 
   def retrieveColumn(
       table: Table,
-      column: ColumnType[_],
+      column: ColumnType[?],
       langtagOpt: Option[String],
       typeOpt: Option[String],
       includeDeleted: Boolean
@@ -106,7 +106,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     // order by must base on revision, because a lower revision could have a minimal later timestamp
 
     for {
-      result <- connection.query(select, Json.arr(binds: _*))
+      result <- connection.query(select, Json.arr(binds*))
     } yield {
       resultObjectToJsonArray(result).map(mapToHistory)
     }
@@ -138,7 +138,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       )
     )
     val whereType: Option[(String, Option[String])] = typeOpt.map(t => (s" AND history_type = ?", Some(t)))
-    val whereIncludeDeleted: Option[(String, Option[_])] = includeDeleted match {
+    val whereIncludeDeleted: Option[(String, Option[?])] = includeDeleted match {
       case true => None
       case false => Some(s" AND deleted_at IS NULL", None)
     }
@@ -316,8 +316,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   private def createTranslation(
       table: Table,
       rowId: RowId,
-      values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])],
-      oldCell: Option[Cell[_]] = None
+      values: Seq[(SimpleValueColumn[?], Map[String, Option[?]])],
+      oldCell: Option[Cell[?]] = None
   )(implicit user: TableauxUser): Future[Unit] = {
 
     val oldCellJson = oldCell.map(_.getJson).getOrElse(Json.emptyObj())
@@ -352,7 +352,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   private def createSimple(
       table: Table,
       rowId: RowId,
-      simples: Seq[(SimpleValueColumn[_], Option[Any])]
+      simples: Seq[(SimpleValueColumn[?], Option[Any])]
   )(implicit user: TableauxUser): Future[Seq[RowId]] = {
 
     def wrapValue(value: Any): JsonObject = Json.obj("value" -> value)
@@ -370,7 +370,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       table: Table,
       rowId: RowId,
       columns: Seq[AttachmentColumn]
-  )(implicit user: TableauxUser): Future[_] = {
+  )(implicit user: TableauxUser): Future[?] = {
 
     def wrapValue(attachments: Seq[AttachmentFile]): JsonObject = {
       Json.obj("value" -> attachments.map(_.getJson))
@@ -456,7 +456,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   )(implicit user: TableauxUser): Future[RowId] = {
     logger.info(s"insertChangedRowPermissionHistory ${table.id} $rowId ${user.name}")
     val value = rowPermissionsOpt match {
-      case Some(perm) => Json.arr(perm: _*)
+      case Some(perm) => Json.arr(perm*)
       case None => null
     }
     val jsonString = Json.obj("value" -> value)
@@ -512,7 +512,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * If we didn't call this method on any cell change/deletion the previously valid value wouldn't be logged in a
     * history table.
     */
-  def createCellsInit(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
+  def createCellsInit(table: Table, rowId: RowId, values: Seq[(ColumnType[?], ?)])(
       implicit user: TableauxUser
   ): Future[Unit] = {
     val columns = values.map({ case (col: ColumnType[_], _) => col })
@@ -532,7 +532,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * If we didn't call this method on any cell change/deletion the previously valid value wouldn't be logged in a
     * history table.
     */
-  def createClearCellInit(table: Table, rowId: RowId, columns: Seq[ColumnType[_]])(
+  def createClearCellInit(table: Table, rowId: RowId, columns: Seq[ColumnType[?]])(
       implicit user: TableauxUser
   ): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
@@ -592,11 +592,11 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }))
   }
 
-  private def createSimpleInit(table: Table, rowId: RowId, simples: Seq[SimpleValueColumn[_]])(
+  private def createSimpleInit(table: Table, rowId: RowId, simples: Seq[SimpleValueColumn[?]])(
       implicit user: TableauxUser
   ): Future[Seq[Unit]] = {
 
-    def createIfNotEmpty(column: SimpleValueColumn[_]): Future[Unit] = {
+    def createIfNotEmpty(column: SimpleValueColumn[?]): Future[Unit] = {
       for {
         value <- retrieveCellValue(table, column, rowId)
         _ <- value match {
@@ -614,15 +614,15 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }))
   }
 
-  private def createTranslationInit(table: Table, rowId: RowId, langtagColumns: List[SimpleValueColumn[_]])(implicit
+  private def createTranslationInit(table: Table, rowId: RowId, langtagColumns: List[SimpleValueColumn[?]])(implicit
       user: TableauxUser): Future[Seq[Unit]] = {
 
-    def createIfNotEmpty(column: SimpleValueColumn[_]): Future[Unit] = {
+    def createIfNotEmpty(column: SimpleValueColumn[?]): Future[Unit] = {
       for {
         value <- retrieveCellValue(table, column, rowId)
         _ <- value match {
           case Some(v: Map[_, _]) =>
-            createTranslation(table, rowId, Seq((column, v.asInstanceOf[Map[String, Option[_]]])))
+            createTranslation(table, rowId, Seq((column, v.asInstanceOf[Map[String, Option[?]]])))
           case Some(v) => {
             logger.warn(
               s"createTranslationInit: value is not a Map, but $v for column ${column.id} in table ${table.id}"
@@ -661,7 +661,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  private def retrieveCellValue(table: Table, column: ColumnType[_], rowId: RowId)(implicit
+  private def retrieveCellValue(table: Table, column: ColumnType[?], rowId: RowId)(implicit
       user: TableauxUser): Future[Option[Any]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
@@ -694,9 +694,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * @param values
     *   Seq of columns an the new linked foreign row IDs
     */
-  def clearBackLinksWhichWillBeDeleted(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
+  def clearBackLinksWhichWillBeDeleted(table: Table, rowId: RowId, values: Seq[(ColumnType[?], ?)])(
       implicit user: TableauxUser
-  ): Future[_] = {
+  ): Future[?] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -726,7 +726,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   def removeCellAnnotation(
-      column: ColumnType[_],
+      column: ColumnType[?],
       rowId: RowId,
       uuid: UUID,
       annotation: CellLevelAnnotation,
@@ -754,7 +754,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   def addCellAnnotation(
-      column: ColumnType[_],
+      column: ColumnType[?],
       rowId: RowId,
       uuid: UUID,
       langtags: Seq[String],
@@ -781,7 +781,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
   private def insertAnnotationHistory(
       table: Table,
-      column: ColumnType[_],
+      column: ColumnType[?],
       rowId: RowId,
       uuid: UUID,
       eventType: HistoryEventType,
@@ -840,7 +840,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(futureSequence)
   }
 
-  def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]], oldCell: Option[Cell[_]])(
+  def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[?]], oldCell: Option[Cell[?]])(
       implicit user: TableauxUser
   ): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
@@ -866,7 +866,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
   private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn])(
       implicit user: TableauxUser
-  ): Future[_] = {
+  ): Future[?] = {
     val futureSequence = columns.map(column =>
       insertCellHistory(table, rowId, column.id, column.kind, column.languageType, Json.obj("value" -> Json.emptyArr()))
     )
@@ -874,7 +874,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(futureSequence)
   }
 
-  def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)], oldCell: Option[Cell[_]] = None)(
+  def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[?], ?)], oldCell: Option[Cell[?]] = None)(
       implicit user: TableauxUser
   ): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
@@ -981,7 +981,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   // TODO delete b/c not used?
   def deleteLink(table: Table, linkColumn: LinkColumn, rowId: RowId, toId: RowId)(
       implicit user: TableauxUser
-  ): Future[_] = {
+  ): Future[?] = {
     if (linkColumn.linkDirection.constraint.deleteCascade) {
       createLinks(table, rowId, Seq((linkColumn, Seq(toId))), allowRecursion = false)
     } else {

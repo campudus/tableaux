@@ -375,7 +375,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           .getJsonObject(0)
           .getJsonArray("langtags")
 
-        assertJSONEquals(Json.arr(Seq("de", "gb", "fr", "es", "cs", "nl").sorted: _*), langtags)
+        assertJSONEquals(Json.arr(Seq("de", "gb", "fr", "es", "cs", "nl").sorted*), langtags)
       }
     }
   }
@@ -472,7 +472,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
     }
   }
 
-  def addLangtag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtag: String): Future[_] = {
+  def addLangtag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtag: String): Future[?] = {
     sendRequest(
       "POST",
       s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations",
@@ -486,7 +486,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
       rowId: RowId,
       uuid: String,
       langtag: String
-  ): Future[_] = {
+  ): Future[?] = {
     sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuid/$langtag")
   }
 

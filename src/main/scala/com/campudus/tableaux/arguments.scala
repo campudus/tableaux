@@ -101,7 +101,7 @@ object ArgumentChecker {
     }
   }
 
-  def isDefined(options: Seq[Option[_]], name: String = ""): ArgumentCheck[Unit] = {
+  def isDefined(options: Seq[Option[?]], name: String = ""): ArgumentCheck[Unit] = {
     val empty = !options.exists(_.isDefined)
 
     if (empty) {
@@ -181,7 +181,7 @@ object ArgumentChecker {
   def sequence[A](argChecks: Seq[ArgumentCheck[A]]): ArgumentCheck[Seq[A]] = {
     argChecks match {
       case Nil => OkArg(Nil)
-      case argCheck :: t => argCheck flatMap (a => sequence(t) map (a +: _))
+      case argCheck :: t => argCheck `flatMap` (a => sequence(t) `map` (a +: _))
     }
   }
 
@@ -189,7 +189,7 @@ object ArgumentChecker {
     Try(OkArg(tryFn(a))).getOrElse(FailArg[B](ex))
   }
 
-  def originTablesCheck[A](tableType: A, originTables: Option[Seq[_]]): ArgumentCheck[Unit] = {
+  def originTablesCheck[A](tableType: A, originTables: Option[Seq[?]]): ArgumentCheck[Unit] = {
     (tableType == UnionTable && originTables.isDefined) || (tableType != UnionTable && originTables.isEmpty) match {
       case true => OkArg(())
       case false =>
@@ -201,7 +201,7 @@ object ArgumentChecker {
     }
   }
 
-  def checkArguments(args: ArgumentCheck[_]*): Unit = {
+  def checkArguments(args: ArgumentCheck[?]*): Unit = {
     val failedArgs: Vector[String] = args.zipWithIndex.foldLeft(Vector[String]()) {
       case (errors, (FailArg(ex), idx)) => errors :+ s"($idx) ${ex.message}"
       case (errors, (OkArg(x), idx)) => errors

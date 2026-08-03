@@ -139,7 +139,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
       } yield {
         assertEquals(1, resultRow.size)
         assertEquals(2, resultCell.size)
-        assertJSONEquals(expected, Json.arr(resultCell: _*).toString)
+        assertJSONEquals(expected, Json.arr(resultCell*).toString)
       }
     }
   }
@@ -349,7 +349,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
             |}]
         """.stripMargin
 
-        assertJSONEquals(expectedChangedCells, Json.arr(changedCells: _*).toString)
+        assertJSONEquals(expectedChangedCells, Json.arr(changedCells*).toString)
         val expectedAddedAnnotations =
           """
             |[{
@@ -357,7 +357,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
             |  "value": {"de": "needs_translation"}, "uuid": "9f4eef42-0476-44d8-ae10-0cdfd802a292"
             |}]
             |""".stripMargin
-        assertJSONEquals(expectedAddedAnnotations, Json.arr(addedAnnotations: _*).toString)
+        assertJSONEquals(expectedAddedAnnotations, Json.arr(addedAnnotations*).toString)
       }
     }
   }

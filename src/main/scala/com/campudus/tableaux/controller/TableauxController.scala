@@ -228,7 +228,7 @@ class TableauxController(
           case (table, _, _, needsTranslationStatusForLangtags) =>
             table.getJson.mergeIn(
               Json.obj(
-                "translationStatus" -> Json.obj(needsTranslationStatusForLangtags: _*)
+                "translationStatus" -> Json.obj(needsTranslationStatusForLangtags*)
               )
             )
         })
@@ -260,7 +260,7 @@ class TableauxController(
       PlainDomainObject(
         Json.obj(
           "tables" -> translationStatusByTableJson,
-          "translationStatus" -> Json.obj(translationStatus: _*)
+          "translationStatus" -> Json.obj(translationStatus*)
         )
       )
     }
@@ -268,7 +268,7 @@ class TableauxController(
 
   def createRow(
       tableId: TableId,
-      values: Option[Seq[Seq[(ColumnId, _)]]],
+      values: Option[Seq[Seq[(ColumnId, ?)]]],
       rowPermissionsOpt: Option[Seq[String]] = None
   )(
       implicit user: TableauxUser
@@ -304,7 +304,7 @@ class TableauxController(
   def updateRow(
       tableId: TableId,
       rowId: RowId,
-      values: Seq[(ColumnId, _)],
+      values: Seq[(ColumnId, ?)],
       rowPermissionsObj: Option[Seq[String]] = None
   )(
       implicit user: TableauxUser
@@ -320,7 +320,7 @@ class TableauxController(
   def setRow(
       tableId: TableId,
       rowId: RowId,
-      values: Seq[(ColumnId, _)],
+      values: Seq[(ColumnId, ?)],
       rowPermissionsObj: Option[Seq[String]] = None
   )(
       implicit user: TableauxUser
@@ -496,7 +496,7 @@ class TableauxController(
 
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId)(
       implicit user: TableauxUser
-  ): Future[Cell[_]] = {
+  ): Future[Cell[?]] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCell $tableId $columnId $rowId")
 
@@ -551,7 +551,7 @@ class TableauxController(
 
   def deleteLink(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId)(
       implicit user: TableauxUser
-  ): Future[Cell[_]] = {
+  ): Future[Cell[?]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
     logger.info(s"deleteLink $tableId $columnId $rowId $toId")
 
@@ -567,8 +567,8 @@ class TableauxController(
       columnId: ColumnId,
       rowId: RowId,
       toId: LinkId,
-      locationType: LocationType[_]
-  )(implicit user: TableauxUser): Future[Cell[_]] = {
+      locationType: LocationType[?]
+  )(implicit user: TableauxUser): Future[Cell[?]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
     logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $locationType")
     for {
@@ -583,8 +583,8 @@ class TableauxController(
       columnId: ColumnId,
       rowId: RowId,
       attachmentId: UUID,
-      locationType: LocationType[_]
-  )(implicit user: TableauxUser): Future[Cell[_]] = {
+      locationType: LocationType[?]
+  )(implicit user: TableauxUser): Future[Cell[?]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
@@ -601,7 +601,7 @@ class TableauxController(
 
   def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
-  ): Future[Cell[_]] = {
+  ): Future[Cell[?]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"replaceCellValue $tableId $columnId $rowId $value")
     for {
@@ -613,7 +613,7 @@ class TableauxController(
 
   def updateCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
-  ): Future[Cell[_]] = {
+  ): Future[Cell[?]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"updateCellValue $tableId $columnId $rowId $value")
 
@@ -627,7 +627,7 @@ class TableauxController(
 
   def clearCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId)(
       implicit user: TableauxUser
-  ): Future[Cell[_]] = {
+  ): Future[Cell[?]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"clearCellValue $tableId $columnId $rowId")
 
@@ -670,7 +670,7 @@ class TableauxController(
     } yield CompleteTable(table, colList, rowList)
   }
 
-  def createCompleteTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]])(
+  def createCompleteTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[?]])(
       implicit user: TableauxUser
   ): Future[CompleteTable] = {
 

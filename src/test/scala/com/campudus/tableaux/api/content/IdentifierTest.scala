@@ -137,7 +137,7 @@ class IdentifierTest extends TableauxTestBase {
 
       def putLink(id: Long) = Json.obj("value" -> Json.obj("values" -> Json.arr(id)))
 
-      def putLinks(ids: Seq[Long]) = Json.obj("value" -> Json.obj("values" -> Json.arr(ids: _*)))
+      def putLinks(ids: Seq[Long]) = Json.obj("value" -> Json.obj("values" -> Json.arr(ids*)))
       for {
 
         // create multiple tables
@@ -377,7 +377,7 @@ class IdentifierTest extends TableauxTestBase {
 
       def putLink(id: Long) = Json.obj("value" -> Json.obj("values" -> Json.arr(id)))
 
-      def putLinks(ids: Seq[Long]) = Json.obj("value" -> Json.obj("values" -> Json.arr(ids: _*)))
+      def putLinks(ids: Seq[Long]) = Json.obj("value" -> Json.obj("values" -> Json.arr(ids*)))
       for {
         (tableId1, columnIds1, rowIds1) <- createSimpleTableWithValues(
           "table1",

@@ -540,7 +540,7 @@ class CreateRowTest extends TableauxTestBase {
         sendRequest("GET", s"/tables/$tableId2/columns/$columnId/rows/$rowId").map(_.getValue("value"))
       }))
     } yield {
-      assertEquals(Json.arr(cells: _*), row.getJsonArray("values"))
+      assertEquals(Json.arr(cells*), row.getJsonArray("values"))
     }
   }
 }
