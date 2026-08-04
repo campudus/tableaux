@@ -17,7 +17,6 @@ class OmitNonChanges extends TableauxTestBase {
     val oldMap = Map("de" -> Some("HallWrong"), "en" -> Some("Hello"))
     val newMap = Map("de" -> Some("Hallo"), "en" -> Some("Hello"))
     val result = JsonUtils.omitNonChanges(newMap, oldMap)
-
     Assert.assertEquals(Map("de" -> Some("Hallo")), result)
   }
 
@@ -26,7 +25,6 @@ class OmitNonChanges extends TableauxTestBase {
     val oldMap = Map("de" -> Some("HallWrong"), "en" -> Some("Hello"), "fr" -> Some("Bonjour"))
     val newMap = Map("de" -> Some("Hallo"), "en" -> Some("Hello"))
     val result = JsonUtils.omitNonChanges(newMap, oldMap)
-
     Assert.assertEquals(Map("de" -> Some("Hallo")), result)
   }
 
@@ -35,7 +33,6 @@ class OmitNonChanges extends TableauxTestBase {
     val oldMap = Map("de" -> Some("Hallo"), "en" -> Some("Hello"))
     val newMap = Map("de" -> Some("Hallo"), "en" -> None)
     val result = JsonUtils.omitNonChanges(newMap, oldMap)
-
     Assert.assertEquals(Map("en" -> None), result)
   }
 
@@ -44,7 +41,6 @@ class OmitNonChanges extends TableauxTestBase {
     val oldMap = Map("de" -> Some("Hallo"), "en" -> Some("Hello"))
     val newMap = Map("de" -> Some("Hallo"), "en" -> Some("Hello"))
     val result = JsonUtils.omitNonChanges(newMap, oldMap)
-
     Assert.assertEquals(Map.empty[String, Option[Any]], result)
   }
 
@@ -53,7 +49,6 @@ class OmitNonChanges extends TableauxTestBase {
     val oldMap = Map("DE" -> Some("200"), "GB" -> Some("300"))
     val newMap = Map("DE" -> Some("400"), "FR" -> Option(null))
     val result = JsonUtils.omitNonChanges(newMap, oldMap)
-
     Assert.assertEquals(Map("DE" -> Some("400")), result)
   }
 }
@@ -69,7 +64,6 @@ class MultiLangValueToMap extends TableauxTestBase {
     )
 
     val result = JsonUtils.multiLangValueToMap(json)
-
     Assert.assertEquals(Map("de" -> Some("Hallo"), "en" -> Some("Hello")), result)
   }
 
@@ -77,7 +71,6 @@ class MultiLangValueToMap extends TableauxTestBase {
   def multiLangValueToMap_emptyValueObject(): Unit = {
     val json = Json.obj()
     val result = JsonUtils.multiLangValueToMap(json)
-
     Assert.assertEquals(Map.empty[String, Option[Any]], result)
   }
 
@@ -85,7 +78,6 @@ class MultiLangValueToMap extends TableauxTestBase {
   def multiLangValueToMap_booleanObject(): Unit = {
     val json = Json.obj("de" -> false)
     val result = JsonUtils.multiLangValueToMap(json)
-
     Assert.assertEquals(Map("de" -> Some(false)), result)
   }
 }
