@@ -165,11 +165,7 @@ class MediaController(
 
           _ <- {
             logger.info(s"delete old file $path")
-            if (path.isDefined) {
-              deleteFile(path.get)
-            } else {
-              Future.successful(())
-            }
+            path.map(deleteFile).getOrElse(Future.successful(()))
           }
 
           updatedFile <- {

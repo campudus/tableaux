@@ -6,6 +6,7 @@ import com.campudus.tableaux.helper.Json
 import io.vertx.lang.scala.json._
 
 import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 object DomainObject extends DomainObject {
@@ -27,8 +28,6 @@ trait DomainObjectHelper {
   }
 
   private def compatibilitySeq[A](returnType: ReturnType)(values: Seq[A]): java.util.List[?] = {
-    import scala.jdk.CollectionConverters._
-
     values
       .map({
         case s: Seq[_] => compatibilitySeq(returnType)(s)
@@ -102,7 +101,6 @@ object MultiLanguageValue {
     * Generates MultiLanguageValue based on JSON
     */
   def apply[A](obj: JsonObject): MultiLanguageValue[A] = {
-    import scala.jdk.CollectionConverters._
     val fields: Map[String, A] =
       obj.fieldNames().asScala.map(name => name -> obj.getValue(name).asInstanceOf[A]).toMap
 

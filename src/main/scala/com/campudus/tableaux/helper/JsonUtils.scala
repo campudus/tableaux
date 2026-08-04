@@ -212,7 +212,7 @@ object JsonUtils extends LazyLogging {
 
                     val (groupIds, groupNames) = parseGroupReferences(json)
 
-                    val formatPattern = Try(hasString("formatPattern", json).get).toOption
+                    val formatPattern = hasString("formatPattern", json).toOption
                     val showMemberColumns = json.getBoolean("showMemberColumns", false)
 
                     CreateGroupColumn(
@@ -431,7 +431,7 @@ object JsonUtils extends LazyLogging {
       Option[String]
   ) = {
 
-    val name = Try(hasString("name", json).get).toOption
+    val name = hasString("name", json).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
     val identifier = Try(json.getBoolean("identifier").booleanValue()).toOption

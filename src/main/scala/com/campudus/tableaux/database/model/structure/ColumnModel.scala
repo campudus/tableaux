@@ -1403,31 +1403,30 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[?]]] = {
 
-    var valueTypeMap: Map[ColumnId, Seq[?]] = Map()
-
-    def calcDependentColumnIdsFromValuesWithSideEffect(values: JsonArray): Seq[ColumnId] = {
+    def calcDependentColumnValuesFromValues(values: JsonArray): Seq[(ColumnId, Any)] = {
 
       asSeqOf[JsonObject](values)
-        .map(value => {
+        .flatMap(value => {
           if (value.containsKey("values")) {
             val newValues = value.getJsonArray("values")
-            calcDependentColumnIdsFromValuesWithSideEffect(newValues)
+            calcDependentColumnValuesFromValues(newValues)
           } else {
             val columnId = value.getLong("column").asInstanceOf[ColumnId]
-            valueTypeMap += (columnId -> (Seq(value.getValue("value")) ++ valueTypeMap.getOrElse(columnId, Seq())))
-            Seq(columnId)
+            Seq(columnId -> value.getValue("value"))
           }
         })
-        .flatten
     }
 
-    val dependentColumnIds = asSeqOf[JsonObject](rules)
-      .map(json => {
+    val dependentColumnValues = asSeqOf[JsonObject](rules)
+      .flatMap(json => {
         val values = json.getJsonObject("conditions").getJsonArray("values")
-        calcDependentColumnIdsFromValuesWithSideEffect(values)
+        calcDependentColumnValuesFromValues(values)
       })
-      .flatten
-      .distinct
+
+    val valueTypeMap: Map[ColumnId, Seq[Any]] =
+      dependentColumnValues.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
+
+    val dependentColumnIds = dependentColumnValues.map(_._1).distinct
 
     for {
       columns <- Future.sequence(dependentColumnIds.map(id =>

@@ -13,6 +13,7 @@ import io.vertx.pgclient.{PgConnection, PgConnectOptions, PgPool}
 import io.vertx.sqlclient.{Pool, PoolOptions, Row, RowSet, SqlClient, SqlConnection => JSqlConnection, Tuple}
 
 import scala.concurrent.{Future, Promise}
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 import scala.util.control.NonFatal
 
@@ -95,12 +96,14 @@ object SQLConnection extends LazyLogging {
     */
   private[scala] def toPositional(sql: String): String = {
     val builder = new StringBuilder(sql.length + 8)
-    var index = 0
-    sql.foreach {
-      case '?' =>
-        index += 1
-        builder.append('$').append(index)
-      case c => builder.append(c)
+    sql.foldLeft(0) {
+      case (index, '?') =>
+        val next = index + 1
+        builder.append('$').append(next)
+        next
+      case (index, c) =>
+        builder.append(c)
+        index
     }
     builder.toString()
   }
@@ -112,12 +115,10 @@ object SQLConnection extends LazyLogging {
   private val IsoDatePattern = "^\\d{4}-\\d{2}-\\d{2}$".r
 
   private def isStringArray(arr: JsonArray): Boolean = {
-    import scala.jdk.CollectionConverters._
     arr.getList.asScala.forall(_.isInstanceOf[String])
   }
 
   private def stringArrayOf(arr: JsonArray): Array[String] = {
-    import scala.jdk.CollectionConverters._
     arr.getList.asScala.map(_.asInstanceOf[String]).toArray
   }
 
@@ -166,7 +167,6 @@ object SQLConnection extends LazyLogging {
   }
 
   private def toTuple(params: JsonArray, hasJsonCast: Boolean): Tuple = {
-    import scala.jdk.CollectionConverters._
     val values = params.getList.asInstanceOf[java.util.List[Object]].asScala.map(toBindValue(_, hasJsonCast))
     Tuple.tuple(values.asJava)
   }

@@ -6,8 +6,9 @@ import com.campudus.tableaux.verticles.EventClient._
 import io.vertx.core.eventbus.Message
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.lang.scala.json.{JsonArray, JsonObject}
+import io.vertx.scala.FutureHelper
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
@@ -32,9 +33,9 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
   }
 
   private def completionAsFuture(consumer: io.vertx.core.eventbus.MessageConsumer[?]): Future[Unit] = {
-    val promise = Promise[Unit]()
-    consumer.completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
-    promise.future
+    FutureHelper.futurify[Unit] { promise =>
+      consumer.completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    }
   }
 
   override def asyncStart: Future[Unit] = {

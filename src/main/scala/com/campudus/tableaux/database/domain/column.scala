@@ -11,6 +11,7 @@ import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import io.vertx.ext.web.RoutingContext
 import io.vertx.lang.scala.json._
 
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
@@ -615,7 +616,6 @@ case class LinkColumn(
           }
 
         case x: JsonObject if x.containsKey("values") =>
-          import scala.jdk.CollectionConverters._
           Try(
             checked(hasArray("values", x)).asScala
               .map(_.asInstanceOf[java.lang.Integer].longValue())
@@ -634,7 +634,6 @@ case class LinkColumn(
           throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
 
         case x: JsonArray =>
-          import scala.jdk.CollectionConverters._
           x.asScala
             .map({
               // need to check for java.lang.Integer because we are mapping over AnyRefs
@@ -695,7 +694,6 @@ case class AttachmentColumn(override val columnInformation: ColumnInformation)(
           Seq((UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong)))
 
         case attachments: JsonArray =>
-          import scala.jdk.CollectionConverters._
           attachments.asScala
             .map({
               case attachment: JsonObject =>

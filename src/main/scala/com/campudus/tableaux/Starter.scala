@@ -14,11 +14,11 @@ import io.vertx.lang.scala.{ScalaVerticle, *}
 import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
 
-import scala.compiletime.uninitialized
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 import com.typesafe.scalalogging.LazyLogging
+import java.util.concurrent.atomic.AtomicReference
 
 object Starter {
   val DEFAULT_HOST = "127.0.0.1"
@@ -39,8 +39,8 @@ object Starter {
 
 class Starter extends ScalaVerticle with LazyLogging {
 
-  private var connection: SQLConnection = uninitialized
-  private var server: HttpServer = uninitialized
+  private val connectionRef = new AtomicReference[SQLConnection]()
+  private val serverRef = new AtomicReference[HttpServer]()
 
   override def asyncStart: Future[Unit] = {
     if (config.isEmpty) {
@@ -97,11 +97,11 @@ class Starter extends ScalaVerticle with LazyLogging {
       UnionTableRow.rowOffset = unionTableRowOffset
       CacheVerticle.cacheTimeoutMillis = vertxCacheTimeoutMillis
 
-      connection = SQLConnection(vertxAccessContainer(), databaseConfig)
+      connectionRef.set(SQLConnection(vertxAccessContainer(), databaseConfig))
 
       for {
         _ <- createUploadsDirectories(tableauxConfig)
-        server <- deployHttpServer(port, host, tableauxConfig, connection)
+        server <- deployHttpServer(port, host, tableauxConfig, connectionRef.get())
         _ <- deployJsonSchemaValidatorVerticle(jsonSchemaConfig)
         _ <- deployCacheVerticle(cacheConfig, tableauxConfig)
         _ <- deployMessagingVerticle(tableauxConfig)
@@ -114,15 +114,15 @@ class Starter extends ScalaVerticle with LazyLogging {
           }
         }
       } yield {
-        this.server = server
+        serverRef.set(server)
       }
     }
   }
 
   override def asyncStop: Future[Unit] = {
     for {
-      _ <- connection.close()
-      _ <- server.close().asScala
+      _ <- connectionRef.get().close()
+      _ <- serverRef.get().close().asScala
     } yield ()
   }
 

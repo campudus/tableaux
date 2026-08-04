@@ -99,7 +99,6 @@ class FolderModel(override protected val connection: DatabaseConnection) extends
   }
 
   private def convertJsonArrayToFolder(arr: JsonArray): Folder = {
-    import scala.jdk.CollectionConverters._
     val parentIds = new JsonArray(arr.getString(3))
       .asScala
       .toSeq

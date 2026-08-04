@@ -4,6 +4,8 @@ import com.campudus.tableaux.{DatabaseException, NotFoundInDatabaseException}
 
 import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
+import scala.jdk.CollectionConverters._
+
 /**
   * Checks if database result changed something or not.
   */
@@ -23,7 +25,6 @@ object ResultChecker {
   }
 
   def jsonArrayToSeq(json: JsonArray): Seq[Any] = {
-    import scala.jdk.CollectionConverters._
     Option(json).map(_.asScala.toSeq.asInstanceOf[Seq[Any]]).getOrElse(Seq.empty)
   }
 
