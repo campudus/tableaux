@@ -33,7 +33,9 @@ class KeycloakAuthHandler(override val vertx: Vertx, tableauxConfig: TableauxCon
     val user: Option[User] = Option(rc.user())
 
     val tokenPayload = user match {
-      case Some(u) => u.attributes().getJsonObject("accessToken")
+      // locally-verified JWTs carry their claims in attributes().accessToken; tokens validated via
+      // introspection (e.g. unknown kid) instead carry them on the principal (see OAuth2AuthProviderImpl#createUser)
+      case Some(u) => Option(u.attributes().getJsonObject("accessToken")).getOrElse(u.principal())
       case _ =>
         val exception = AuthenticationException("No user in context")
         logger.error(exception.getMessage)
