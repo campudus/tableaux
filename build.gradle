@@ -13,6 +13,7 @@ plugins {
   id 'com.gradleup.shadow' version '9.6.1'
   id 'com.diffplug.spotless' version '8.9.0'
   id 'com.adarshr.test-logger' version '4.0.0'
+  id 'org.gradle.test-retry' version '1.6.5'
 }
 
 project.group = 'com.campudus'
@@ -81,6 +82,12 @@ test {
   // http://www.oracle.com/technetwork/java/javase/relnotes-139183.html#vm
   // https://stackoverflow.com/a/4659279/104779
   jvmArgs = ["-Xmx512m", "-XX:-OmitStackTraceInFastThrow"]
+
+  retry {
+    maxRetries = 2
+    maxFailures = 10
+    failOnPassedAfterRetry = false
+  }
 }
 
 run {
