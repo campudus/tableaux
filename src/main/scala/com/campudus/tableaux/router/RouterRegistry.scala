@@ -126,6 +126,13 @@ object RouterRegistry extends LazyLogging {
         .setSite(tableauxConfig.authConfig.getString("issuer"))
         .setClientId(tableauxConfig.authConfig.getString("resource"))
 
+      // needed so that OAuth2API#tokenIntrospection sends client credentials; without it Keycloak
+      // rejects every introspection call (fallback path for tokens whose kid isn't in the local JWK cache)
+      // with client_not_found, since discover() wires up the introspection_endpoint unconditionally.
+      if (tableauxConfig.authConfig.containsKey("secret")) {
+        clientOptions.setClientSecret(tableauxConfig.authConfig.getString("secret"))
+      }
+
       val tableauxKeycloakAuthHandler = new KeycloakAuthHandler(vertx, tableauxConfig)
 
       KeycloakAuth.discover(
