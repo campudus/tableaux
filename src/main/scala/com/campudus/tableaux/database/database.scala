@@ -14,6 +14,7 @@ import io.vertx.sqlclient.RowSet
 import io.vertx.sqlclient.data.Numeric
 
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
@@ -43,8 +44,6 @@ trait DatabaseQuery extends LazyLogging {
   }
 
   protected def convertJsonArrayToSeq[A](arr: JsonArray, converter: AnyRef => A): Seq[A] = {
-    import scala.jdk.CollectionConverters._
-
     Option(arr).getOrElse(Json.arr()).asScala.toSeq.map(converter)
   }
 }
@@ -256,8 +255,6 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
   }
 
   private def mapResultSet(rowSet: RowSet[Row]): JsonObject = {
-    import scala.jdk.CollectionConverters._
-
     val columnNames = rowSet.columnsNames().asScala.toSeq
     val results = Json.arr(rowSet.iterator().asScala.map(rowToJsonArray(_, columnNames.size)).toSeq*)
 

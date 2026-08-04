@@ -5,6 +5,8 @@ import com.campudus.tableaux.database.model.TableauxModel._
 
 import io.vertx.lang.scala.json._
 
+import scala.jdk.CollectionConverters._
+
 object DisplayInfo {
 
   def unapply(displayInfo: DisplayInfo): Option[(Langtag, Option[String], Option[String])] = {
@@ -37,8 +39,6 @@ object DisplayInfos {
   type Langtag = String
 
   private def getFieldNames(json: JsonObject, field: String): Seq[String] = {
-    import scala.jdk.CollectionConverters._
-
     Option(json.getJsonObject(field))
       .map(json => {
         if (json.fieldNames().size() > 0) {

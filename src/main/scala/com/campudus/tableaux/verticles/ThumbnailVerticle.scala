@@ -14,9 +14,10 @@ import io.vertx.core.eventbus.Message
 import io.vertx.ext.web.client.WebClient
 import io.vertx.lang.scala.{ScalaVerticle, *}
 import io.vertx.lang.scala.json.JsonObject
+import io.vertx.scala.FutureHelper
 import io.vertx.scala.SQLConnection
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -117,11 +118,11 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       }
     }
 
-    val promise = Promise[Unit]()
-    eventBus
-      .consumer(ADDRESS_THUMBNAIL_RETRIEVE, retrieveThumbnailPath)
-      .completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
-    promise.future
+    FutureHelper.futurify[Unit] { promise =>
+      eventBus
+        .consumer(ADDRESS_THUMBNAIL_RETRIEVE, retrieveThumbnailPath)
+        .completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    }
   }
 
   private def getIntDefault(config: JsonObject, field: String, default: Int): Int = {

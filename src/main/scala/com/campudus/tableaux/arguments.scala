@@ -4,6 +4,7 @@ import com.campudus.tableaux.database.domain.UnionTable
 
 import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 sealed trait ArgumentCheck[A] extends Product with Serializable {
@@ -146,7 +147,6 @@ object ArgumentChecker {
   }
 
   def checkForAllValues[A](json: JsonObject, predicate: (A => Boolean), name: String): ArgumentCheck[JsonObject] = {
-    import scala.jdk.CollectionConverters._
     val fields = json.fieldNames().asScala.toList
     val failedFields = fields.filter(field => {
       Try(predicate(json.getValue(field).asInstanceOf[A])) match {
@@ -168,7 +168,6 @@ object ArgumentChecker {
   }
 
   def checkAllValuesOfArray[A](arr: JsonArray, p: (A => Boolean), name: String): ArgumentCheck[JsonArray] = {
-    import scala.jdk.CollectionConverters._
     val tail = arr.asScala.dropWhile(value => Try(p(value.asInstanceOf[A])).getOrElse(false))
 
     if (tail.isEmpty) {

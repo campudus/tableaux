@@ -7,8 +7,9 @@ import io.vertx.core.eventbus.Message
 import io.vertx.ext.web.client.WebClient
 import io.vertx.lang.scala.{ScalaVerticle, *}
 import io.vertx.lang.scala.json.JsonObject
+import io.vertx.scala.FutureHelper
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
@@ -23,11 +24,11 @@ class CdnVerticle(cdnConfig: JsonObject, customWebClient: Option[WebClient] = No
   }
 
   override def asyncStart: Future[Unit] = {
-    val promise = Promise[Unit]()
-    eventBus
-      .consumer(ADDRESS_FILE_CHANGED, purgeCdnFileUrl)
-      .completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
-    promise.future
+    FutureHelper.futurify[Unit] { promise =>
+      eventBus
+        .consumer(ADDRESS_FILE_CHANGED, purgeCdnFileUrl)
+        .completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    }
   }
 
   private def purgeCdnFileUrl(message: Message[JsonObject]): Unit = {

@@ -954,8 +954,6 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
         updateResult = rawRow match {
           case Some(Seq(uuidStr: String, langtagsStr: String, createdAt: String)) =>
-            import scala.jdk.CollectionConverters._
-
             Some(
               UUID.fromString(uuidStr),
               new JsonArray(langtagsStr).asScala.map(_.asInstanceOf[String]).toList,
@@ -1208,8 +1206,6 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
                 value,
                 createdAtStr: String
               ) =>
-            import scala.jdk.CollectionConverters._
-
             (
               tables.find(table => table.id == tableId).getOrElse(Table(tableId)),
               rowId,

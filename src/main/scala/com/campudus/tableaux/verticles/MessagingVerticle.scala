@@ -16,14 +16,16 @@ import io.vertx.core.eventbus.Message
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.client.WebClient
 import io.vertx.lang.scala.{ScalaVerticle, *}
+import io.vertx.scala.FutureHelper
 import io.vertx.scala.SQLConnection
 
 import scala.compiletime.uninitialized
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
+import java.util.concurrent.atomic.AtomicReference
 
 object MessagingVerticle {
   val ID_KEYS: Seq[String] = Seq("tableId", "columnId", "rowId")
@@ -65,11 +67,14 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
 
   private var tableauxModel: TableauxModel = uninitialized
   private var serviceModel: ServiceModel = uninitialized
-  private var structureModel: StructureModel = uninitialized
+  private val structureModelRef = new AtomicReference[StructureModel]()
+  private def structureModel: StructureModel = structureModelRef.get()
 
-  private var listeners: Map[String, Seq[Service]] = uninitialized
+  private val listenersRef = new AtomicReference[Map[String, Seq[Service]]]()
+  private def listeners: Map[String, Seq[Service]] = listenersRef.get()
 
-  private implicit var user: TableauxUser = uninitialized
+  private val userRef = new AtomicReference[TableauxUser]()
+  private implicit def user: TableauxUser = userRef.get()
 
   private lazy val eventBus = vertx.eventBus()
 
@@ -219,8 +224,8 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
     val connection = SQLConnection(vertxAccess, tableauxConfig.databaseConfig)
     val dbConnection = DatabaseConnection(vertxAccess, connection)
 
-    structureModel = StructureModel(dbConnection)
-    user = TableauxUser("", roles.fieldNames().asScala.toSeq)
+    structureModelRef.set(StructureModel(dbConnection))
+    userRef.set(TableauxUser("", roles.fieldNames().asScala.toSeq))
     tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
     serviceModel = ServiceModel(dbConnection)
 
@@ -228,15 +233,15 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
       listenersMap <- retrieveListeners()
       _ <- registerConsumers()
     } yield {
-      listeners = listenersMap
+      listenersRef.set(listenersMap)
     }
 
   }
 
   private def completionAsFuture(consumer: io.vertx.core.eventbus.MessageConsumer[?]): Future[Unit] = {
-    val promise = Promise[Unit]()
-    consumer.completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
-    promise.future
+    FutureHelper.futurify[Unit] { promise =>
+      consumer.completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    }
   }
 
   private def registerConsumers(): Future[Unit] = {
@@ -263,7 +268,7 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
     for {
       listenersMap <- retrieveListeners()
     } yield {
-      listeners = listenersMap
+      listenersRef.set(listenersMap)
       message.reply("ok")
     }
   }

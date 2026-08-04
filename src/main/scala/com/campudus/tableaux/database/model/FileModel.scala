@@ -10,6 +10,7 @@ import com.campudus.tableaux.helper.ResultChecker._
 import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 import java.util.UUID
 
@@ -196,8 +197,6 @@ class FileModel(override protected val connection: DatabaseConnection) extends D
   }
 
   private def convertRowToFile(row: JsonArray): TableauxFile = {
-    import scala.jdk.CollectionConverters._
-
     val folders: Seq[Long] = Option(row.getString(2)) match {
       case None => Seq.empty[Long]
       case Some(_) =>

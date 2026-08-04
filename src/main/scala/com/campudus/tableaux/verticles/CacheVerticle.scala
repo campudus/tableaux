@@ -11,9 +11,10 @@ import io.vertx.core.eventbus.EventBus
 import io.vertx.core.eventbus.Message
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.lang.scala.json.JsonObject
+import io.vertx.scala.FutureHelper
 
 import scala.collection.mutable
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 import scala.language.implicitConversions
 
 import com.google.common.cache.{Cache => GuavaCache, CacheBuilder}
@@ -95,11 +96,11 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
       address: String,
       handler: Handler[Message[JsonObject]]
   ): Future[Unit] = {
-    val promise = Promise[Unit]()
-    eventBus
-      .localConsumer(address, handler)
-      .completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
-    promise.future
+    FutureHelper.futurify[Unit] { promise =>
+      eventBus
+        .localConsumer(address, handler)
+        .completionHandler(ar => if (ar.succeeded()) promise.success(()) else promise.failure(ar.cause()))
+    }
   }
 
   private def registerOnEventBus(): Future[Unit] = {
