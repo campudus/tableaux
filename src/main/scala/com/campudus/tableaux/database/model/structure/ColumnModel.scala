@@ -1424,9 +1424,13 @@ class ColumnModel(val connection: DatabaseConnection)(
       })
 
     val valueTypeMap: Map[ColumnId, Seq[Any]] =
-      dependentColumnValues.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
+      dependentColumnValues
+        .groupBy({ case (columnId, _) => columnId })
+        .view
+        .mapValues(_.map({ case (_, value) => value }))
+        .toMap
 
-    val dependentColumnIds = dependentColumnValues.map(_._1).distinct
+    val dependentColumnIds = dependentColumnValues.map({ case (columnId, _) => columnId }).distinct
 
     for {
       columns <- Future.sequence(dependentColumnIds.map(id =>

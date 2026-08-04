@@ -464,7 +464,7 @@ object JsonUtils extends LazyLogging {
     val maxLength = getNullableJsonIntegerValue("maxLength", json).toOption
     val minLength = getNullableJsonIntegerValue("minLength", json).toOption
     val decimalDigits = parseDecimalDigits(json)
-    val formatPattern = Try(hasString("formatPattern", json).get).toOption
+    val formatPattern = hasString("formatPattern", json).toOption
 
     (
       name,
