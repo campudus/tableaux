@@ -168,7 +168,7 @@ def df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX")
 // pass these values via env variables to the build
 def gitBranch = System.getenv("GIT_BRANCH") ?: "unknown"
 def gitCommit = System.getenv("GIT_COMMIT") ?: "unknown"
-def gitComitterDate = System.getenv("GIT_COMMITTER_DATE") ?: "unknown"
+def gitCommitterDate = System.getenv("GIT_COMMITTER_DATE") ?: "unknown"
 
 def buildTime = df.format(new Date())
 def buildJavaVersion = JavaVersion.current().toString()
@@ -182,7 +182,7 @@ jar {
     attributes 'Implementation-Version': project.version
     attributes 'Git-Branch': gitBranch
     attributes 'Git-Commit': gitCommit
-    attributes 'Git-Committer-Date': gitComitterDate
+    attributes 'Git-Committer-Date': gitCommitterDate
     attributes 'Build-Date': buildTime
     attributes 'Build-Java-Version': buildJavaVersion
   }
