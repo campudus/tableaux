@@ -19,7 +19,6 @@ import io.vertx.lang.scala.{ScalaVerticle, *}
 import io.vertx.scala.FutureHelper
 import io.vertx.scala.SQLConnection
 
-import scala.compiletime.uninitialized
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
@@ -65,8 +64,12 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
 
   import MessagingVerticle._
 
-  private var tableauxModel: TableauxModel = uninitialized
-  private var serviceModel: ServiceModel = uninitialized
+  private val tableauxModelRef = new AtomicReference[TableauxModel]()
+  private def tableauxModel: TableauxModel = tableauxModelRef.get()
+
+  private val serviceModelRef = new AtomicReference[ServiceModel]()
+  private def serviceModel: ServiceModel = serviceModelRef.get()
+
   private val structureModelRef = new AtomicReference[StructureModel]()
   private def structureModel: StructureModel = structureModelRef.get()
 
@@ -226,8 +229,8 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle wi
 
     structureModelRef.set(StructureModel(dbConnection))
     userRef.set(TableauxUser("", roles.fieldNames().asScala.toSeq))
-    tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
-    serviceModel = ServiceModel(dbConnection)
+    tableauxModelRef.set(TableauxModel(dbConnection, structureModel, tableauxConfig))
+    serviceModelRef.set(ServiceModel(dbConnection))
 
     for {
       listenersMap <- retrieveListeners()
