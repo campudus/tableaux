@@ -111,11 +111,11 @@ jobs:
       # uninstrumented runtime side effect, not a declared task output, so if :test didn't
       # actually execute this run there's nothing for reportScoverage to read and it just breaks
       # instead of producing a meaningful result. timeout-minutes is a backstop in case the
-      # cache-hit detection above ever misses - normal (non-hung) runs take ~2m.
+      # cache-hit detection above ever misses - normal (non-hung) runs take ~5m.
       - name: Coverage (informational only, not gating)
         if: steps.test.outputs.cache_hit != 'true'
         continue-on-error: true
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: ./gradlew reportScoverage --console=plain
 
       - name: Archive code coverage results
