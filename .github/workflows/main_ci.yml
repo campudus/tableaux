@@ -64,19 +64,10 @@ jobs:
         run: ./gradlew clean
 
       - name: Spotless Check
-        run: ./gradlew spotlessCheck scoverageClasses
+        run: ./gradlew spotlessCheck
 
       - name: Test
-        id: test
-        run: |
-          set -o pipefail
-          ./gradlew test assemble --console=plain | tee test-output.log
-          if grep -qE '^> Task :test (UP-TO-DATE|FROM-CACHE)$' test-output.log; then
-            echo "Detected :test as a Gradle build-cache hit (no tests actually executed this run)."
-            echo "cache_hit=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "cache_hit=false" >> "$GITHUB_OUTPUT"
-          fi
+        run: ./gradlew test assemble
 
       - name: Archive test report
         if: always()
@@ -104,42 +95,29 @@ jobs:
           fail-on-error: "true"
           max-annotations: "10"
 
-      # Scoverage instruments main classes and re-runs the :test task against the instrumented
-      # bytecode, which currently triggers an unrelated, unfixed Scala 3 compiler soundness bug
-      # (scala/scala3#22204) that spuriously breaks otherwise-passing tests. Coverage tooling must
-      # not be able to fail the correctness gate above, so it runs last and non-gating; this also
-      # overwrites build/test-results/test and build/reports/tests/test, which is why the real
-      # Test/Archive/Test Report steps must run before this one, not after.
+      # Scoverage is disabled for now: it instruments main classes and re-runs the :test task
+      # against that bytecode, which currently triggers an unrelated, unfixed Scala 3 compiler
+      # soundness bug (scala/scala3#22204) - pattern-matching around a Java generic method (here,
+      # Vert.x's JsonObject/JsonArray) gets miscompiled into a bogus cast to Nothing, breaking
+      # otherwise-passing tests (or hanging them - once the bug corrupts scoverage's own
+      # measurement writer, every subsequent test blocks until its individual timeout). It has
+      # never once produced a usable coverage report since the vertx4/scala3 migration.
+      # Re-enable once scala/scala3#22204 is fixed upstream.
+      # - name: Coverage
+      #   run: ./gradlew reportScoverage --console=plain
       #
-      # Skipped when :test above was a build-cache hit: Scoverage's measurement files are an
-      # uninstrumented runtime side effect, not a declared task output, so if :test didn't
-      # actually execute this run there's nothing for reportScoverage to read and it just breaks
-      # instead of producing a meaningful result. timeout-minutes is a backstop in case the
-      # cache-hit detection above ever misses - normal (non-hung) runs take ~5m.
-      - name: Coverage (informational only, not gating)
-        if: steps.test.outputs.cache_hit != 'true'
-        continue-on-error: true
-        timeout-minutes: 10
-        run: ./gradlew reportScoverage --console=plain
-
-      - name: Archive code coverage results
-        if: always() && steps.test.outputs.cache_hit != 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-report-postgres-${{ matrix.postgres-version }}
-          path: build/reports/scoverage
-
-      # Only meaningful once reportScoverage above has actually produced a cobertura.xml - currently
-      # never, since Scoverage is broken for this codebase under Scala 3.3.6 (see the Coverage step
-      # above). Guarding on hashFiles(...) avoids an ENOENT failure annotation on every run for a
-      # file that was never going to exist.
-      - name: Coverage Report
-        uses: 5monkeys/cobertura-action@v14
-        if: steps.test.outputs.cache_hit != 'true' && hashFiles('build/reports/scoverage/cobertura.xml') != ''
-        continue-on-error: true
-        with:
-          path: build/reports/scoverage/cobertura.xml
-          minimum_coverage: 80
+      # - name: Archive code coverage results
+      #   if: always()
+      #   uses: actions/upload-artifact@v7
+      #   with:
+      #     name: coverage-report-postgres-${{ matrix.postgres-version }}
+      #     path: build/reports/scoverage
+      #
+      # - name: Coverage Report
+      #   uses: 5monkeys/cobertura-action@v14
+      #   with:
+      #     path: build/reports/scoverage/cobertura.xml
+      #     minimum_coverage: 80
 
   publish-test-results:
     name: "Publish Unit Tests Results"
