@@ -58,6 +58,7 @@ object SQLConnection extends LazyLogging {
       .setPort(config.getInteger("port", 5432))
       .setDatabase(config.getString("database"))
       .setUser(config.getString("username"))
+      .setCachePreparedStatements(config.getBoolean("cachePreparedStatements", true))
 
     Option(config.getString("password")).foreach(options.setPassword)
 
@@ -65,7 +66,10 @@ object SQLConnection extends LazyLogging {
   }
 
   private def pool(vertx: Vertx, config: JsonObject): Pool = {
-    PgPool.pool(vertx, connectOptions(config), new PoolOptions()).connectHandler({
+
+    val poolOptions = new PoolOptions().setMaxSize(config.getInteger("maxPoolSize", 10))
+
+    PgPool.pool(vertx, connectOptions(config), poolOptions).connectHandler({
       case conn: PgConnection =>
         conn.noticeHandler(notice => {
           val message =

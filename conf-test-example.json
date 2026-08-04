@@ -7,7 +7,9 @@
     "host": "127.0.0.1",
     "port": 5432,
     "username": "<your-db-user>",
-    "database": "testing"
+    "database": "testing",
+    "maxPoolSize": 10, // default is 4 in new vertx-pg-client, was 10 in old vertx-mysql-postgresql-client
+    "cachePreparedStatements": true // default is true
   },
   // part for auth should not be changed because the config and in particular the realm-public-key 
   // must match to the hardcoded accessToken provided by the test requests to the backend
