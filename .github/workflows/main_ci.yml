@@ -57,20 +57,17 @@ jobs:
       - name: Setup Test ENV
         run: mv conf-github-ci.json conf-test.json
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
       - name: Cleanup
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          arguments: clean
+        run: ./gradlew clean
 
       - name: Spotless Check
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          arguments: spotlessCheck scoverageClasses
+        run: ./gradlew spotlessCheck scoverageClasses
 
       - name: Test
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          arguments: test assemble
+        run: ./gradlew test assemble
 
       - name: Archive test report
         if: always()
@@ -105,10 +102,8 @@ jobs:
       # overwrites build/test-results/test and build/reports/tests/test, which is why the real
       # Test/Archive/Test Report steps must run before this one, not after.
       - name: Coverage (informational only, not gating)
-        uses: gradle/actions/setup-gradle@v3
         continue-on-error: true
-        with:
-          arguments: reportScoverage
+        run: ./gradlew reportScoverage
 
       - name: Archive code coverage results
         if: always()
