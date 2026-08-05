@@ -52,6 +52,27 @@ Auth modes 2. and 3. of Tableaux are secured by a JWT based authentication. The 
 
 The auth mode 1. is a legacy mode for testing or for running the service behind a different auth service. In this mode the incoming request is not verified. The user (e.g. for history entries) must be set via cookie `userName`. Legacy mode is activated, if `auth` key in config is missing.
 
+### Behavior change since the Vert.x 4 migration
+
+`vertx-auth-oauth2` 4.x validates locally-decoded access tokens more strictly than 3.x did: it now requires the token's `aud` claim to contain the backend's own client id (`resource` in the config). Vert.x 3.9.1 never checked `aud` at all.
+
+If a token's `aud` doesn't include the backend's `resource` value (e.g. because the frontend client's Keycloak audience mapper only targets other clients), local validation silently fails (logged at TRACE level only) and the provider falls back to Keycloak **token introspection** for that request. Introspection is an authenticated call (RFC 7662) and therefore requires a client secret — without one, Keycloak rejects it with `client_not_found` and every request ends up `401 Unauthorized`.
+
+Consequences to be aware of:
+
+- In auto discovery mode (3.) the `auth` config now supports an optional `"secret"` field, used as the client secret for introspection calls. Without it, any token whose `aud` doesn't contain `resource` can no longer be authenticated at all.
+- Falling back to introspection on every request also means an extra HTTP round-trip to Keycloak per request instead of a fully offline signature check — a potential latency/load regression compared to Vert.x 3.
+- The proper long-term fix is on the Keycloak side: add an audience mapper (client scope, "Add to access token" enabled) to the frontend client(s) so their tokens include the backend's `resource` client id in `aud`. This restores fully offline validation; introspection then becomes a rare fallback again (e.g. during key rotation) instead of the default path.
+
+#### Migration checklist (config changes)
+
+When migrating an existing deployment past this change:
+
+1. In Keycloak, make sure the client configured as `resource` is a **Confidential** client (Client authentication enabled) and note its client secret.
+2. Add `"secret": "<client-secret>"` to the `auth` block of the deployment's config file (works for both manual and auto discovery mode).
+3. Check whether the frontend client(s) that call this backend have an audience mapper that includes `resource` in `aud` (decode a live access token and check the `aud` claim). If not, add one (see above) to avoid introspection running on every single request.
+4. Redeploy and verify in the Keycloak server logs that `INTROSPECT_TOKEN_ERROR` / `client_not_found` events for this client no longer occur.
+
 ## Build & Test
 
 Tableaux uses gradle to build a so called **fat jar** which contains all runtime dependencies. You can find it in `build/libs/tableaux-fat.jar`. The gradle task `build` needs a running PostgreSQL and the `conf-test.json` must be configured correct. Requests in auth tests must contain an accessToken. For simplicity this accessToken is generated within a test helper with a hardcoded key pair. For the accessToken to match the pub key, the auth configuration for testing must always be the same as configured in `conf-test-example.json`.
@@ -159,23 +180,23 @@ Configuration for thumbnails and cache retention can be configured in the config
 
 ### Thumbnails filter overview
 
-| Int    | Constant Name            | Description                                                                                | Typical Use Cases & Performance                                                   |
-| ------ | ------------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| **1**  | `FILTER_POINT`           | Nearest-neighbor interpolation – extremely fast but blocky and low quality.                | Best for real-time previews, thumbnails, or pixel art where sharp edges matter.   |
-| **2**  | `FILTER_BOX`             | Box filter – averages nearby pixels; simple and efficient but can blur.                    | Good for quick downscaling with integer factors.                                  |
-| **3**  | `FILTER_TRIANGLE` (**default**)   | Linear (bilinear) interpolation – smooths edges, moderate quality and speed.               | Default for many simple scaling tasks; good balance for most UIs.                 |
-| **4**  | `FILTER_HERMITE`         | Hermite interpolation – smooth, continuous filter; slightly sharper than linear.           | Sometimes used for resizing smooth graphics or textures.                          |
-| **5**  | `FILTER_HANNING`         | Hanning window filter – smooth windowed filter; suppresses ringing.                        | Used in scientific or high-fidelity image processing; slower than simple filters. |
-| **6**  | `FILTER_HAMMING`         | Hamming window filter – similar to Hanning with slightly different weighting.              | Also used in high-fidelity image resampling or signal applications.               |
-| **7**  | `FILTER_BLACKMAN`        | Blackman window filter – smooth filter with good frequency response and low aliasing.      | Ideal when reducing high-detail images; slower but very clean output.             |
-| **8**  | `FILTER_GAUSSIAN`        | Gaussian blur filter – softens transitions, reduces aliasing.                              | Used when a smooth, natural look is preferred (e.g. photographic images).         |
-| **9**  | `FILTER_QUADRATIC`       | Quadratic interpolation – smoother than bilinear, not as sharp as cubic.                   | Useful for moderate-quality resampling where performance matters.                 |
-| **10** | `FILTER_CUBIC`           | Cubic interpolation – classic “bicubic” resampling with good sharpness.                    | Commonly used in photo editors; a good quality default.                           |
-| **11** | `FILTER_CATROM`          | Catmull-Rom spline – sharp cubic filter preserving edges well.                             | Good for natural images where edge detail matters.                                |
-| **12** | `FILTER_MITCHELL`        | Mitchell–Netravali cubic filter – balanced between sharpness and smoothness.               | Often used as a high-quality general-purpose resampler.                           |
-| **13** | `FILTER_LANCZOS`         | Lanczos (windowed sinc) – excellent quality, minimal aliasing.                             | Best for downscaling photographs or detailed textures; slowest but sharpest.      |
-| **14** | `FILTER_BLACKMAN_BESSEL` | Blackman–Bessel – very high-order smooth filter, minimal ringing.                          | Scientific or print applications where color fidelity is critical.                |
-| **15** | `FILTER_BLACKMAN_SINC`   | Blackman–Sinc – Blackman window with Sinc kernel, extremely high quality.                  | Top-tier downscaling, archival or professional image processing; very slow.       |
+| Int    | Constant Name                   | Description                                                                           | Typical Use Cases & Performance                                                   |
+| ------ | ------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **1**  | `FILTER_POINT`                  | Nearest-neighbor interpolation – extremely fast but blocky and low quality.           | Best for real-time previews, thumbnails, or pixel art where sharp edges matter.   |
+| **2**  | `FILTER_BOX`                    | Box filter – averages nearby pixels; simple and efficient but can blur.               | Good for quick downscaling with integer factors.                                  |
+| **3**  | `FILTER_TRIANGLE` (**default**) | Linear (bilinear) interpolation – smooths edges, moderate quality and speed.          | Default for many simple scaling tasks; good balance for most UIs.                 |
+| **4**  | `FILTER_HERMITE`                | Hermite interpolation – smooth, continuous filter; slightly sharper than linear.      | Sometimes used for resizing smooth graphics or textures.                          |
+| **5**  | `FILTER_HANNING`                | Hanning window filter – smooth windowed filter; suppresses ringing.                   | Used in scientific or high-fidelity image processing; slower than simple filters. |
+| **6**  | `FILTER_HAMMING`                | Hamming window filter – similar to Hanning with slightly different weighting.         | Also used in high-fidelity image resampling or signal applications.               |
+| **7**  | `FILTER_BLACKMAN`               | Blackman window filter – smooth filter with good frequency response and low aliasing. | Ideal when reducing high-detail images; slower but very clean output.             |
+| **8**  | `FILTER_GAUSSIAN`               | Gaussian blur filter – softens transitions, reduces aliasing.                         | Used when a smooth, natural look is preferred (e.g. photographic images).         |
+| **9**  | `FILTER_QUADRATIC`              | Quadratic interpolation – smoother than bilinear, not as sharp as cubic.              | Useful for moderate-quality resampling where performance matters.                 |
+| **10** | `FILTER_CUBIC`                  | Cubic interpolation – classic “bicubic” resampling with good sharpness.               | Commonly used in photo editors; a good quality default.                           |
+| **11** | `FILTER_CATROM`                 | Catmull-Rom spline – sharp cubic filter preserving edges well.                        | Good for natural images where edge detail matters.                                |
+| **12** | `FILTER_MITCHELL`               | Mitchell–Netravali cubic filter – balanced between sharpness and smoothness.          | Often used as a high-quality general-purpose resampler.                           |
+| **13** | `FILTER_LANCZOS`                | Lanczos (windowed sinc) – excellent quality, minimal aliasing.                        | Best for downscaling photographs or detailed textures; slowest but sharpest.      |
+| **14** | `FILTER_BLACKMAN_BESSEL`        | Blackman–Bessel – very high-order smooth filter, minimal ringing.                     | Scientific or print applications where color fidelity is critical.                |
+| **15** | `FILTER_BLACKMAN_SINC`          | Blackman–Sinc – Blackman window with Sinc kernel, extremely high quality.             | Top-tier downscaling, archival or professional image processing; very slow.       |
 
 ## License
 
