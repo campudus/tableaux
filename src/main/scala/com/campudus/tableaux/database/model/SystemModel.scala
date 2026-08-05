@@ -134,15 +134,31 @@ class SystemModel(override protected val connection: DatabaseConnection) extends
     } yield version
   }
 
+  // Ensures the system_version table exists. Guarded by a flag because this is invoked on every
+  // call to retrieveCurrentVersion (e.g. via the frequently polled /versions endpoint), and
+  // re-running "CREATE TABLE IF NOT EXISTS" every time floods the logs with harmless but noisy
+  // Postgres NOTICEs ("relation already exists, skipping").
+  private val systemVersionTableEnsured = new java.util.concurrent.atomic.AtomicBoolean(false)
+
+  private def ensureSystemVersionTable(t: DbTransaction): Future[DbTransaction] = {
+    if (systemVersionTableEnsured.compareAndSet(false, true)) {
+      t.query(s"""
+                 |CREATE TABLE IF NOT EXISTS system_version(
+                 |version INT NOT NULL,
+                 |updated TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                 |PRIMARY KEY(version)
+                 |)
+       """.stripMargin) map {
+        case (t, _) => t
+      }
+    } else {
+      Future.successful(t)
+    }
+  }
+
   private def retrieveCurrentVersion(t: DbTransaction): Future[(DbTransaction, Int)] = {
     for {
-      (t, _) <- t.query(s"""
-                           |CREATE TABLE IF NOT EXISTS system_version(
-                           |version INT NOT NULL,
-                           |updated TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-                           |PRIMARY KEY(version)
-                           |)
-       """.stripMargin)
+      t <- ensureSystemVersionTable(t)
 
       (t, version) <- {
         t.query(
