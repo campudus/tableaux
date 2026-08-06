@@ -133,19 +133,20 @@ object SQLConnection extends LazyLogging {
   private val JsonCastAfterPlaceholder = "(?i)^::jsonb?\\b".r
 
   /**
-    * Which 0-based bind positions are immediately followed by a `::jsonb`/`::json` cast in the original `?`-style
-    * SQL text - checked per placeholder (not once for the whole statement) so a plain-text parameter bound
-    * elsewhere in the same statement (e.g. `?::varchar` next to an unrelated `?::jsonb`) never gets routed through
-    * the JSON-decode branch below. A prior whole-statement version of this gate let a purely numeric or
-    * true/false/null-shaped plain-text parameter get wrongly reinterpreted as a JSON scalar and fail to bind.
+    * Which 0-based bind positions are immediately followed by a `::jsonb`/`::json` cast in the original `?`-style SQL
+    * text - checked per placeholder (not once for the whole statement) so a plain-text parameter bound elsewhere in the
+    * same statement (e.g. `?::varchar` next to an unrelated `?::jsonb`) never gets routed through the JSON-decode
+    * branch below. A prior whole-statement version of this gate let a purely numeric or true/false/null-shaped
+    * plain-text parameter get wrongly reinterpreted as a JSON scalar and fail to bind.
     */
   private def jsonCastParamIndices(sql: String): Set[Int] = {
-    sql.indices.foldLeft((0, Set.empty[Int])) {
+    val (_, castPositions) = sql.indices.foldLeft((0, Set.empty[Int])) {
       case ((paramIndex, positions), pos) if sql.charAt(pos) == '?' =>
         val hasCast = JsonCastAfterPlaceholder.findFirstIn(sql.substring(pos + 1)).isDefined
         (paramIndex + 1, if (hasCast) positions + paramIndex else positions)
       case (state, _) => state
-    }._2
+    }
+    castPositions
   }
 
   private def toBindValue(value: AnyRef, hasJsonCast: Boolean): AnyRef = value match {

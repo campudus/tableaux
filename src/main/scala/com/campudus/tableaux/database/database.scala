@@ -286,9 +286,8 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     * whatever Java type matches the JSON shape - JsonObject/JsonArray for a structure, but a bare Boolean/Number/String
     * (or null) for a JSON scalar. That bare scalar is indistinguishable, by Java type alone, from a real BOOLEAN/
     * NUMERIC/text column (see isJsonColumn/columnDescriptors() above), so it has to be re-stringified based on the
-    * column's actual Postgres type, not the decoded value's runtime type. Every call site in this codebase expects
-    * the old client's behaviour instead: the raw JSON text as a String, parsed explicitly via Json.obj/arr where
-    * needed.
+    * column's actual Postgres type, not the decoded value's runtime type. Every call site in this codebase expects the
+    * old client's behaviour instead: the raw JSON text as a String, parsed explicitly via Json.obj/arr where needed.
     */
   private def normalizeValue(value: AnyRef, isJsonColumn: Boolean): AnyRef = value match {
     case null => null
