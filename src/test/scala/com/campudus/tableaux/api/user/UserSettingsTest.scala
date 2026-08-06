@@ -5,6 +5,7 @@ import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.JsonObject
 
 import org.junit.Assert._
 import org.junit.Test
@@ -34,6 +35,22 @@ class UserSettingsTest extends TableauxTestBase {
       assertEquals("filterReset", setting.getString("key"))
       assertEquals("global", setting.getString("kind"))
       assertEquals(true, setting.getBoolean("value"))
+    }
+  }
+
+  @Test
+  def testRetrieveGlobalBooleanSettingAfterCreate(implicit c: TestContext): Unit = okTest {
+    for {
+      _ <- sendRequest("PUT", "/user/settings/global/sortingReset", Json.obj("value" -> true))
+      globalSettings <- sendRequest("GET", "/user/settings/global")
+    } yield {
+      val settings = globalSettings.getJsonArray("settings")
+      val sortingReset = (0 until settings.size())
+        .map(settings.getJsonObject)
+        .find(_.getString("key") == "sortingReset")
+        .getOrElse(fail("sortingReset setting not found in response").asInstanceOf[JsonObject])
+
+      assertEquals(true, sortingReset.getBoolean("value"))
     }
   }
 
