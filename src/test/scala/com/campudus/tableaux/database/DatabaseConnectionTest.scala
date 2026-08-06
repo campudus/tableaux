@@ -103,6 +103,68 @@ class DatabaseConnectionTest extends VertxAccess with TestConfig with TestAssert
     }
   }
 
+  private def withDatabaseConnection[A](f: DatabaseConnection => Future[A])(implicit context: TestContext): Unit = {
+    val config = fileConfig.getJsonObject("database", Json.obj())
+    val sqlConnection = SQLConnection(this, config)
+    val databaseConnection = DatabaseConnection(this, sqlConnection)
+
+    okTest(f(databaseConnection))
+  }
+
+  @Test
+  def testJsonbScalarValuesComeBackAsJsonText(implicit context: TestContext): Unit = withDatabaseConnection {
+    databaseConnection =>
+      for {
+        result <- databaseConnection.query("SELECT 'true'::jsonb, '42'::jsonb, '\"hello\"'::jsonb")
+      } yield {
+        val row = result.getJsonArray("results").getJsonArray(0)
+        assertEquals("true", row.getString(0))
+        assertEquals("42", row.getString(1))
+        assertEquals("\"hello\"", row.getString(2))
+      }
+  }
+
+  @Test
+  def testPlainBooleanColumnKeepsNativeType(implicit context: TestContext): Unit = withDatabaseConnection {
+    databaseConnection =>
+      for {
+        result <- databaseConnection.query("SELECT true::boolean, false::boolean")
+      } yield {
+        val row = result.getJsonArray("results").getJsonArray(0)
+        assertEquals(true, row.getBoolean(0))
+        assertEquals(false, row.getBoolean(1))
+      }
+  }
+
+  @Test
+  def testJsonbBindReparsesBareBooleanScalar(implicit context: TestContext): Unit = withDatabaseConnection {
+    databaseConnection =>
+      for {
+        // jsonb_typeof reports the type Postgres actually stored, independent of how normalizeValue re-stringifies
+        // it on the way back out - this is what pins down that toBindValue re-decodes "true" into a real JSON
+        // boolean before binding, instead of leaving it as a Java String that pg-client would then double-encode
+        // into the JSON string "true".
+        result <- databaseConnection.query("SELECT jsonb_typeof(?::jsonb)", Json.arr("true"))
+      } yield {
+        assertEquals("boolean", result.getJsonArray("results").getJsonArray(0).getString(0))
+      }
+  }
+
+  @Test
+  def testJsonCastGateDoesNotCorruptUnrelatedPlainParams(implicit context: TestContext): Unit = withDatabaseConnection {
+    databaseConnection =>
+      for {
+        // hasJsonCast is computed once per statement, so this second parameter - plain text bound against a
+        // ::varchar cast, not ::jsonb - is still routed through the same JSON-decode attempt as the first. It must
+        // come back unchanged rather than getting reinterpreted as a JSON number.
+        result <- databaseConnection.query("SELECT ?::jsonb, ?::varchar", Json.arr("true", "123"))
+      } yield {
+        val row = result.getJsonArray("results").getJsonArray(0)
+        assertEquals("true", row.getString(0))
+        assertEquals("123", row.getString(1))
+      }
+  }
+
   var host: String = scala.compiletime.uninitialized
   var port: Int = scala.compiletime.uninitialized
   var databaseConfig: JsonObject = scala.compiletime.uninitialized

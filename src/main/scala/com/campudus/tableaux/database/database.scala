@@ -6,6 +6,7 @@ import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.VertxAccess
 
 import io.vertx.core.Vertx
+import io.vertx.core.json.{Json => VertxJson}
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 import io.vertx.scala.{DatabaseAction, SQLConnection}
@@ -256,7 +257,8 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
   private def mapResultSet(rowSet: RowSet[Row]): JsonObject = {
     val columnNames = rowSet.columnsNames().asScala.toSeq
-    val results = Json.arr(rowSet.iterator().asScala.map(rowToJsonArray(_, columnNames.size)).toSeq*)
+    val columnTypes = rowSet.columnDescriptors().asScala.toSeq.map(_.typeName())
+    val results = Json.arr(rowSet.iterator().asScala.map(rowToJsonArray(_, columnTypes)).toSeq*)
 
     Json.obj(
       "status" -> "ok",
@@ -267,17 +269,30 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     )
   }
 
-  private def rowToJsonArray(row: Row, columnCount: Int): JsonArray = {
-    Json.arr((0 until columnCount).map(pos => normalizeValue(row.getValue(pos)))*)
+  private def rowToJsonArray(row: Row, columnTypes: Seq[String]): JsonArray = {
+    Json.arr(columnTypes.zipWithIndex.map({
+      case (columnType, pos) => normalizeValue(row.getValue(pos), isJsonColumn(columnType))
+    })*)
   }
+
+  private def isJsonColumn(columnType: String): Boolean = columnType == "JSON" || columnType == "JSONB"
 
   /**
     * The reactive Postgres client exposes some column types (NUMERIC, UUID, date/time) as Java types that
     * io.vertx.core.json.JsonObject/JsonArray can't encode directly. Normalize them to the same String/Number shapes the
     * old JDBC-style client produced.
+    *
+    * jsonb/json columns are handled separately from everything below: the reactive client auto-decodes them into
+    * whatever Java type matches the JSON shape - JsonObject/JsonArray for a structure, but a bare Boolean/Number/String
+    * (or null) for a JSON scalar. That bare scalar is indistinguishable, by Java type alone, from a real BOOLEAN/
+    * NUMERIC/text column (see isJsonColumn/columnDescriptors() above), so it has to be re-stringified based on the
+    * column's actual Postgres type, not the decoded value's runtime type. Every call site in this codebase expects
+    * the old client's behaviour instead: the raw JSON text as a String, parsed explicitly via Json.obj/arr where
+    * needed.
     */
-  private def normalizeValue(value: AnyRef): AnyRef = value match {
+  private def normalizeValue(value: AnyRef, isJsonColumn: Boolean): AnyRef = value match {
     case null => null
+    case v if isJsonColumn => VertxJson.encode(v)
     // io.vertx.core.json.JsonObject/JsonArray explicitly reject raw BigDecimal (see JsonObject.checkAndCopy), so
     // NUMERIC columns need to come through as a Long or Double instead, same as the old JDBC-style client did.
     case n: Numeric =>
@@ -297,13 +312,8 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     case t: java.time.LocalTime => t.toString
     // uuid columns come back as java.util.UUID; the old client always represented them as plain strings.
     case u: java.util.UUID => u.toString
-    // The reactive client auto-decodes jsonb columns into JsonObject/JsonArray; every call site in this codebase
-    // expects the old client's behaviour instead - the raw JSON text as a String, parsed explicitly via
-    // Json.obj/arr where needed.
-    case obj: JsonObject => obj.encode()
-    case arr: JsonArray => arr.encode()
     // text[]/other array columns come back as a plain Java array; JsonObject only understands JsonArray.
-    case arr: Array[AnyRef @unchecked] => Json.arr(arr.map(normalizeValue)*)
+    case arr: Array[AnyRef @unchecked] => Json.arr(arr.map(normalizeValue(_, isJsonColumn = false))*)
     case other => other
   }
 }

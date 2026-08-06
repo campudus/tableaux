@@ -5,6 +5,7 @@ import com.campudus.tableaux.helper.VertxAccess
 
 import io.vertx.core.AsyncResult
 import io.vertx.core.Vertx
+import io.vertx.core.json.{Json => VertxJson}
 import io.vertx.lang.scala.*
 import io.vertx.lang.scala.ImplicitConversions.vertxFutureVoidToScalaFutureUnit
 import io.vertx.lang.scala.json.JsonArray
@@ -129,7 +130,23 @@ object SQLConnection extends LazyLogging {
     * whole point of keeping the old JsonArray-based contract, see ADR 0003), convert the well-known shapes back to
     * their proper Java types here.
     */
-  private val HasJsonCast = "(?i)::jsonb?\\b".r
+  private val JsonCastAfterPlaceholder = "(?i)^::jsonb?\\b".r
+
+  /**
+    * Which 0-based bind positions are immediately followed by a `::jsonb`/`::json` cast in the original `?`-style
+    * SQL text - checked per placeholder (not once for the whole statement) so a plain-text parameter bound
+    * elsewhere in the same statement (e.g. `?::varchar` next to an unrelated `?::jsonb`) never gets routed through
+    * the JSON-decode branch below. A prior whole-statement version of this gate let a purely numeric or
+    * true/false/null-shaped plain-text parameter get wrongly reinterpreted as a JSON scalar and fail to bind.
+    */
+  private def jsonCastParamIndices(sql: String): Set[Int] = {
+    sql.indices.foldLeft((0, Set.empty[Int])) {
+      case ((paramIndex, positions), pos) if sql.charAt(pos) == '?' =>
+        val hasCast = JsonCastAfterPlaceholder.findFirstIn(sql.substring(pos + 1)).isDefined
+        (paramIndex + 1, if (hasCast) positions + paramIndex else positions)
+      case (state, _) => state
+    }._2
+  }
 
   private def toBindValue(value: AnyRef, hasJsonCast: Boolean): AnyRef = value match {
     case s: String if UuidPattern.pattern.matcher(s).matches() =>
@@ -145,35 +162,37 @@ object SQLConnection extends LazyLogging {
     case s: String if IsoDatePattern.pattern.matcher(s).matches() =>
       scala.util.Try(java.time.LocalDate.parse(s)).getOrElse(s)
 
-    // jsonb columns: call sites across the codebase pre-encode JSON as a String (e.g. `someJsonObject.encode()`)
-    // and rely on Postgres' `::jsonb` cast to parse it, same as the old client. The reactive client instead
-    // JSON-*encodes* whatever Java value it's given for a jsonb-inferred parameter (via its own Json.encode), so a
-    // pre-encoded String comes out double-encoded - a JSON string literal containing the real JSON as escaped text,
-    // rather than the real JSON structure. That's invisible for a plain read-back of the same value, but breaks any
-    // SQL-side JSON operation (e.g. `existing_jsonb || ?::jsonb`, which then treats each side as a lone scalar
-    // instead of concatenating array elements). Parsing back into a JsonObject/JsonArray here lets the reactive
-    // client's encoder round-trip the real structure instead.
-    // Gated on the SQL actually containing a `::jsonb`/`::json` cast: plenty of genuine `text` columns also store
-    // JSON-shaped content (e.g. a langtags list serialized as text) and must keep going through as a plain String.
-    case s: String if hasJsonCast && s.trim.startsWith("{") =>
-      scala.util.Try(new JsonObject(s)).getOrElse(s)
-
-    case s: String if hasJsonCast && s.trim.startsWith("[") =>
-      scala.util.Try(new JsonArray(s)).getOrElse(s)
+    // jsonb columns: call sites across the codebase pre-encode JSON as a String (e.g. `someJsonObject.encode()`,
+    // or a hand-rolled scalar like "true"/"42"/"\"foo\"") and rely on Postgres' `::jsonb` cast to parse it, same
+    // as the old client. The reactive client instead JSON-*encodes* whatever Java value it's given for a
+    // jsonb-inferred parameter (via its own Json.encode), so a pre-encoded String comes out double-encoded - a JSON
+    // string literal containing the real JSON as escaped text, rather than the real JSON value. That's invisible
+    // for a plain read-back of the same value, but breaks any SQL-side JSON operation (e.g. `existing_jsonb || ?::
+    // jsonb`, which then treats each side as a lone scalar instead of concatenating array elements) and, for a bare
+    // scalar, silently changes its type (a JSON boolean/number stored as a quoted JSON string instead). Decoding
+    // back into its real JSON-typed value here - object, array, string, number, boolean or null - lets the
+    // reactive client's encoder round-trip the real value instead.
+    // Gated on this specific bind position actually being cast with `::jsonb`/`::json`: plenty of genuine `text`
+    // columns also store JSON-shaped content (e.g. a langtags list serialized as text) and must keep going through
+    // as a plain String.
+    case s: String if hasJsonCast =>
+      scala.util.Try(VertxJson.decodeValue(s)).getOrElse(s)
 
     case arr: JsonArray if isStringArray(arr) => stringArrayOf(arr)
 
     case other => other
   }
 
-  private def toTuple(params: JsonArray, hasJsonCast: Boolean): Tuple = {
-    val values = params.getList.asInstanceOf[java.util.List[Object]].asScala.map(toBindValue(_, hasJsonCast))
+  private def toTuple(params: JsonArray, jsonCastPositions: Set[Int]): Tuple = {
+    val values = params.getList.asInstanceOf[java.util.List[Object]].asScala.zipWithIndex.map({
+      case (value, index) => toBindValue(value, jsonCastPositions.contains(index))
+    })
     Tuple.tuple(values.asJava)
   }
 
   private[scala] def runQuery(client: SqlClient, sql: String, params: Option[JsonArray]): Future[RowSet[Row]] = {
     val positionalSql = toPositional(sql)
-    val hasJsonCast = HasJsonCast.findFirstIn(sql).isDefined
+    val jsonCastPositions = jsonCastParamIndices(sql)
 
     FutureHelper.futurify[RowSet[Row]] { (promise: Promise[RowSet[Row]]) =>
       def complete(ar: AsyncResult[RowSet[Row]]): Unit = {
@@ -181,7 +200,7 @@ object SQLConnection extends LazyLogging {
       }
 
       params match {
-        case Some(p) => client.preparedQuery(positionalSql).execute(toTuple(p, hasJsonCast), complete)
+        case Some(p) => client.preparedQuery(positionalSql).execute(toTuple(p, jsonCastPositions), complete)
         case None => client.query(positionalSql).execute(complete)
       }
     }
