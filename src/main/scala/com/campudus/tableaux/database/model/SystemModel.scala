@@ -106,7 +106,11 @@ class SystemModel(override protected val connection: DatabaseConnection) extends
       (t, _) <- t.query("DROP SCHEMA public CASCADE")
       (t, _) <- t.query("CREATE SCHEMA public")
       _ <- t.commit()
-    } yield ()
+    } yield {
+      // system_version was just dropped along with the schema, so the "already ensured" flag
+      // must be cleared or the next retrieveCurrentVersion call will skip recreating it.
+      systemVersionTableEnsured.set(false)
+    }
   }
 
   /**
