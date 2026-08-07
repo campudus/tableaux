@@ -1333,6 +1333,83 @@ class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
 }
 
 @RunWith(classOf[VertxUnitRunner])
+class CreateLinkAttributesHistoryTest extends LinkTestBase with TestHelper {
+
+  private def percentageAttribute: JsonObject = Json.obj(
+    "name" -> "percentage",
+    "displayName" -> Json.obj("de-DE" -> "Prozentanteil"),
+    "kind" -> "integer",
+    "multilanguage" -> false
+  )
+
+  private def createLinkColumnWithAttributes(tableId: Long, toTableId: Long): Future[Long] = {
+    val json = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "Test Link 1",
+          "kind" -> "link",
+          "toTable" -> toTableId,
+          "linkAttributes" -> Json.arr(percentageAttribute)
+        )
+      )
+    )
+
+    sendRequest("POST", s"/tables/$tableId/columns", json)
+      .map(_.getJsonArray("columns").getJsonObject(0).getLong("id").toLong)
+  }
+
+  @Test
+  def createLinkWithAttributesWritesHistoryWithAttributes(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50))))
+    )
+
+    val expected =
+      """
+        |[
+        |  {"id": 1, "value": "table2row1", "attributes": [50]}
+        |]
+        |""".stripMargin
+
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2)
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell").map(toRowsArray)
+      historyAfterCreation = getLinksValue(rows, 0)
+    } yield {
+      assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def changeLinkAttributesViaEndpointWritesNewHistoryEntry(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50))))
+    )
+    val putAttributes = Json.obj("attributes" -> Json.arr(75))
+
+    val expected =
+      """
+        |[
+        |  {"id": 1, "value": "table2row1", "attributes": [75]}
+        |]
+        |""".stripMargin
+
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2)
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/1/attributes", putAttributes)
+      rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell").map(toRowsArray)
+      historyAfterUpdate = getLinksValue(rows, 1)
+    } yield {
+      assertJSONEquals(expected, historyAfterUpdate, JSONCompareMode.LENIENT)
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
 class CreateMultiLanguageLinkHistoryTest extends LinkTestBase with TestHelper {
 
   @Test
