@@ -1,10 +1,12 @@
 package com.campudus.tableaux.api.structure
 
+import com.campudus.tableaux.database.model.TableauxModel.ColumnId
 import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 
 import scala.concurrent.Future
 
@@ -208,5 +210,230 @@ class ChangeStructureTest extends TableauxTestBase {
       assertEquals(resultPost, resultGet)
     }
   }
+
+  private def percentageAttribute(kind: String = "integer", multilanguage: Boolean = false): JsonObject = {
+    Json.obj(
+      "name" -> "percentage",
+      "displayName" -> Json.obj("de-DE" -> "Prozentanteil"),
+      "kind" -> kind,
+      "multilanguage" -> multilanguage
+    )
+  }
+
+  private def createLinkColumn(linkAttributes: JsonArray = Json.arr()): Future[ColumnId] = {
+    val postJson = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "linkAttributes" -> linkAttributes)
+      )
+    )
+
+    for {
+      _ <- createDefaultTable()
+      _ <- createDefaultTable("Test Table 2", 2)
+      result <- sendRequest("POST", "/tables/1/columns", postJson)
+    } yield result.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
+  }
+
+  @Test
+  def createLinkColumnWithLinkAttributes(implicit c: TestContext): Unit = okTest {
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+      result <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertJSONEquals(Json.arr(percentageAttribute()), result.getJsonArray("linkAttributes"))
+    }
+  }
+
+  @Test
+  def createLinkColumnWithTooManyLinkAttributesFails(implicit c: TestContext): Unit =
+    exceptionTest("error.json.linkAttributes") {
+      createLinkColumn(Json.arr(percentageAttribute(), percentageAttribute()))
+    }
+
+  @Test
+  def createLinkColumnWithDisallowedLinkAttributeKindFails(implicit c: TestContext): Unit =
+    exceptionTest("error.json.linkAttributes") {
+      createLinkColumn(Json.arr(percentageAttribute(kind = "link")))
+    }
+
+  @Test
+  def changeLinkColumnAddLinkAttributes(implicit c: TestContext): Unit = okTest {
+    for {
+      columnId <- createLinkColumn()
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute()))
+      )
+      result <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertJSONEquals(Json.arr(percentageAttribute()), result.getJsonArray("linkAttributes"))
+    }
+  }
+
+  @Test
+  def changeLinkColumnToTooManyLinkAttributesFails(implicit c: TestContext): Unit =
+    exceptionTest("error.json.linkAttributes") {
+      for {
+        columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/1/columns/$columnId",
+          Json.obj("linkAttributes" -> Json.arr(percentageAttribute(), percentageAttribute()))
+        )
+      } yield ()
+    }
+
+  @Test
+  def changeLinkColumnLinkAttributesForbiddenForNonLinkColumns(implicit c: TestContext): Unit =
+    exceptionTest("error.request.forbidden.column") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest(
+          "POST",
+          "/tables/1/columns/1",
+          Json.obj("linkAttributes" -> Json.arr(percentageAttribute()))
+        )
+      } yield ()
+    }
+
+  @Test
+  def changeLinkColumnWithExplicitEmptyLinkAttributesClearsValues(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("linkAttributes" -> Json.arr()))
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertFalse(column.containsKey("linkAttributes"))
+      assertFalse(cell.getJsonArray("value").getJsonObject(0).containsKey("attributes"))
+    }
+  }
+
+  @Test
+  def changeLinkColumnOmittingLinkAttributesLeavesItUntouched(implicit c: TestContext): Unit = okTest {
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("name" -> "renamed"))
+      result <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertJSONEquals(Json.arr(percentageAttribute()), result.getJsonArray("linkAttributes"))
+    }
+  }
+
+  @Test
+  def changeLinkColumnLinkAttributesKindMigrationSucceeds(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "integer")))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "numeric")))
+      )
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertEquals("numeric", column.getJsonArray("linkAttributes").getJsonObject(0).getString("kind"))
+      val migratedValue = cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getValue(0)
+      assertEquals(50.0, migratedValue.asInstanceOf[Number].doubleValue(), 0.001)
+    }
+  }
+
+  @Test
+  def changeLinkColumnLinkAttributesKindMigrationFailsAndRollsBack(implicit c: TestContext): Unit = okTest {
+    val putLink =
+      Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr("abc")))))
+    val failed = Json.obj("failed" -> "failed")
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "text")))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      changeResult <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "integer")))
+      ).recoverWith({ case _ => Future.successful(failed) })
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertEquals(failed, changeResult)
+      assertEquals("text", column.getJsonArray("linkAttributes").getJsonObject(0).getString("kind"))
+      assertEquals("abc", cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getString(0))
+    }
+  }
+
+  @Test
+  def changeLinkColumnMultilanguageFalseToTrueDuplicatesValue(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = false)))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true)))
+      )
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      val attributeValue = cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getJsonObject(0)
+      assertEquals(50, attributeValue.getInteger("de-DE"))
+      assertEquals(50, attributeValue.getInteger("en-GB"))
+    }
+  }
+
+  @Test
+  def changeLinkColumnMultilanguageTrueToFalseCollapsesValue(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj(
+        "values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("de-DE" -> 50, "en-GB" -> 75))))
+      )
+    )
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = true)))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = false)))
+      )
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertEquals(50, cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getInteger(0))
+    }
+  }
+
+  @Test
+  def changeLinkColumnFormatPatternAccepted(implicit c: TestContext): Unit = okTest {
+    val pattern = "{{value}} ({{attributes.percentage}}%)"
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("formatPattern" -> pattern))
+      result <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertEquals(pattern, result.getString("formatPattern"))
+    }
+  }
+
+  @Test
+  def changeLinkColumnFormatPatternRejectedForUnknownToken(implicit c: TestContext): Unit =
+    exceptionTest("unprocessable.entity") {
+      for {
+        columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/1/columns/$columnId",
+          Json.obj("formatPattern" -> "{{attributes.doesNotExist}}")
+        )
+      } yield ()
+    }
 
 }

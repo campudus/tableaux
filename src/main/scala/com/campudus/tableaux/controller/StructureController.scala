@@ -14,6 +14,7 @@ import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
+import com.campudus.tableaux.database.model.structure.ColumnModel.isLinkColumnMatchingToFormatPattern
 import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.toCreateColumnSeq
 import com.campudus.tableaux.helper.JsonUtils.toJsonObjectSeq
@@ -696,7 +697,8 @@ class StructureController(
       minLength: Option[Int] = None,
       showMemberColumns: Option[Boolean] = None,
       decimalDigits: Option[Int] = None,
-      formatPattern: Option[String] = None
+      formatPattern: Option[String] = None,
+      linkAttributes: Option[Seq[LinkAttributeDefinition]] = None
   )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     checkArguments(
       greaterZero(tableId),
@@ -717,14 +719,15 @@ class StructureController(
           minLength,
           showMemberColumns,
           decimalDigits,
-          formatPattern
+          formatPattern,
+          linkAttributes
         ),
         "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, " +
-          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits, formatPattern"
+          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits, formatPattern, linkAttributes"
       )
     )
 
-    val structureProperties: Seq[Option[Any]] = Seq(columnName, ordering, kind, identifier, countryCodes)
+    val structureProperties: Seq[Option[Any]] = Seq(columnName, ordering, kind, identifier, countryCodes, linkAttributes)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
     logger.info(
@@ -751,7 +754,8 @@ class StructureController(
           minLength,
           showMemberColumns,
           decimalDigits,
-          formatPattern
+          formatPattern,
+          linkAttributes
         )
 
     for {
@@ -783,6 +787,28 @@ class StructureController(
         }
 
       _ <-
+        if (linkAttributes.nonEmpty) {
+          column match {
+            case _: LinkColumn =>
+              if (linkAttributes.get.size > LinkAttributeDefinition.maxCount) {
+                Future.failed(UnprocessableEntityException(
+                  s"Only ${LinkAttributeDefinition.maxCount} linkAttributes entry is currently supported, " +
+                    s"but got ${linkAttributes.get.size}."
+                ))
+              } else {
+                Future.successful(())
+              }
+            case _ =>
+              Future.failed(ForbiddenException(
+                s"Update of linkAttributes is not allowed for column ${column.kind}.",
+                "column"
+              ))
+          }
+        } else {
+          Future.successful(())
+        }
+
+      _ <-
         if (formatPattern.isDefined) {
           column match {
             case groupColumn: GroupColumn => {
@@ -791,6 +817,19 @@ class StructureController(
 
                 Future.failed(UnprocessableEntityException(
                   s"Invalid formatPattern: columns ($columnsIds) don't match with formatPattern '$formatPattern'"
+                ))
+              } else {
+                Future.successful(())
+              }
+            }
+            case linkColumn: LinkColumn => {
+              // if linkAttributes is also being changed in this same request, validate against the new
+              // definitions rather than the column's current (pre-change) ones
+              val effectiveLinkAttributes = linkAttributes.getOrElse(linkColumn.linkAttributes)
+
+              if (!isLinkColumnMatchingToFormatPattern(formatPattern, effectiveLinkAttributes)) {
+                Future.failed(UnprocessableEntityException(
+                  s"Invalid formatPattern: '$formatPattern' doesn't match link value/attributes"
                 ))
               } else {
                 Future.successful(())

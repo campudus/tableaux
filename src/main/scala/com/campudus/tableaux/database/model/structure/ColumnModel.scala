@@ -220,7 +220,8 @@ class CachedColumnModel(
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
       decimalDigits: Option[Int],
-      formatPattern: Option[String]
+      formatPattern: Option[String],
+      linkAttributes: Option[Seq[LinkAttributeDefinition]]
   )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
@@ -242,7 +243,8 @@ class CachedColumnModel(
           minLength,
           showMemberColumns,
           decimalDigits,
-          formatPattern
+          formatPattern,
+          linkAttributes
         )
     } yield r
   }
@@ -280,6 +282,37 @@ object ColumnModel extends LazyLogging {
         )
 
         distinctWildcards.subsetOf(columnIDs)
+      }
+      case None => true
+    }
+  }
+
+  // Kept as its own regex/val (rather than reusing isColumnGroupMatchingToFormatPattern's) so GroupColumn's existing
+  // numeric-column-id-only wildcard behaviour is unaffected by allowing dotted paths here (e.g. attributes.percentage).
+  def isLinkColumnMatchingToFormatPattern(
+      formatPattern: Option[String],
+      linkAttributes: Seq[LinkAttributeDefinition]
+  ): Boolean = {
+    val formatVariable = "\\{\\{([\\w.]+)\\}\\}".r
+
+    formatPattern match {
+      case Some(patternString) => {
+        val distinctWildcards =
+          formatVariable
+            .findAllMatchIn(patternString)
+            .toSeq
+            .flatMap(_.subgroups)
+            .distinct
+            .to(SortedSet)
+
+        val allowedTokens = (Set("value") ++ linkAttributes.map(a => s"attributes.${a.name}")).to(SortedSet)
+
+        logger.info(
+          s"Compare distinct wildcards (${distinctWildcards.mkString(", ")}) " +
+            s"with allowed link tokens (${allowedTokens.mkString(", ")})"
+        )
+
+        distinctWildcards.subsetOf(allowedTokens)
       }
       case None => true
     }
@@ -346,7 +379,14 @@ class ColumnModel(val connection: DatabaseConnection)(
             .map({
               case (linkId, toCol, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
                 val linkDirection = LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
-                LinkColumn(applyColumnInformation(id, ordering, displayInfos), toCol, linkId, linkDirection)
+                LinkColumn(
+                  applyColumnInformation(id, ordering, displayInfos),
+                  toCol,
+                  linkId,
+                  linkDirection,
+                  linkColumnInfo.linkAttributes,
+                  linkColumnInfo.formatPattern
+                )
             })
 
         case attachmentColumnInfo: CreateAttachmentColumn =>
@@ -781,8 +821,9 @@ class ColumnModel(val connection: DatabaseConnection)(
              |  cardinality_2,
              |  delete_cascade,
              |  archive_cascade,
-             |  final_cascade
-             |) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING link_id""".stripMargin,
+             |  final_cascade,
+             |  attributes
+             |) VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb) RETURNING link_id""".stripMargin,
           Json.arr(
             tableId,
             linkColumnInfo.toTable,
@@ -790,13 +831,14 @@ class ColumnModel(val connection: DatabaseConnection)(
             linkColumnInfo.constraint.cardinality.to,
             linkColumnInfo.constraint.deleteCascade,
             linkColumnInfo.constraint.archiveCascade,
-            linkColumnInfo.constraint.finalCascade
+            linkColumnInfo.constraint.finalCascade,
+            Json.arr(linkColumnInfo.linkAttributes.map(LinkAttributeDefinition.getJson)*).encode()
           )
         )
         linkId = insertNotNull(result).head.get[Long](0)
 
         // insert link column on source table
-        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), None, false)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), linkColumnInfo.formatPattern, false)
 
         // only add the second link column if tableId != toTableId or singleDirection is false
         t <- {
@@ -829,7 +871,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                               |  id_2 bigint,
                               |  ordering_1 serial,
                               |  ordering_2 serial,
-                              |  
+                              |  attributes jsonb,
+                              |
                               |  PRIMARY KEY(id_1, id_2),
                               |  
                               |  CONSTRAINT link_table_${linkId}_foreign_1
@@ -1373,7 +1416,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     kind match {
       case AttachmentType => Future(AttachmentColumn(columnInformation))
       case StatusType => mapStatusColumn(columnInformation, rules)
-      case LinkType => mapLinkColumn(depth, columnInformation)
+      case LinkType => mapLinkColumn(depth, columnInformation, formatPattern)
       // placeholder for now, grouped columns will be filled in later
       case GroupType => Future(GroupColumn(columnInformation, Seq.empty, formatPattern, showMemberColumns))
       case _ => Future(SimpleValueColumn(kind, languageType, columnInformation))
@@ -1472,11 +1515,12 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield columns
   }
 
-  private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation)(
+  private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation, formatPattern: Option[String])(
       implicit user: TableauxUser
   ): Future[LinkColumn] = {
     for {
-      (linkId, linkDirection, toTable) <- retrieveLinkInformation(columnInformation.table, columnInformation.id)
+      (linkId, linkDirection, toTable, linkAttributes) <-
+        retrieveLinkInformation(columnInformation.table, columnInformation.id)
 
       foreignColumns <- {
         if (depth > 0) {
@@ -1496,7 +1540,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       }
 
       val toColumn = toColumnOpt.get
-      LinkColumn(columnInformation, toColumn, linkId, linkDirection)
+      LinkColumn(columnInformation, toColumn, linkId, linkDirection, linkAttributes, formatPattern)
     }
   }
 
@@ -1587,7 +1631,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   def retrieveLinkInformation(fromTable: Table, columnId: ColumnId)(
       implicit user: TableauxUser
-  ): Future[(LinkId, LinkDirection, Table)] = {
+  ): Future[(LinkId, LinkDirection, Table, Seq[LinkAttributeDefinition])] = {
     for {
       result <- connection.query(
         """
@@ -1599,7 +1643,8 @@ class ColumnModel(val connection: DatabaseConnection)(
           | cardinality_2,
           | delete_cascade,
           | archive_cascade,
-          | final_cascade
+          | final_cascade,
+          | attributes
           |FROM system_link_table
           |WHERE link_id = (
           |  SELECT link_id
@@ -1609,7 +1654,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         Json.arr(fromTable.id, columnId)
       )
 
-      (linkId, linkDirection) = {
+      (linkId, linkDirection, linkAttributes) = {
         val res = selectNotNull(result).head
 
         val table1 = res.getLong(0).longValue()
@@ -1620,6 +1665,9 @@ class ColumnModel(val connection: DatabaseConnection)(
         val deleteCascade = res.getBoolean(5)
         val archiveCascade = res.getBoolean(6)
         val finalCascade = res.getBoolean(7)
+        val linkAttributes = Option(res.getString(8))
+          .map(str => LinkAttributeDefinition.seqFromJson(new JsonArray(str)))
+          .getOrElse(Seq.empty)
 
         (
           linkId,
@@ -1632,13 +1680,14 @@ class ColumnModel(val connection: DatabaseConnection)(
             deleteCascade,
             archiveCascade,
             finalCascade
-          )
+          ),
+          linkAttributes
         )
       }
 
       toTable <- tableStruc.retrieve(linkDirection.to, isInternalCall = true)
 
-    } yield (linkId, linkDirection, toTable)
+    } yield (linkId, linkDirection, toTable, linkAttributes)
   }
 
   def deleteLinkBothDirections(table: Table, columnId: ColumnId)(
@@ -1853,6 +1902,125 @@ class ColumnModel(val connection: DatabaseConnection)(
       cast: String = ""
   ): String = s"UPDATE system_columns SET $columnName = ?$cast WHERE table_id = ? AND column_id = ?"
 
+  // Reshapes existing attribute values (position 0, the only slot while linkAttributes is capped at 1) to match a
+  // multilanguage flip, before any kind cast runs on top. There's no cast for this - it's a structural change - so
+  // false -> true duplicates the scalar under every table langtag, and true -> false collapses to the first langtag
+  // (in configured priority order) that actually has a non-null value, discarding the rest.
+  private def reshapeLinkAttributeValues(
+      t: DbTransaction,
+      table: Table,
+      linkTable: String,
+      oldDefinition: LinkAttributeDefinition,
+      newDefinition: LinkAttributeDefinition
+  ): Future[(DbTransaction, JsonObject)] = {
+    if (oldDefinition.multilanguage == newDefinition.multilanguage) {
+      Future.successful((t, Json.obj()))
+    } else {
+      for {
+        langtags <- table.langtags.map(Future.successful).getOrElse(tableStruc.retrieveGlobalLangtags())
+
+        result <-
+          if (newDefinition.multilanguage) {
+            // Postgres can't infer a bare `?` placeholder's type from a variadic "any" function like
+            // jsonb_build_object - it needs an explicit cast, or every prepared execution fails with
+            // "could not determine data type of parameter $1".
+            val pairs = langtags.map(_ => "?::text, attributes->0").mkString(", ")
+            t.query(
+              s"""|UPDATE $linkTable
+                  |SET attributes = jsonb_set(attributes, '{0}', jsonb_build_object($pairs))
+                  |WHERE attributes IS NOT NULL AND attributes->0 IS NOT NULL""".stripMargin,
+              Json.arr(langtags*)
+            )
+          } else {
+            val coalesceParts = (langtags.map(_ => "attributes->0->?::text") :+ "'null'::jsonb").mkString(", ")
+            t.query(
+              s"""|UPDATE $linkTable
+                  |SET attributes = jsonb_set(attributes, '{0}', COALESCE($coalesceParts))
+                  |WHERE attributes IS NOT NULL AND attributes->0 IS NOT NULL""".stripMargin,
+              Json.arr(langtags*)
+            )
+          }
+      } yield result
+    }
+  }
+
+  // Casts existing attribute values (position 0) to a new kind, all-or-nothing - a single value anywhere that can't
+  // cast fails the whole UPDATE, which (combined with the caller's rollbackAndFail) rolls back the entire change,
+  // exactly mirroring how a plain column's kind change behaves today (ALTER COLUMN ... USING ...::type).
+  private def castLinkAttributeValues(
+      t: DbTransaction,
+      linkTable: String,
+      oldDefinition: LinkAttributeDefinition,
+      newDefinition: LinkAttributeDefinition
+  ): Future[(DbTransaction, JsonObject)] = {
+    if (oldDefinition.kind == newDefinition.kind) {
+      Future.successful((t, Json.obj()))
+    } else if (!newDefinition.multilanguage) {
+      t.query(
+        s"""|UPDATE $linkTable
+            |SET attributes = jsonb_set(attributes, '{0}', to_jsonb((attributes->>0)::${newDefinition.kind.toDbType}))
+            |WHERE attributes IS NOT NULL AND attributes->0 IS NOT NULL""".stripMargin
+      )
+    } else {
+      t.query(
+        s"""|UPDATE $linkTable
+            |SET attributes = jsonb_set(
+            |  attributes, '{0}',
+            |  (SELECT jsonb_object_agg(key, to_jsonb(value::${newDefinition.kind.toDbType}))
+            |   FROM jsonb_each_text(attributes->0))
+            |)
+            |WHERE attributes IS NOT NULL AND attributes->0 IS NOT NULL""".stripMargin
+      )
+    }
+  }
+
+  // Applies a linkAttributes definition change to system_link_table plus, when needed, migrates existing values
+  // already stored on link_table_<linkId>. Diffing is by name (max-1 keeps this simple): no old + new = pure add
+  // (nothing to migrate); old + no new, or a rename (different name) = wipe stored values, since there's no
+  // continuity contract once the name that referenced them is gone; same name = reshape (multilanguage) then
+  // cast (kind) in place.
+  private def updateLinkAttributesDefinition(
+      t: DbTransaction,
+      table: Table,
+      columnId: ColumnId,
+      newDefinitions: Seq[LinkAttributeDefinition]
+  ): Future[(DbTransaction, JsonObject)] = {
+    for {
+      (t, linkIdResult) <- t.query(
+        "SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?",
+        Json.arr(table.id, columnId)
+      )
+      linkId = selectNotNull(linkIdResult).head.getLong(0).longValue()
+      linkTable = s"link_table_$linkId"
+
+      (t, currentResult) <- t.query("SELECT attributes FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
+      currentDefinitions = Option(selectNotNull(currentResult).head.getString(0))
+        .map(str => LinkAttributeDefinition.seqFromJson(new JsonArray(str)))
+        .getOrElse(Seq.empty)
+
+      (t, _) <- (currentDefinitions.headOption, newDefinitions.headOption) match {
+        case (Some(oldDef), Some(newDef)) if oldDef.name == newDef.name =>
+          for {
+            (t, _) <- reshapeLinkAttributeValues(t, table, linkTable, oldDef, newDef)
+            (t, result) <- castLinkAttributeValues(t, linkTable, oldDef, newDef)
+          } yield (t, result)
+
+        case (Some(_), _) =>
+          // pure remove, or renamed to a different name - either way the old values no longer have a definition
+          t.query(s"UPDATE $linkTable SET attributes = NULL")
+
+        case (None, _) =>
+          // pure add - no existing link rows can have a value yet
+          Future.successful((t, Json.obj()))
+      }
+
+      (t, result) <- t.query(
+        "UPDATE system_link_table SET attributes = ?::jsonb WHERE link_id = ?",
+        Json.arr(Json.arr(newDefinitions.map(LinkAttributeDefinition.getJson)*).encode(), linkId)
+      )
+    } yield (t, result)
+  }
+
   def change(
       table: Table,
       columnId: ColumnId,
@@ -1870,7 +2038,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
       decimalDigits: Option[Int],
-      formatPattern: Option[String]
+      formatPattern: Option[String],
+      linkAttributes: Option[Seq[LinkAttributeDefinition]]
   )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     val tableId = table.id
 
@@ -1929,6 +2098,15 @@ class ColumnModel(val connection: DatabaseConnection)(
             s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}"
           )
 
+        }
+      ).recoverWith(t.rollbackAndFail())
+
+      // change linkAttributes definition, migrating already-stored values (see updateLinkAttributesDefinition)
+      (t, _) <- optionToValidFuture(
+        linkAttributes,
+        t,
+        { (newDefinitions: Seq[LinkAttributeDefinition]) =>
+          updateLinkAttributesDefinition(t, table, columnId, newDefinitions)
         }
       ).recoverWith(t.rollbackAndFail())
 

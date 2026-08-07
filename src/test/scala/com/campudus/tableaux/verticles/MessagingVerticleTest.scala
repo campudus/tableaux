@@ -519,6 +519,7 @@ class MessagingVerticleTest extends TableauxTestBase {
           None,
           None,
           None,
+          None,
           None
         )
       _ <- eventClient.columnChanged(table.id, updatedColumn.id)

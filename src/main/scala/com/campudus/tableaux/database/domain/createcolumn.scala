@@ -56,7 +56,9 @@ object CreateLinkColumn {
       displayInfos: Seq[DisplayInfo],
       constraint: Constraint,
       attributes: Option[JsonObject],
-      hidden: Boolean = false
+      hidden: Boolean = false,
+      linkAttributes: Seq[LinkAttributeDefinition] = Seq.empty,
+      formatPattern: Option[String] = None
   ): CreateLinkColumn = {
     val createBackLinkColumn = CreateBackLinkColumn(
       name = toName,
@@ -74,7 +76,9 @@ object CreateLinkColumn {
       constraint,
       createBackLinkColumn,
       attributes,
-      hidden
+      hidden,
+      linkAttributes,
+      formatPattern
     )
   }
 }
@@ -89,7 +93,9 @@ case class CreateLinkColumn(
     constraint: Constraint,
     foreignLinkColumn: CreateBackLinkColumn,
     override val attributes: Option[JsonObject],
-    override val hidden: Boolean
+    override val hidden: Boolean,
+    linkAttributes: Seq[LinkAttributeDefinition],
+    formatPattern: Option[String]
 ) extends CreateColumn {
   override val kind: LinkType.type = LinkType
   override val languageType: LanguageNeutral.type = LanguageNeutral
