@@ -727,7 +727,8 @@ class StructureController(
       )
     )
 
-    val structureProperties: Seq[Option[Any]] = Seq(columnName, ordering, kind, identifier, countryCodes, linkAttributes)
+    val structureProperties: Seq[Option[Any]] =
+      Seq(columnName, ordering, kind, identifier, countryCodes, linkAttributes)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
     logger.info(

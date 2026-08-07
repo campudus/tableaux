@@ -1,6 +1,11 @@
 package com.campudus.tableaux.database.model.tableaux
 
-import com.campudus.tableaux.{NotFoundInDatabaseException, RowNotFoundException, UnknownServerException, UnprocessableEntityException}
+import com.campudus.tableaux.{
+  NotFoundInDatabaseException,
+  RowNotFoundException,
+  UnknownServerException,
+  UnprocessableEntityException
+}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag

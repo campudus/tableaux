@@ -838,7 +838,8 @@ class ColumnModel(val connection: DatabaseConnection)(
         linkId = insertNotNull(result).head.get[Long](0)
 
         // insert link column on source table
-        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), linkColumnInfo.formatPattern, false)
+        (t, columnInfo) <-
+          insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), linkColumnInfo.formatPattern, false)
 
         // only add the second link column if tableId != toTableId or singleDirection is false
         t <- {
