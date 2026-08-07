@@ -1235,6 +1235,18 @@
                 "name": {
                   "type": "string",
                   "example": "New Column Name"
+                },
+                "linkAttributes": {
+                  "type": "array",
+                  "description": "Definitions of attributes attached to a link column (only applicable if the column is of kind \"link\"). Send an empty array to clear the definition and any stored attribute values; omit the field entirely to leave it untouched.",
+                  "items": {
+                    "$ref": "#/definitions/LinkAttributeDefinition"
+                  }
+                },
+                "formatPattern": {
+                  "type": "string",
+                  "description": "Pattern for rendering a group or link column's content in the frontend. Only allowed for columns of kind \"group\" or \"link\".",
+                  "example": "{{value}} ({{attributes.percentage}}%)"
                 }
               }
             }
@@ -2612,6 +2624,60 @@
         ]
       }
     },
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/link/{linkId}/attributes": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/linkId"
+        }
+      ],
+      "put": {
+        "summary": "Changes the attribute values of a link.",
+        "description": "Sets the attribute values for the given link. The attributes array is positional and validated against the link column's linkAttributes definitions (same length, matching kind per entry). Requires the column to have at least one linkAttributes entry defined.",
+        "tags": [
+          "content"
+        ],
+        "operationId": "update-cell-link-attributes",
+        "parameters": [
+          {
+            "name": "attributes",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "attributes": {
+                  "type": "array",
+                  "description": "Positional attribute values, one per linkAttributes definition on the column.",
+                  "items": {
+                    "type": "any"
+                  },
+                  "example": [
+                    90
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/cell-value"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/foreignRows": {
       "parameters": [
         {
@@ -3741,6 +3807,7 @@
       "properties": {
         "value": {
           "type": "any",
+          "description": "For link columns, each entry is an object with \"id\", \"value\" and, if the column has linkAttributes defined and a value is set for that link, an \"attributes\" array (one value per linkAttributes definition, positional). \"attributes\" is omitted for links without a stored value, and omitted entirely (along with \"value\") when the linked row is hidden by row permissions.",
           "example": {
             "de": "Bayern",
             "en": "Bavaria"
@@ -4988,6 +5055,18 @@
         "constraint": {
           "$ref": "#/definitions/constraint"
         },
+        "linkAttributes": {
+          "type": "array",
+          "description": "Definitions of attributes attached to this link column, if any. Only present if kind is \"link\" and at least one attribute is defined.",
+          "items": {
+            "$ref": "#/definitions/LinkAttributeDefinition"
+          }
+        },
+        "formatPattern": {
+          "type": "string",
+          "description": "Pattern for the frontend how to render the content of a group or link column. Only present if set. See the column creation request for placeholder syntax.",
+          "example": "{{value}} ({{attributes.percentage}}%)"
+        },
         "originColumns": {
           "$ref": "#/definitions/Response: OriginColumns array"
         }
@@ -5336,6 +5415,50 @@
         "group"
       ]
     },
+    "LinkAttributeDefinition": {
+      "type": "object",
+      "description": "Definition of an attribute that can be attached to a link, in addition to which rows it connects. Its structure orients on ColumnDefinition, but it isn't a real column - it has no own id and is referenced by name only. Currently limited to a maximum of 1 entry per link column.",
+      "required": [
+        "name",
+        "kind"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the attribute. Used to reference its value, e.g. in formatPattern as {{attributes.<name>}}.",
+          "example": "percentage"
+        },
+        "displayName": {
+          "$ref": "#/definitions/Multi-language object"
+        },
+        "kind": {
+          "type": "string",
+          "description": "The type of the attribute's value.",
+          "enum": [
+            "text",
+            "numeric",
+            "integer",
+            "boolean",
+            "date",
+            "datetime"
+          ]
+        },
+        "multilanguage": {
+          "type": "boolean",
+          "description": "If true, the attribute's value is a multi-language object keyed by langtag instead of a single value. Defaults to false.",
+          "example": false
+        }
+      },
+      "example": {
+        "name": "percentage",
+        "displayName": {
+          "de-DE": "Prozentanteil",
+          "en-GB": "Percentage"
+        },
+        "kind": "integer",
+        "multilanguage": false
+      }
+    },
     "Enum: Service type": {
       "type": "string",
       "description": "Different types of services",
@@ -5466,8 +5589,26 @@
         },
         "formatPattern": {
           "type": "string",
-          "description": "Pattern for the frontend how to render the content of a group column. Placeholders can be either numeric positions like {{1}} (based on column IDs) or column names like {{firstName}}. The type must match the groups array (if groups uses IDs, use numeric placeholders; if groups uses names, use name placeholders).",
+          "description": "Pattern for the frontend how to render the content of a group or link column. For group columns, placeholders can be either numeric positions like {{1}} (based on column IDs) or column names like {{firstName}}; the type must match the groups array. For link columns, use {{value}} to reference the link's own value and {{attributes.<name>}} to reference a linkAttributes value by name.",
           "example": "{{1}} × {{2}} × {{3}} mm (B × H × T)"
+        },
+        "linkAttributes": {
+          "type": "array",
+          "description": "Definitions of attributes attached to this link (only applicable if kind is \"link\"). Currently limited to a maximum of 1 entry. Can also be set/changed on an existing link column via the change-column endpoint; sending an empty array clears the definition and any stored attribute values, omitting the field leaves it untouched.",
+          "items": {
+            "$ref": "#/definitions/LinkAttributeDefinition"
+          },
+          "example": [
+            {
+              "name": "percentage",
+              "displayName": {
+                "de-DE": "Prozentanteil",
+                "en-GB": "Percentage"
+              },
+              "kind": "integer",
+              "multilanguage": false
+            }
+          ]
         },
         "showMemberColumns": {
           "type": "boolean",
