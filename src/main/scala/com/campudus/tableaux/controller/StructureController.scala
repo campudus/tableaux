@@ -788,25 +788,25 @@ class StructureController(
         }
 
       _ <-
-        if (linkAttributes.nonEmpty) {
-          column match {
-            case _: LinkColumn =>
-              if (linkAttributes.get.size > LinkAttributeDefinition.maxCount) {
-                Future.failed(UnprocessableEntityException(
-                  s"Only ${LinkAttributeDefinition.maxCount} linkAttributes entry is currently supported, " +
-                    s"but got ${linkAttributes.get.size}."
+        linkAttributes match {
+          case Some(attrs) =>
+            column match {
+              case _: LinkColumn =>
+                if (attrs.size > LinkAttributeDefinition.maxCount) {
+                  Future.failed(UnprocessableEntityException(
+                    s"Only ${LinkAttributeDefinition.maxCount} linkAttributes entry is currently supported, " +
+                      s"but got ${attrs.size}."
+                  ))
+                } else {
+                  Future.successful(())
+                }
+              case _ =>
+                Future.failed(ForbiddenException(
+                  s"Update of linkAttributes is not allowed for column ${column.kind}.",
+                  "column"
                 ))
-              } else {
-                Future.successful(())
-              }
-            case _ =>
-              Future.failed(ForbiddenException(
-                s"Update of linkAttributes is not allowed for column ${column.kind}.",
-                "column"
-              ))
-          }
-        } else {
-          Future.successful(())
+            }
+          case None => Future.successful(())
         }
 
       _ <-
