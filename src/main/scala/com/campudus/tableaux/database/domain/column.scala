@@ -161,7 +161,7 @@ object ColumnType {
 
   private type MultiLanguageAndValue = (SimpleValueColumn[?], Map[String, Option[?]])
   private type LanguageNeutralAndValue = (SimpleValueColumn[?], Option[?])
-  private type LinkAndRowIds = (LinkColumn, Seq[RowId])
+  private type LinkAndRowIds = (LinkColumn, Seq[LinkValue])
   private type AttachmentAndUUIDs = (AttachmentColumn, Seq[(UUID, Option[Ordering])])
 
   /**
@@ -566,8 +566,10 @@ case class LinkColumn(
     override val columnInformation: ColumnInformation,
     to: ColumnType[?],
     linkId: LinkId,
-    linkDirection: LinkDirection
-)(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ColumnType[Seq[RowId]]
+    linkDirection: LinkDirection,
+    linkAttributes: Seq[LinkAttributeDefinition] = Seq.empty,
+    formatPattern: Option[String] = None
+)(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ColumnType[Seq[LinkValue]]
     with LazyLogging {
   override val kind: LinkType.type = LinkType
   override val languageType: LanguageType = to.languageType
@@ -583,31 +585,52 @@ case class LinkColumn(
       case json => Json.obj("constraint" -> json)
     }
 
+    val linkAttributesJson = linkAttributes match {
+      case Seq() => Json.obj()
+      case attrs => Json.obj("linkAttributes" -> Json.arr(attrs.map(LinkAttributeDefinition.getJson)*))
+    }
+
+    val formatPatternJson = formatPattern match {
+      case Some(pattern) => Json.obj("formatPattern" -> pattern)
+      case None => Json.obj()
+    }
+
     super.getJson
       .mergeIn(baseJson)
       .mergeIn(constraintJson)
+      .mergeIn(linkAttributesJson)
+      .mergeIn(formatPatternJson)
   }
 
-  override def checkValidValue[B](value: B): Try[Option[Seq[RowId]]] = {
+  // Handles both a bare id/RowId and a `{"id": ..., "attributes": [...]}` object; attributes are optional on
+  // every element so all pre-existing request shapes (bare ids, or objects with only "id") keep working unchanged.
+  private def extractLinkValue(v: Any): LinkValue = v match {
+    case id: RowId => LinkValue(id)
+    case id: Integer => LinkValue(id.toLong)
+    case obj: JsonObject =>
+      val id = obj.getLong("id").longValue()
+      val attributesOpt = Option(obj.getJsonArray("attributes"))
+      attributesOpt.foreach(attrs => LinkAttributeValueValidator.checkValidValue(linkAttributes, attrs).get)
+      LinkValue(id, attributesOpt)
+  }
+
+  override def checkValidValue[B](value: B): Try[Option[Seq[LinkValue]]] = {
     Try {
       val castedValue = value match {
         case x if Option(x).isEmpty =>
-          Seq.empty[Long]
+          Seq.empty[LinkValue]
 
         case x: Int =>
-          Seq(x.toLong)
+          Seq(LinkValue(x.toLong))
 
         case x: Seq[_] =>
-          x.map {
-            case id: RowId => id
-            case obj: JsonObject => obj.getLong("id").longValue()
-          }
+          x.map(extractLinkValue)
 
         case x: JsonObject if x.containsKey("to") =>
           import ArgumentChecker._
           hasLong("to", x) match {
             case arg: OkArg[Long] =>
-              Seq(arg.get)
+              Seq(LinkValue(arg.get))
             case _ =>
               throw InvalidJsonException(
                 s"A link column expects a JSON object with to values, but got $x",
@@ -616,19 +639,25 @@ case class LinkColumn(
           }
 
         case x: JsonObject if x.containsKey("values") =>
-          Try(
-            checked(hasArray("values", x)).asScala
-              .map(_.asInstanceOf[java.lang.Integer].longValue())
-              .toSeq
-          ) match {
-            case Success(ids) =>
-              ids
+          val rawElements = Try(checked(hasArray("values", x)).asScala.toSeq) match {
+            case Success(elements) =>
+              elements
             case Failure(_) =>
               throw InvalidJsonException(
                 s"A link column expects a JSON object with to values, but got $x",
                 "link-value"
               )
           }
+
+          rawElements.map({
+            case id: Integer => extractLinkValue(id)
+            case obj: JsonObject => extractLinkValue(obj)
+            case _ =>
+              throw InvalidJsonException(
+                s"A link column expects a JSON object with to values, but got $x",
+                "link-value"
+              )
+          })
 
         case x: JsonObject =>
           throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
@@ -637,8 +666,8 @@ case class LinkColumn(
           x.asScala
             .map({
               // need to check for java.lang.Integer because we are mapping over AnyRefs
-              case id: Integer => id.toLong
-              case obj: JsonObject => obj.getLong("id").toLong
+              case id: Integer => extractLinkValue(id)
+              case obj: JsonObject => extractLinkValue(obj)
             })
             .toSeq
 

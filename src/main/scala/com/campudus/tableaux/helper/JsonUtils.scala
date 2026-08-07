@@ -194,6 +194,9 @@ object JsonUtils extends LazyLogging {
                         finalCascade
                       )
 
+                    val linkAttributes = parseLinkAttributes(json)
+                    val linkFormatPattern = hasString("formatPattern", json).toOption
+
                     CreateLinkColumn(
                       name,
                       ordering,
@@ -204,7 +207,9 @@ object JsonUtils extends LazyLogging {
                       constraint.getOrElse(DefaultConstraint),
                       createBackLinkColumn,
                       attributes,
-                      hidden
+                      hidden,
+                      linkAttributes,
+                      linkFormatPattern
                     )
 
                   case (GroupType) =>
@@ -314,6 +319,41 @@ object JsonUtils extends LazyLogging {
       case value if value > 10 || value < 0 =>
         throw InvalidJsonException(s"Decimal digits must be between 0 and 10, but was $value.", "decimalDigits")
       case value => value
+    })
+  }
+
+  private def parseLinkAttributes(json: JsonObject): Seq[LinkAttributeDefinition] = {
+    val entries = Option(json.getJsonArray("linkAttributes"))
+      .map(_.asScala.toSeq)
+      .getOrElse(Seq.empty)
+
+    if (entries.size > LinkAttributeDefinition.maxCount) {
+      throw InvalidJsonException(
+        s"Only ${LinkAttributeDefinition.maxCount} linkAttributes entry is currently supported, but got ${entries.size}.",
+        "linkAttributes"
+      )
+    }
+
+    entries.map({
+      case entryJson: JsonObject =>
+        val name = checked(hasString("name", entryJson))
+        val kind = checked(toTableauxType(checked(hasString("kind", entryJson))))
+
+        if (!LinkAttributeDefinition.allowedKinds.contains(kind)) {
+          throw InvalidJsonException(
+            s"linkAttributes kind '$kind' is not allowed. Allowed kinds: ${LinkAttributeDefinition.allowedKinds
+                .mkString(", ")}.",
+            "linkAttributes"
+          )
+        }
+
+        val multilanguage = entryJson.getBoolean("multilanguage", false)
+        val displayInfos = DisplayInfos.fromJson(entryJson)
+
+        LinkAttributeDefinition(name, displayInfos, kind, multilanguage)
+
+      case other =>
+        throw InvalidJsonException(s"linkAttributes entries must be JSON objects, but got $other.", "linkAttributes")
     })
   }
 
@@ -428,7 +468,8 @@ object JsonUtils extends LazyLogging {
       Option[Int],
       Option[Boolean],
       Option[Int],
-      Option[String]
+      Option[String],
+      Option[Seq[LinkAttributeDefinition]]
   ) = {
 
     val name = hasString("name", json).toOption
@@ -466,6 +507,11 @@ object JsonUtils extends LazyLogging {
     val decimalDigits = parseDecimalDigits(json)
     val formatPattern = hasString("formatPattern", json).toOption
 
+    // None means "linkAttributes wasn't submitted at all, leave existing definition untouched" - as opposed to
+    // Some(Seq.empty) which means "submitted as an explicit empty array", the wire-level way to delete an
+    // existing linkAttributes definition (see ColumnModel.change).
+    val linkAttributes = booleanToValueOption(json.containsKey("linkAttributes"), parseLinkAttributes(json))
+
     (
       name,
       ord,
@@ -481,7 +527,8 @@ object JsonUtils extends LazyLogging {
       minLength,
       showMemberColumns,
       decimalDigits,
-      formatPattern
+      formatPattern,
+      linkAttributes
     )
   }
 

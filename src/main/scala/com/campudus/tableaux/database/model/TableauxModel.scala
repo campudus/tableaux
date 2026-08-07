@@ -714,6 +714,36 @@ class TableauxModel(
     } yield updatedCell
   }
 
+  def updateCellLinkAttributes(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      toId: RowId,
+      attributes: JsonArray
+  )(implicit user: TableauxUser): Future[Cell[?]] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+      _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
+
+      _ <- column match {
+        case linkColumn: LinkColumn if linkColumn.linkAttributes.isEmpty =>
+          Future.failed(UnprocessableEntityException(s"Column ${linkColumn.id} has no linkAttributes defined."))
+        case linkColumn: LinkColumn => {
+          for {
+            _ <- Future.fromTry(LinkAttributeValueValidator.checkValidValue(linkColumn.linkAttributes, attributes))
+            _ <- createHistoryModel.createCellsInit(table, rowId, Seq((linkColumn, Seq(toId))))
+            _ <- updateRowModel.updateLinkAttributes(table, linkColumn, rowId, toId, attributes)
+            _ <- invalidateCellAndDependentColumns(column, rowId)
+            _ <- createHistoryModel.updateLinks(table, linkColumn, Seq(rowId))
+          } yield Future.successful(())
+        }
+        case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
+      }
+
+      updatedCell <- retrieveCell(column, rowId, true)
+    } yield updatedCell
+  }
+
   def updateAttachmentOrder(
       table: Table,
       columnId: ColumnId,
@@ -1260,15 +1290,21 @@ class TableauxModel(
 
                 val buildReturnJson: (Option[Any], Boolean) => JsonObject = (valueOpt, userCanView) => {
                   if (shouldHideValuesByRowPermissions && !userCanView) {
+                    // attributes belong to the foreign row's protected payload too, so they're hidden here as well
                     Json.obj(
                       "id" -> linkRowId,
                       "hiddenByRowPermissions" -> true
                     )
                   } else {
-                    Json.obj(
+                    val baseJson = Json.obj(
                       "id" -> linkRowId,
                       "value" -> valueOpt.getOrElse(null)
                     )
+
+                    Option(link.getValue("attributes")) match {
+                      case Some(attributes) => baseJson.mergeIn(Json.obj("attributes" -> attributes))
+                      case None => baseJson
+                    }
                   }
                 }
 
@@ -1428,7 +1464,7 @@ class TableauxModel(
           }
         })
 
-      (_, linkDirection, _) <- structureModel.columnStruc.retrieveLinkInformation(table, linkColumn.id)
+      (_, linkDirection, _, _) <- structureModel.columnStruc.retrieveLinkInformation(table, linkColumn.id)
       totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId, linkDirection, finalFlagOpt, archivedFlagOpt)
       rawRows <- retrieveRowModel.retrieveForeign(
         linkColumn,
