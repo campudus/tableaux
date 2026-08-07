@@ -610,9 +610,27 @@ case class LinkColumn(
     case obj: JsonObject =>
       val id = obj.getLong("id").longValue()
       val attributesOpt = Option(obj.getJsonArray("attributes"))
-      attributesOpt.foreach(attrs => LinkAttributeValueValidator.checkValidValue(linkAttributes, attrs).get)
+      attributesOpt.foreach(attrs =>
+        LinkAttributeValueValidator.checkValidValue(linkAttributes, attrs).fold(throw _, identity)
+      )
       LinkValue(id, attributesOpt)
+    case other =>
+      throw InvalidJsonException(
+        s"Link value must be an id (Int/Long) or a JSON object with an 'id' field, but got ${other.getClass.getSimpleName}",
+        "link-value"
+      )
   }
+
+  private def parseArrayElements(elements: Seq[Any]): Seq[LinkValue] =
+    elements.map({
+      case id: Integer => extractLinkValue(id)
+      case obj: JsonObject => extractLinkValue(obj)
+      case invalidElement =>
+        throw InvalidJsonException(
+          s"Expected Integer or JSON object in link values array, but got ${invalidElement.getClass.getSimpleName}: $invalidElement",
+          "link-value"
+        )
+    })
 
   override def checkValidValue[B](value: B): Try[Option[Seq[LinkValue]]] = {
     Try {
@@ -627,10 +645,9 @@ case class LinkColumn(
           x.map(extractLinkValue)
 
         case x: JsonObject if x.containsKey("to") =>
-          import ArgumentChecker._
           hasLong("to", x) match {
-            case arg: OkArg[Long] =>
-              Seq(LinkValue(arg.get))
+            case OkArg(to) =>
+              Seq(LinkValue(to))
             case _ =>
               throw InvalidJsonException(
                 s"A link column expects a JSON object with to values, but got $x",
@@ -639,40 +656,30 @@ case class LinkColumn(
           }
 
         case x: JsonObject if x.containsKey("values") =>
-          val rawElements = Try(checked(hasArray("values", x)).asScala.toSeq) match {
-            case Success(elements) =>
-              elements
-            case Failure(_) =>
+          hasArray("values", x) match {
+            case OkArg(arr) =>
+              parseArrayElements(arr.asScala.toSeq)
+            case _ =>
               throw InvalidJsonException(
                 s"A link column expects a JSON object with to values, but got $x",
                 "link-value"
               )
           }
 
-          rawElements.map({
-            case id: Integer => extractLinkValue(id)
-            case obj: JsonObject => extractLinkValue(obj)
-            case _ =>
-              throw InvalidJsonException(
-                s"A link column expects a JSON object with to values, but got $x",
-                "link-value"
-              )
-          })
-
         case x: JsonObject =>
-          throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
+          throw InvalidJsonException(
+            s"Link column expects a JSON object with either 'to' or 'values' field, but got $x",
+            "link-value"
+          )
 
         case x: JsonArray =>
-          x.asScala
-            .map({
-              // need to check for java.lang.Integer because we are mapping over AnyRefs
-              case id: Integer => extractLinkValue(id)
-              case obj: JsonObject => extractLinkValue(obj)
-            })
-            .toSeq
+          parseArrayElements(x.asScala.toSeq)
 
         case x =>
-          throw InvalidJsonException(s"A link column expects a JSON object with values, but got $x", "link-value")
+          throw InvalidJsonException(
+            s"Link value must be null, an int, a sequence, or a JSON object; got ${x.getClass.getSimpleName}",
+            "link-value"
+          )
       }
 
       Some(castedValue)
