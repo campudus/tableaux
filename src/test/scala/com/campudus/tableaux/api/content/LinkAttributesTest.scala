@@ -47,7 +47,11 @@ class LinkAttributesTest extends LinkTestBase {
       toTableId: TableId,
       multilanguage: Boolean = false
   ): Future[ColumnId] = {
-    sendRequest("POST", s"/tables/$tableId/columns", postLinkColWithAttributes(toTableId, multilanguage = multilanguage))
+    sendRequest(
+      "POST",
+      s"/tables/$tableId/columns",
+      postLinkColWithAttributes(toTableId, multilanguage = multilanguage)
+    )
       .map(_.getJsonArray("columns").getJsonObject(0).getLong("id").toLong)
   }
 

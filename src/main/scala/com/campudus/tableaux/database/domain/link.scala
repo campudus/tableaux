@@ -167,8 +167,8 @@ case class RightToLeft(from: TableId, to: TableId, constraint: Constraint) exten
 
 /**
   * Definition of a single attribute that can be carried by a link (in addition to which rows it connects). Its
-  * structure orients on ColumnDefinition, but it isn't a real column: it has no stable id (referenced by `name`
-  * only), no ordering, and doesn't live in `system_columns` - it's stored as part of `system_link_table.attributes`.
+  * structure orients on ColumnDefinition, but it isn't a real column: it has no stable id (referenced by `name` only),
+  * no ordering, and doesn't live in `system_columns` - it's stored as part of `system_link_table.attributes`.
   */
 case class LinkAttributeDefinition(
     name: String,
@@ -216,8 +216,8 @@ object LinkAttributeDefinition {
 }
 
 /**
-  * A row id to be linked, optionally carrying positional values for the target LinkColumn's `linkAttributes`
-  * (parallel to the definitions array, exactly like the `attributes` array in a link cell's JSON value).
+  * A row id to be linked, optionally carrying positional values for the target LinkColumn's `linkAttributes` (parallel
+  * to the definitions array, exactly like the `attributes` array in a link cell's JSON value).
   */
 case class LinkValue(id: RowId, attributes: Option[JsonArray] = None)
 
