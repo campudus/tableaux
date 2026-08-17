@@ -211,9 +211,13 @@ class ChangeStructureTest extends TableauxTestBase {
     }
   }
 
-  private def percentageAttribute(kind: String = "integer", multilanguage: Boolean = false): JsonObject = {
+  private def percentageAttribute(
+      kind: String = "integer",
+      multilanguage: Boolean = false,
+      name: String = "percentage"
+  ): JsonObject = {
     Json.obj(
-      "name" -> "percentage",
+      "name" -> name,
       "displayName" -> Json.obj("de-DE" -> "Prozentanteil"),
       "kind" -> kind,
       "multilanguage" -> multilanguage
@@ -326,6 +330,27 @@ class ChangeStructureTest extends TableauxTestBase {
       result <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
       assertJSONEquals(Json.arr(percentageAttribute()), result.getJsonArray("linkAttributes"))
+    }
+  }
+
+  @Test
+  def changeLinkColumnRenamingLinkAttributePreservesValues(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(name = "percentage")))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      // rename only - same kind, same multilanguage flag, just a different name/displayName label
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(name = "percent")))
+      )
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertEquals("percent", column.getJsonArray("linkAttributes").getJsonObject(0).getString("name"))
+      assertEquals(50, cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getInteger(0))
     }
   }
 
