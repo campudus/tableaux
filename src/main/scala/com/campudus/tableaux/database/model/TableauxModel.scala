@@ -1911,7 +1911,10 @@ class TableauxModel(
             cell <- retrieveCell(concatenateColumn, rowId, true)
           } yield {
             val cellJson = cell.getJson
-            list ++ List(Json.obj("id" -> rowId).mergeIn(cellJson))
+            // Start from the raw linked row (carries fields the SQL projection already
+            // filled in, e.g. attributes/final/archived) and only overwrite its value,
+            // which the projection couldn't compute for a concat target.
+            list ++ List(linkedRow.copy().mergeIn(cellJson))
           }
       }
     }

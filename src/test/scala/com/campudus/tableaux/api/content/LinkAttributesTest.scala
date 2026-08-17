@@ -2,6 +2,7 @@ package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.helper.Json
+import com.campudus.tableaux.testtools.RequestCreation.{Identifier, NumericCol, TextCol}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -95,6 +96,36 @@ class LinkAttributesTest extends LinkTestBase {
       linkColumnId <- createLinkColumnWithAttributes(1, 2)
       _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
       cell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      assertEquals(expected, cell)
+    }
+  }
+
+  @Test
+  def attributesSurviveLinkToTableWithConcatIdentifier(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50))))
+    )
+
+    val expected = Json.obj(
+      "status" -> "ok",
+      "value" -> Json.arr(Json.obj("id" -> 1, "value" -> Json.arr("target row 1", 1), "attributes" -> Json.arr(50)))
+    )
+
+    for {
+      sourceTableId <- createDefaultTable()
+      // target table has two identifier columns from the start, so its representing
+      // column is a ConcatenateColumn - the read path then has to re-fetch each linked
+      // row's value (see TableauxModel.fetchConcatValuesForLinkedRows) instead of using
+      // the value the SQL projection already produced for a plain single-identifier target
+      (targetTableId, _, _) <- createSimpleTableWithValues(
+        "Target Table",
+        List(Identifier(TextCol("name")), Identifier(NumericCol("num"))),
+        List(List("target row 1", 1), List("target row 2", 2))
+      )
+      linkColumnId <- createLinkColumnWithAttributes(sourceTableId, targetTableId)
+      _ <- sendRequest("POST", s"/tables/$sourceTableId/columns/$linkColumnId/rows/1", putLink)
+      cell <- sendRequest("GET", s"/tables/$sourceTableId/columns/$linkColumnId/rows/1")
     } yield {
       assertEquals(expected, cell)
     }
