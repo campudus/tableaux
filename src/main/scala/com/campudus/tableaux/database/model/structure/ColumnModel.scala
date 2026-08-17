@@ -1985,10 +1985,11 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   // Applies a linkAttributes definition change to system_link_table plus, when needed, migrates existing values
-  // already stored on link_table_<linkId>. Diffing is by name (max-1 keeps this simple): no old + new = pure add
-  // (nothing to migrate); old + no new, or a rename (different name) = wipe stored values, since there's no
-  // continuity contract once the name that referenced them is gone; same name = reshape (multilanguage) then
-  // cast (kind) in place.
+  // already stored on link_table_<linkId>. Diffing is by position (max-1 keeps this simple, there's only ever
+  // position 0): no old + new = pure add (nothing to migrate); old + no new = pure remove, so stored values are
+  // wiped since no definition is left to interpret them; old + new = same slot regardless of name/displayName
+  // (those are cosmetic and don't affect how a stored value is interpreted) - reshape (multilanguage) then cast
+  // (kind) in place.
   private def updateLinkAttributesDefinition(
       t: DbTransaction,
       table: Table,
@@ -2009,14 +2010,18 @@ class ColumnModel(val connection: DatabaseConnection)(
         .getOrElse(Seq.empty)
 
       (t, _) <- (currentDefinitions.headOption, newDefinitions.headOption) match {
-        case (Some(oldDef), Some(newDef)) if oldDef.name == newDef.name =>
+        case (Some(oldDef), Some(newDef)) =>
+          // Same slot whether or not the name changed - a rename or displayName edit is cosmetic
+          // and must not invalidate stored values. Multilanguage/kind changes still reshape/cast
+          // in place; an incompatible kind change fails and rolls back the whole update, same as
+          // when the name stays the same.
           for {
             (t, _) <- reshapeLinkAttributeValues(t, table, linkTable, oldDef, newDef)
             (t, result) <- castLinkAttributeValues(t, linkTable, oldDef, newDef)
           } yield (t, result)
 
-        case (Some(_), _) =>
-          // pure remove, or renamed to a different name - either way the old values no longer have a definition
+        case (Some(_), None) =>
+          // pure remove - no definition is left to interpret the old values
           t.query(s"UPDATE $linkTable SET attributes = NULL")
 
         case (None, _) =>
