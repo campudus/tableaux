@@ -12,6 +12,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
+import com.campudus.tableaux.database.model.structure.ColumnModel.isLinkColumnMatchingToFormatPattern
 import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
@@ -812,6 +813,14 @@ class ColumnModel(val connection: DatabaseConnection)(
         })
 
         toCol = toTableColumns.head
+
+        _ = {
+          if (!isLinkColumnMatchingToFormatPattern(linkColumnInfo.formatPattern, linkColumnInfo.linkAttributes)) {
+            throw UnprocessableEntityException(
+              s"Invalid formatPattern: '${linkColumnInfo.formatPattern.orNull}' doesn't match link value/attributes"
+            )
+          }
+        }
 
         (t, result) <- t.query(
           """|INSERT INTO system_link_table (

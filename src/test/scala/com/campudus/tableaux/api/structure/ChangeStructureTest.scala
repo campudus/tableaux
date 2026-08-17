@@ -220,12 +220,17 @@ class ChangeStructureTest extends TableauxTestBase {
     )
   }
 
-  private def createLinkColumn(linkAttributes: JsonArray = Json.arr()): Future[ColumnId] = {
-    val postJson = Json.obj(
-      "columns" -> Json.arr(
-        Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "linkAttributes" -> linkAttributes)
-      )
-    )
+  private def createLinkColumn(
+      linkAttributes: JsonArray = Json.arr(),
+      formatPattern: Option[String] = None
+  ): Future[ColumnId] = {
+    val baseJson =
+      Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "linkAttributes" -> linkAttributes)
+    val columnJson = formatPattern match {
+      case Some(pattern) => baseJson.mergeIn(Json.obj("formatPattern" -> pattern))
+      case None => baseJson
+    }
+    val postJson = Json.obj("columns" -> Json.arr(columnJson))
 
     for {
       _ <- createDefaultTable()
@@ -434,6 +439,26 @@ class ChangeStructureTest extends TableauxTestBase {
           Json.obj("formatPattern" -> "{{attributes.doesNotExist}}")
         )
       } yield ()
+    }
+
+  @Test
+  def createLinkColumnFormatPatternAccepted(implicit c: TestContext): Unit = okTest {
+    val pattern = "{{value}} ({{attributes.percentage}}%)"
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute()), formatPattern = Some(pattern))
+      result <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertEquals(pattern, result.getString("formatPattern"))
+    }
+  }
+
+  @Test
+  def createLinkColumnFormatPatternRejectedForUnknownToken(implicit c: TestContext): Unit =
+    // same pattern that changeLinkColumnFormatPatternRejectedForUnknownToken rejects on the change path -
+    // creating a link column must be rejected the same way instead of silently storing a broken pattern
+    exceptionTest("unprocessable.entity") {
+      createLinkColumn(Json.arr(percentageAttribute()), formatPattern = Some("{{attributes.doesNotExist}}"))
     }
 
 }
