@@ -102,6 +102,41 @@ class LinkAttributesTest extends LinkTestBase {
   }
 
   @Test
+  def createLinkWithAttributesUsingToShape(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj("to" -> 1, "attributes" -> Json.arr(50))
+    )
+
+    val expected = Json.obj(
+      "status" -> "ok",
+      "value" -> Json.arr(Json.obj("id" -> 1, "value" -> "table2row1", "attributes" -> Json.arr(50)))
+    )
+
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2)
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      cell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      assertEquals(expected, cell)
+    }
+  }
+
+  @Test
+  def rejectAttributesOnToShapeOnColumnWithoutDefinition(implicit c: TestContext): Unit =
+    exceptionTest("error.json.link-attributes") {
+      val putLink = Json.obj(
+        "value" -> Json.obj("to" -> 1, "attributes" -> Json.arr(50))
+      )
+
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumn(1, 2, singleDirection = false)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      } yield ()
+    }
+
+  @Test
   def attributesSurviveLinkToTableWithConcatIdentifier(implicit c: TestContext): Unit = okTest {
     val putLink = Json.obj(
       "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50))))

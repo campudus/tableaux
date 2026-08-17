@@ -602,18 +602,23 @@ case class LinkColumn(
       .mergeIn(formatPatternJson)
   }
 
+  // Shared by both the `{"id": ..., "attributes": [...]}` (values array) and `{"to": ...,
+  // "attributes": [...]}` (single-value) shapes, so attributes are honored the same way
+  // regardless of which key carries the target row id.
+  private def buildLinkValue(id: RowId, obj: JsonObject): LinkValue = {
+    val attributesOpt = Option(obj.getJsonArray("attributes"))
+    attributesOpt.foreach(attrs =>
+      LinkAttributeValueValidator.checkValidValue(linkAttributes, attrs).fold(throw _, identity)
+    )
+    LinkValue(id, attributesOpt)
+  }
+
   // Handles both a bare id/RowId and a `{"id": ..., "attributes": [...]}` object; attributes are optional on
   // every element so all pre-existing request shapes (bare ids, or objects with only "id") keep working unchanged.
   private def extractLinkValue(v: Any): LinkValue = v match {
     case id: RowId => LinkValue(id)
     case id: Integer => LinkValue(id.toLong)
-    case obj: JsonObject =>
-      val id = obj.getLong("id").longValue()
-      val attributesOpt = Option(obj.getJsonArray("attributes"))
-      attributesOpt.foreach(attrs =>
-        LinkAttributeValueValidator.checkValidValue(linkAttributes, attrs).fold(throw _, identity)
-      )
-      LinkValue(id, attributesOpt)
+    case obj: JsonObject => buildLinkValue(obj.getLong("id").longValue(), obj)
     case other =>
       throw InvalidJsonException(
         s"Link value must be an id (Int/Long) or a JSON object with an 'id' field, but got ${other.getClass.getSimpleName}",
@@ -647,7 +652,7 @@ case class LinkColumn(
         case x: JsonObject if x.containsKey("to") =>
           hasLong("to", x) match {
             case OkArg(to) =>
-              Seq(LinkValue(to))
+              Seq(buildLinkValue(to, x))
             case _ =>
               throw InvalidJsonException(
                 s"A link column expects a JSON object with to values, but got $x",
