@@ -862,7 +862,41 @@ class StructureController(
       }
 
       _ <- eventClient.invalidateColumn(tableId, columnId)
+      _ <- invalidateDependentColumnCaches(tableId, columnId, changedColumn)
     } yield changedColumn
+  }
+
+  // Mirrors TableauxModel.invalidateCellAndDependentColumns' dependent-column walk, but for the
+  // whole column (every row) rather than a single cell - a structure change (e.g. linkAttributes
+  // migrating/wiping values) can affect every row, not just one. Without this, a column shared
+  // across tables (the backlink side of a bidirectional link, or a group column referencing this
+  // one) keeps serving cell values cached before the change.
+  private def invalidateDependentColumnCaches(tableId: TableId, columnId: ColumnId, column: ColumnType[?])(
+      implicit user: TableauxUser
+  ): Future[Unit] = {
+    def invalidateColumnCache: (TableId, ColumnId) => Future[?] = eventClient.invalidateColumn
+
+    for {
+      _ <-
+        if (column.columnInformation.groupColumnIds.nonEmpty) {
+          Future.sequence(column.columnInformation.groupColumnIds.map(invalidateColumnCache(tableId, _)))
+        } else {
+          Future.successful(())
+        }
+
+      dependentGroupColumns <- columnStruc.retrieveDependentGroupColumn(tableId, columnId)
+      dependentLinkColumns <- columnStruc.retrieveDependencies(tableId)
+      dependentColumns = dependentGroupColumns ++ dependentLinkColumns
+
+      _ <- Future.sequence(dependentColumns.map({
+        case DependentColumnInformation(depTableId, depColumnId, _, _, groupColumnIds) =>
+          val invalidateLinkColumn = invalidateColumnCache(depTableId, depColumnId)
+          val invalidateConcatColumn = invalidateColumnCache(depTableId, 0)
+          val invalidateGroupColumns = Future.sequence(groupColumnIds.map(invalidateColumnCache(depTableId, _)))
+
+          invalidateLinkColumn.zip(invalidateConcatColumn).zip(invalidateGroupColumns)
+      }))
+    } yield ()
   }
 
   def createTableGroup(displayInfos: Seq[DisplayInfo])(implicit user: TableauxUser): Future[TableGroup] = {
