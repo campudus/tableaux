@@ -439,4 +439,196 @@ class LinkAttributesTest extends LinkTestBase {
       } yield ()
     }
 
+  // ---------------------------------------------------------------------------------------------------------------
+  // Langtag keys of a multilanguage attribute value are validated against the table's langtags. Writing was tolerant
+  // before, which let a value be stored under a langtag no migration would ever look at again.
+  // ---------------------------------------------------------------------------------------------------------------
+
+  @Test
+  def rejectUnknownLangtagInAttributeValue(implicit c: TestContext): Unit =
+    exceptionTest("error.json.link-attributes") {
+      val putLink = Json.obj(
+        "value" -> Json.obj(
+          "values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("kling-ON" -> 50))))
+        )
+      )
+
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumnWithAttributes(1, 2, multilanguage = true)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      } yield ()
+    }
+
+  @Test
+  def rejectUnknownLangtagOnPutAttributesEndpoint(implicit c: TestContext): Unit =
+    exceptionTest("error.json.link-attributes") {
+      val putLink = Json.obj(
+        "value" -> Json.obj(
+          "values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("de-DE" -> 50))))
+        )
+      )
+      val putAttributes = Json.obj("attributes" -> Json.arr(Json.obj("kling-ON" -> 75)))
+
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumnWithAttributes(1, 2, multilanguage = true)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/1/attributes", putAttributes)
+      } yield ()
+    }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // date/datetime values are normalized on write, so one instant has exactly one stored spelling.
+  // ---------------------------------------------------------------------------------------------------------------
+
+  @Test
+  def dateTimeValueIsNormalizedOnWrite(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj(
+        "values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr("2020-01-01T13:00:00.000+01:00")))
+      )
+    )
+
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2, kind = "datetime")
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      cell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      assertEquals(
+        "2020-01-01T12:00:00.000Z",
+        cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getString(0)
+      )
+    }
+  }
+
+  @Test
+  def dateTimeValueIsNormalizedOnPutAttributesEndpoint(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj("values" -> Json.arr(Json.obj(
+        "id" -> 1,
+        "attributes" -> Json.arr("2019-01-01T00:00:00.000Z")
+      )))
+    )
+    val putAttributes = Json.obj("attributes" -> Json.arr("2020-01-01T13:00:00.000+01:00"))
+
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2, kind = "datetime")
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/1/attributes", putAttributes)
+      cell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      assertEquals(
+        "2020-01-01T12:00:00.000Z",
+        cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getString(0)
+      )
+    }
+  }
+
+  /**
+    * Pins LinkAttributeValueValidator's Joda format to ModelHelper's Postgres TO_CHAR format. The two normalize the
+    * same instant through completely different engines - Joda on write, TO_CHAR in ColumnModel's kind migration - so
+    * nothing but a test comparing their output keeps them from drifting apart.
+    */
+  @Test
+  def dateTimeValueIsNormalizedIdenticallyByWriteAndMigration(implicit c: TestContext): Unit = okTest {
+    val sameInstant = "2020-06-15T14:30:45.123+02:00"
+    val putLink =
+      Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(sameInstant)))))
+
+    def attributeValue(cell: JsonObject): String =
+      cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getString(0)
+
+    for {
+      _ <- setupTwoTables()
+
+      // two link columns between the same pair of tables, hence singleDirection - a bidirectional pair would
+      // auto-create two backlink columns in table 2 that both derive their name from table 1
+      //
+      // written straight into a datetime attribute - normalized by Joda
+      writtenColumnId <-
+        createLinkColumnWithAttributes(1, 2, kind = "datetime", name = "Written Link", singleDirection = true)
+      _ <- sendRequest("POST", s"/tables/1/columns/$writtenColumnId/rows/1", putLink)
+      writtenCell <- sendRequest("GET", s"/tables/1/columns/$writtenColumnId/rows/1")
+
+      // written as text, then migrated to datetime - normalized by Postgres
+      migratedColumnId <-
+        createLinkColumnWithAttributes(1, 2, kind = "text", name = "Migrated Link", singleDirection = true)
+      _ <- sendRequest("POST", s"/tables/1/columns/$migratedColumnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$migratedColumnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "datetime")))
+      )
+      migratedCell <- sendRequest("GET", s"/tables/1/columns/$migratedColumnId/rows/1")
+    } yield {
+      assertEquals("2020-06-15T12:30:45.123Z", attributeValue(writtenCell))
+      assertEquals(attributeValue(writtenCell), attributeValue(migratedCell))
+    }
+  }
+
+  @Test
+  def dateValueRoundtripsForDateKind(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr("2020-01-01"))))
+    )
+
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2, kind = "date")
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      cell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      assertEquals("2020-01-01", cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getString(0))
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // An empty attributes array carries no value for any definition, so it means the same as sending none at all -
+  // it must not put an `attributes` key on a column that has no definitions to interpret it.
+  // ---------------------------------------------------------------------------------------------------------------
+
+  @Test
+  def emptyAttributesArrayOnColumnWithoutDefinitionsIsIgnored(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr()))))
+
+    val expected = Json.obj(
+      "status" -> "ok",
+      "value" -> Json.arr(Json.obj("id" -> 1, "value" -> "table2row1"))
+    )
+
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumn(1, 2, singleDirection = false)
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      cell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      assertEquals(expected, cell)
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // Duplicating a row round-trips its link values back through the write path, so attributes have to survive it.
+  // ---------------------------------------------------------------------------------------------------------------
+
+  @Test
+  def duplicateRowKeepsLinkAttributes(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
+
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2)
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      duplicated <- sendRequest("POST", "/tables/1/rows/1/duplicate")
+      duplicatedCell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/${duplicated.getNumber("id")}")
+    } yield {
+      assertEquals(
+        50,
+        duplicatedCell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getInteger(0)
+      )
+    }
+  }
+
 }

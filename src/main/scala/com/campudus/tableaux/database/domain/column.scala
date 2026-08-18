@@ -602,19 +602,33 @@ case class LinkColumn(
       .mergeIn(formatPatternJson)
   }
 
+  // Langtags of the table this link column belongs to, used to reject unknown langtag keys in a multilanguage
+  // attribute value. TableModel.convertRowToTable falls back to the global langtags when a table has none of its
+  // own, so this is populated for every table that has any langtags at all; an empty Seq (a table explicitly
+  // created with `langtags: []`) turns the check off rather than failing every write.
+  private def tableLangtags: Seq[String] = columnInformation.table.langtags.getOrElse(Seq.empty)
+
   // Shared by both the `{"id": ..., "attributes": [...]}` (values array) and `{"to": ...,
   // "attributes": [...]}` (single-value) shapes, so attributes are honored the same way
   // regardless of which key carries the target row id.
   private def buildLinkValue(id: RowId, obj: JsonObject): LinkValue = {
-    val attributesOpt = Option(obj.getJsonArray("attributes"))
-    attributesOpt.foreach(attrs =>
-      LinkAttributeValueValidator.checkValidValue(linkAttributes, attrs).fold(throw _, identity)
-    )
-    LinkValue(id, attributesOpt)
+    val attributes = Option(obj.getJsonArray("attributes"))
+      .map(attrs =>
+        LinkAttributeValueValidator
+          .normalize(linkAttributes, attrs, tableLangtags)
+          .fold(throw _, identity)
+      )
+      // An empty array carries no value for any definition (it only validates when there are none), so it is the
+      // same thing as sending no attributes at all - stored as SQL NULL rather than as `[]`, which would otherwise
+      // put an `attributes` key on a column that has no definitions to interpret it.
+      .filter(_.size() > 0)
+
+    LinkValue(id, attributes)
   }
 
-  // Handles both a bare id/RowId and a `{"id": ..., "attributes": [...]}` object; attributes are optional on
-  // every element so all pre-existing request shapes (bare ids, or objects with only "id") keep working unchanged.
+  // Handles a bare id (Integer or Long) as well as a `{"id": ..., "attributes": [...]}` object; attributes are
+  // optional on every element so all pre-existing request shapes (bare ids, or objects with only "id") keep
+  // working unchanged.
   private def extractLinkValue(v: Any): LinkValue = v match {
     case id: RowId => LinkValue(id)
     case id: Integer => LinkValue(id.toLong)
@@ -626,16 +640,7 @@ case class LinkColumn(
       )
   }
 
-  private def parseArrayElements(elements: Seq[Any]): Seq[LinkValue] =
-    elements.map({
-      case id: Integer => extractLinkValue(id)
-      case obj: JsonObject => extractLinkValue(obj)
-      case invalidElement =>
-        throw InvalidJsonException(
-          s"Expected Integer or JSON object in link values array, but got ${invalidElement.getClass.getSimpleName}: $invalidElement",
-          "link-value"
-        )
-    })
+  private def parseArrayElements(elements: Seq[Any]): Seq[LinkValue] = elements.map(extractLinkValue)
 
   override def checkValidValue[B](value: B): Try[Option[Seq[LinkValue]]] = {
     Try {

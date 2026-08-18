@@ -1238,7 +1238,7 @@
                 },
                 "linkAttributes": {
                   "type": "array",
-                  "description": "Definitions of attributes attached to a link column (only applicable if the column is of kind \"link\"). Send an empty array to clear the definition and any stored attribute values; omit the field entirely to leave it untouched.",
+                  "description": "Definitions of attributes attached to a link column (only applicable if the column is of kind \"link\"). Send an empty array to clear the definition and any stored attribute values; omit the field entirely to leave it untouched. Validated against the column's formatPattern in both directions: changing only the definitions is rejected with 422 if the stored pattern references an attribute that would no longer exist, and changing only the pattern is rejected if it references an attribute the column does not have.",
                   "items": {
                     "$ref": "#/definitions/LinkAttributeDefinition"
                   }
@@ -2641,7 +2641,7 @@
       ],
       "put": {
         "summary": "Changes the attribute values of a link.",
-        "description": "Sets the attribute values for the given link. The attributes array is positional and validated against the link column's linkAttributes definitions (same length, matching kind per entry). null is accepted for every kind and clears the value; for a multilanguage attribute a single langtag can be set to null to clear just that language. Requires the column to have at least one linkAttributes entry defined.",
+        "description": "Sets the attribute values for the given link. The attributes array is positional and validated against the link column's linkAttributes definitions (same length, matching kind per entry, and for a multilanguage attribute every langtag key must be one of the table's langtags). null is accepted for every kind and clears the value; for a multilanguage attribute a single langtag can be set to null to clear just that language. date and datetime values are normalized before being stored. Requires the column to have at least one linkAttributes entry defined.",
         "tags": [
           "content"
         ],
@@ -3807,7 +3807,7 @@
       "properties": {
         "value": {
           "type": "any",
-          "description": "For link columns, each entry is an object with \"id\", \"value\" and, if the column has linkAttributes defined and a value is set for that link, an \"attributes\" array (one value per linkAttributes definition, positional). Values are returned as stored, including cleared ones: an attribute without a value is null, and a multilanguage attribute keeps its cleared langtags as null. \"attributes\" is omitted for links without a stored value, and omitted entirely (along with \"value\") when the linked row is hidden by row permissions.",
+          "description": "For link columns, each entry is an object with \"id\", \"value\" and, if the column has linkAttributes defined and a value is set for that link, an \"attributes\" array (one value per linkAttributes definition, positional). On write, an empty \"attributes\" array means the same as omitting the key. Values are returned as stored, including cleared ones: an attribute without a value is null, and a multilanguage attribute keeps its cleared langtags as null. \"attributes\" is omitted for links without a stored value, and omitted entirely (along with \"value\") when the linked row is hidden by row permissions.",
           "example": {
             "de": "Bayern",
             "en": "Bavaria"
@@ -5431,9 +5431,12 @@
         "displayName": {
           "$ref": "#/definitions/Multi-language object"
         },
+        "description": {
+          "$ref": "#/definitions/Multi-language object"
+        },
         "kind": {
           "type": "string",
-          "description": "The type of the attribute's value.",
+          "description": "The type of the attribute's value. date and datetime values are normalized on write: a datetime is stored and returned in UTC as YYYY-MM-DDTHH:mm:ss.sssZ regardless of the offset it was sent with, a date as YYYY-MM-DD.",
           "enum": [
             "text",
             "numeric",
@@ -5445,7 +5448,7 @@
         },
         "multilanguage": {
           "type": "boolean",
-          "description": "If true, the attribute's value is a multi-language object keyed by langtag instead of a single value; langtags may be omitted or set to null to mean \"no value in this language\". Defaults to false. Changing this on an existing column reshapes stored values: false to true copies the value to every table langtag, true to false keeps the value of the first langtag that has one; a value that is null is left as null in both directions.",
+          "description": "If true, the attribute's value is a multi-language object keyed by langtag instead of a single value; langtags may be omitted or set to null to mean \"no value in this language\", and every key must be one of the table's langtags. Defaults to false. Requires the table to have langtags - a multi-language value is addressed by langtag, so it is rejected with 422 on a table created with \"langtags\": []. Changing this on an existing column reshapes stored values: false to true copies the value to every table langtag, true to false keeps the value of the langtag that has one (table langtags first in their configured order, then any other langtag still present in the stored value); a value that is null is left as null in both directions.",
           "example": false
         }
       },
@@ -5594,7 +5597,7 @@
         },
         "linkAttributes": {
           "type": "array",
-          "description": "Definitions of attributes attached to this link (only applicable if kind is \"link\"). Currently limited to a maximum of 1 entry. Can also be set/changed on an existing link column via the change-column endpoint; sending an empty array clears the definition and any stored attribute values, omitting the field leaves it untouched.",
+          "description": "Definitions of attributes attached to this link (only applicable if kind is \"link\"). Currently limited to a maximum of 1 entry. Can also be set/changed on an existing link column via the change-column endpoint; sending an empty array clears the definition and any stored attribute values, omitting the field leaves it untouched. A change is validated against the column's formatPattern - renaming or clearing an attribute that the stored pattern references as {{attributes.<name>}} is rejected with 422; send a matching formatPattern in the same request. Note that linkAttributes are shared with the auto-created backlink column while formatPattern is per column, so changing the definitions from one side is not validated against a formatPattern set on the other side.",
           "items": {
             "$ref": "#/definitions/LinkAttributeDefinition"
           },

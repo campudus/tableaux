@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.InvalidJsonException
+import com.campudus.tableaux.{InvalidJsonException, UnprocessableEntityException}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.Json
@@ -10,7 +10,7 @@ import io.vertx.lang.scala.json._
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
-import org.joda.time.{DateTime, LocalDate}
+import org.joda.time.{DateTime, DateTimeZone, LocalDate}
 
 case class Cardinality(from: Int, to: Int)
 
@@ -199,6 +199,9 @@ object LinkAttributeDefinition {
   }
 
   def getJson(attr: LinkAttributeDefinition): JsonObject = {
+    // Both halves of a DisplayInfo have to be written out, exactly like ColumnType.getJson does it: this JSON is
+    // not just the API response, it is also what gets persisted to system_link_table.attributes - so anything
+    // dropped here is dropped for good, not merely hidden from the response.
     val displayNameJson = attr.displayInfos.foldLeft(Json.obj()) {
       case (acc, displayInfo) =>
         displayInfo.optionalName
@@ -206,12 +209,46 @@ object LinkAttributeDefinition {
           .getOrElse(acc)
     }
 
+    val descriptionJson = attr.displayInfos.foldLeft(Json.obj()) {
+      case (acc, displayInfo) =>
+        displayInfo.optionalDescription
+          .map(description => acc.mergeIn(Json.obj(displayInfo.langtag -> description)))
+          .getOrElse(acc)
+    }
+
     Json.obj(
       "name" -> attr.name,
       "displayName" -> displayNameJson,
+      "description" -> descriptionJson,
       "kind" -> attr.kind.toString,
       "multilanguage" -> attr.multilanguage
     )
+  }
+
+  /**
+    * A multilanguage attribute value is an object keyed by langtag, so without langtags there is no way to address one -
+    * and the value migrations in ColumnModel would have nothing to reshape into or collapse from, which used to
+    * silently destroy stored values. Rejecting the definition up front keeps that state unreachable.
+    */
+  def checkMultilanguageAllowed(langtags: Seq[String], definitions: Seq[LinkAttributeDefinition]): Unit = {
+    if (langtags.isEmpty) {
+      definitions.filter(_.multilanguage).foreach(definition =>
+        throw UnprocessableEntityException(
+          s"Link attribute '${definition.name}' can't be multilanguage because its table has no langtags."
+        )
+      )
+    }
+  }
+
+  // Takes a count rather than the definitions so JsonUtils can reject an oversized array before it starts
+  // validating individual entries, and still produce the exact same error as the model-level assertion.
+  def checkMaxCount(count: Int): Unit = {
+    if (count > maxCount) {
+      throw InvalidJsonException(
+        s"Only $maxCount linkAttributes entry is currently supported, but got $count.",
+        "linkAttributes"
+      )
+    }
   }
 }
 
@@ -228,7 +265,34 @@ case class LinkValue(id: RowId, attributes: Option[JsonArray] = None)
   */
 object LinkAttributeValueValidator {
 
-  def checkValidValue(definitions: Seq[LinkAttributeDefinition], attributes: JsonArray): Try[Unit] = Try {
+  /**
+    * Canonical wire format for a `datetime` attribute value. Deliberately the Joda equivalent of ModelHelper's
+    * `dateTimeFormat`, which is what a real datetime column is rendered with and what ColumnModel's kind migration
+    * produces - a value has to look the same no matter whether it was written through the API or cast by a migration.
+    * LinkAttributesTest.dateTimeValueIsNormalizedIdenticallyByWriteAndMigration pins the two together.
+    */
+  private val dateTimeFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+
+  def checkValidValue(
+      definitions: Seq[LinkAttributeDefinition],
+      attributes: JsonArray,
+      allowedLangtags: Seq[String] = Seq.empty
+  ): Try[Unit] = normalize(definitions, attributes, allowedLangtags).map(_ => ())
+
+  /**
+    * Validates a value array against its definitions and returns it in canonical form. Validating and normalizing are
+    * the same pass on purpose: every kind that has more than one spelling for the same value (date, datetime) has to be
+    * parsed to be checked anyway, and letting the parsed result fall on the floor is what allowed two spellings of one
+    * instant to be stored side by side.
+    *
+    * `allowedLangtags` empty means "don't check langtag keys" - the caller either has no table langtags to check
+    * against, or is a path where they aren't resolvable synchronously.
+    */
+  def normalize(
+      definitions: Seq[LinkAttributeDefinition],
+      attributes: JsonArray,
+      allowedLangtags: Seq[String] = Seq.empty
+  ): Try[JsonArray] = Try {
     val values = Option(attributes).map(_.asScala.toSeq).getOrElse(Seq.empty)
 
     if (values.size != definitions.size) {
@@ -238,13 +302,27 @@ object LinkAttributeValueValidator {
       )
     }
 
+    val normalized = new JsonArray()
+
     definitions.zip(values).foreach {
       case (definition, rawValue) =>
         if (definition.multilanguage) {
           rawValue match {
-            case null => // no value set for this attribute, ok
+            case null => normalized.addNull()
             case obj: JsonObject =>
-              obj.getMap.asScala.foreach({ case (_, langValue) => checkKindValue(definition, langValue) })
+              val normalizedObj = new JsonObject()
+
+              obj.getMap.asScala.foreach({
+                case (langtag, langValue) =>
+                  checkLangtag(definition, langtag, allowedLangtags)
+
+                  normalizeKindValue(definition, langValue) match {
+                    case null => normalizedObj.putNull(langtag)
+                    case value => normalizedObj.put(langtag, value)
+                  }
+              })
+
+              normalized.add(normalizedObj)
             case other =>
               throw InvalidJsonException(
                 s"Attribute '${definition.name}' is multilanguage and expects an object of langtag to value, but got $other.",
@@ -253,54 +331,88 @@ object LinkAttributeValueValidator {
           }
         } else {
           rawValue match {
-            case null => // no value set for this attribute, ok
+            case null => normalized.addNull()
             case _: JsonObject =>
               throw InvalidJsonException(
                 s"Attribute '${definition.name}' is not multilanguage and expects a single value, but got an object.",
                 "link-attributes"
               )
-            case value => checkKindValue(definition, value)
+            case value =>
+              normalizeKindValue(definition, value) match {
+                case null => normalized.addNull()
+                case normalizedValue => normalized.add(normalizedValue)
+              }
           }
         }
     }
+
+    normalized
   }
 
-  private def checkKindValue(definition: LinkAttributeDefinition, value: Any): Unit = {
-    // Clearing a value is legal for every kind, not a type violation: null means "no value (in this language)",
-    // which is what a multilanguage attribute with only some langtags filled in looks like - and what a
-    // multilanguage flip leaves behind - so a value read back from the API has to be acceptable as a write again.
-    val result: Try[Any] = if (value == null) {
+  private def checkLangtag(
+      definition: LinkAttributeDefinition,
+      langtag: String,
+      allowedLangtags: Seq[String]
+  ): Unit = {
+    if (allowedLangtags.nonEmpty && !allowedLangtags.contains(langtag)) {
+      throw InvalidJsonException(
+        s"Langtag '$langtag' of attribute '${definition.name}' is not one of its table's langtags " +
+          s"(${allowedLangtags.mkString(", ")}).",
+        "link-attributes"
+      )
+    }
+  }
+
+  /**
+    * Returns the value in canonical form for its kind, or null if it is cleared. Clearing is legal for every kind and
+    * not a type violation: null means "no value (in this language)", which is what a multilanguage attribute with only
+    * some langtags filled in looks like - and what a multilanguage flip leaves behind - so a value read back from the
+    * API has to be acceptable as a write again.
+    */
+  private def normalizeKindValue(definition: LinkAttributeDefinition, value: Any): AnyRef = {
+    // Every branch reports what it expected rather than letting a ClassCastException's message through - "class
+    // java.lang.Integer cannot be cast to class java.lang.String" is not something to hand an API client.
+    def expected(what: String): Nothing = throw new IllegalArgumentException(s"expected $what")
+
+    def asString(what: String): String = value match {
+      case s: String => s
+      case _ => expected(what)
+    }
+
+    val result: Try[AnyRef] = if (value == null) {
       Success(null)
     } else {
-      definition.kind match {
-        case TextType =>
-          Try(value.asInstanceOf[String])
-        case NumericType =>
-          Try(value match {
-            case n: Number => n
-            case _ => throw new IllegalArgumentException(s"expected a number")
-          })
-        case IntegerType =>
-          Try(value match {
-            case i: Integer => i
-            case _ => throw new IllegalArgumentException(s"expected an integer")
-          })
-        case BooleanType =>
-          Try(value match {
-            case b: Boolean => b
-            case _ => throw new IllegalArgumentException(s"expected a boolean")
-          })
-        case DateType =>
-          Try(LocalDate.parse(value.asInstanceOf[String]))
-        case DateTimeType =>
-          Try(DateTime.parse(value.asInstanceOf[String]))
-        case other =>
-          Failure(new IllegalArgumentException(s"unsupported link attribute kind: $other"))
+      Try {
+        definition.kind match {
+          case TextType =>
+            asString("a string")
+          case NumericType =>
+            value match {
+              case n: Number => n
+              case _ => expected("a number")
+            }
+          case IntegerType =>
+            value match {
+              case i: Integer => i
+              case _ => expected("an integer")
+            }
+          case BooleanType =>
+            value match {
+              case b: java.lang.Boolean => b
+              case _ => expected("a boolean")
+            }
+          case DateType =>
+            LocalDate.parse(asString("a date string")).toString
+          case DateTimeType =>
+            DateTime.parse(asString("a datetime string")).withZone(DateTimeZone.UTC).toString(dateTimeFormat)
+          case other =>
+            throw new IllegalArgumentException(s"unsupported link attribute kind: $other")
+        }
       }
     }
 
     result match {
-      case Success(_) => ()
+      case Success(normalizedValue) => normalizedValue
       case Failure(ex) =>
         throw InvalidJsonException(
           s"Invalid value for attribute '${definition.name}' (${definition.kind}): ${ex.getMessage}",

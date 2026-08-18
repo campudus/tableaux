@@ -327,12 +327,7 @@ object JsonUtils extends LazyLogging {
       .map(_.asScala.toSeq)
       .getOrElse(Seq.empty)
 
-    if (entries.size > LinkAttributeDefinition.maxCount) {
-      throw InvalidJsonException(
-        s"Only ${LinkAttributeDefinition.maxCount} linkAttributes entry is currently supported, but got ${entries.size}.",
-        "linkAttributes"
-      )
-    }
+    LinkAttributeDefinition.checkMaxCount(entries.size)
 
     // A name is an identifier, not a label (that's displayName): it is how a value gets referenced in a
     // formatPattern as {{attributes.<name>}}, and those tokens are matched by ColumnModel's
