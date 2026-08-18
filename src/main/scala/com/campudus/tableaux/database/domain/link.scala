@@ -266,30 +266,37 @@ object LinkAttributeValueValidator {
   }
 
   private def checkKindValue(definition: LinkAttributeDefinition, value: Any): Unit = {
-    val result: Try[Any] = definition.kind match {
-      case TextType =>
-        Try(value.asInstanceOf[String])
-      case NumericType =>
-        Try(value match {
-          case n: Number => n
-          case _ => throw new IllegalArgumentException(s"expected a number")
-        })
-      case IntegerType =>
-        Try(value match {
-          case i: Integer => i
-          case _ => throw new IllegalArgumentException(s"expected an integer")
-        })
-      case BooleanType =>
-        Try(value match {
-          case b: Boolean => b
-          case _ => throw new IllegalArgumentException(s"expected a boolean")
-        })
-      case DateType =>
-        Try(LocalDate.parse(value.asInstanceOf[String]))
-      case DateTimeType =>
-        Try(DateTime.parse(value.asInstanceOf[String]))
-      case other =>
-        Failure(new IllegalArgumentException(s"unsupported link attribute kind: $other"))
+    // Clearing a value is legal for every kind, not a type violation: null means "no value (in this language)",
+    // which is what a multilanguage attribute with only some langtags filled in looks like - and what a
+    // multilanguage flip leaves behind - so a value read back from the API has to be acceptable as a write again.
+    val result: Try[Any] = if (value == null) {
+      Success(null)
+    } else {
+      definition.kind match {
+        case TextType =>
+          Try(value.asInstanceOf[String])
+        case NumericType =>
+          Try(value match {
+            case n: Number => n
+            case _ => throw new IllegalArgumentException(s"expected a number")
+          })
+        case IntegerType =>
+          Try(value match {
+            case i: Integer => i
+            case _ => throw new IllegalArgumentException(s"expected an integer")
+          })
+        case BooleanType =>
+          Try(value match {
+            case b: Boolean => b
+            case _ => throw new IllegalArgumentException(s"expected a boolean")
+          })
+        case DateType =>
+          Try(LocalDate.parse(value.asInstanceOf[String]))
+        case DateTimeType =>
+          Try(DateTime.parse(value.asInstanceOf[String]))
+        case other =>
+          Failure(new IllegalArgumentException(s"unsupported link attribute kind: $other"))
+      }
     }
 
     result match {

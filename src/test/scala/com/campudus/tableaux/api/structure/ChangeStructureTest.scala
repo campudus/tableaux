@@ -463,6 +463,132 @@ class ChangeStructureTest extends TableauxTestBase {
     }
   }
 
+  // a stored null is a value that is already empty - duplicating it under every langtag would only respell that,
+  // so the reshape leaves the slot alone instead of producing an object full of nulls
+  @Test
+  def changeLinkColumnMultilanguageFalseToTrueLeavesNullValueUntouched(implicit c: TestContext): Unit = okTest {
+    val putLink =
+      Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr().addNull()))))
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = false)))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true)))
+      )
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertEquals(Json.arr().addNull(), cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes"))
+    }
+  }
+
+  // collapsing has to pick the first langtag that carries an actual value: a cleared langtag comes back from `->` as
+  // a JSON null rather than a SQL NULL, so a plain COALESCE would stop at it and discard the value behind it
+  @Test
+  def changeLinkColumnMultilanguageTrueToFalseSkipsClearedLangtags(implicit c: TestContext): Unit = okTest {
+    // de-DE comes first in the table's langtags and is explicitly cleared, so en-GB's value has to win
+    val putLink = Json.obj(
+      "value" -> Json.obj(
+        "values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("de-DE" -> null, "en-GB" -> 75))))
+      )
+    )
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = true)))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = false)))
+      )
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertEquals(75, cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getInteger(0))
+    }
+  }
+
+  @Test
+  def changeLinkColumnLinkAttributesKindMigrationKeepsClearedLangtags(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj(
+        "values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("de-DE" -> null, "en-GB" -> 50))))
+      )
+    )
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "integer", multilanguage = true)))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "numeric", multilanguage = true)))
+      )
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      val attributeValue = cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getJsonObject(0)
+      // the cleared langtag keeps its key instead of being dropped by the cast
+      assertEquals(Set("de-DE", "en-GB"), attributeValue.fieldNames().asScala.toSet)
+      assertNull(attributeValue.getValue("de-DE"))
+      assertEquals(50.0, attributeValue.getValue("en-GB").asInstanceOf[Number].doubleValue(), 0.001)
+    }
+  }
+
+  // degenerate but reachable: a multilanguage value with every langtag removed. Aggregating over its zero entries
+  // yields a SQL NULL, which strict jsonb_set would turn into a wiped attributes column instead of an empty object.
+  @Test
+  def changeLinkColumnMultilanguageLinkAttributesKindMigrationKeepsEmptyValue(implicit c: TestContext): Unit = okTest {
+    val putLink =
+      Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj())))))
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "integer", multilanguage = true)))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "numeric", multilanguage = true)))
+      )
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertEquals(Json.arr(Json.obj()), cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes"))
+    }
+  }
+
+  // a slot holding null has nothing to cast, so the kind change goes through and the value stays put - casting it
+  // would hand strict jsonb_set a SQL NULL, which wipes the whole attributes column
+  @Test
+  def changeLinkColumnLinkAttributesKindMigrationLeavesNullValueUntouched(implicit c: TestContext): Unit =
+    kindMigrationOnNullValueKeepsSlot(multilanguage = false)
+
+  // same for a multilanguage slot, where deconstructing the null would additionally error out ("cannot call
+  // jsonb_each_text on a non-object") and roll back the whole column change
+  @Test
+  def changeLinkColumnMultilanguageLinkAttributesKindMigrationLeavesNullValueUntouched(
+      implicit c: TestContext
+  ): Unit = kindMigrationOnNullValueKeepsSlot(multilanguage = true)
+
+  private def kindMigrationOnNullValueKeepsSlot(multilanguage: Boolean)(implicit c: TestContext): Unit = okTest {
+    val putLink =
+      Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr().addNull()))))
+
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "integer", multilanguage = multilanguage)))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "numeric", multilanguage = multilanguage)))
+      )
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertEquals("numeric", column.getJsonArray("linkAttributes").getJsonObject(0).getString("kind"))
+      assertEquals(Json.arr().addNull(), cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes"))
+    }
+  }
+
   @Test
   def changeLinkColumnFormatPatternAccepted(implicit c: TestContext): Unit = okTest {
     val pattern = "{{value}} ({{attributes.percentage}}%)"

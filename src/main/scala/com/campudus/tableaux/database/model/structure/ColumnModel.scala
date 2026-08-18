@@ -1912,6 +1912,14 @@ class ColumnModel(val connection: DatabaseConnection)(
       cast: String = ""
   ): String = s"UPDATE system_columns SET $columnName = ?$cast WHERE table_id = ? AND column_id = ?"
 
+  // Guards the value migrations below: only a slot that actually holds a value gets migrated. A slot holding JSON
+  // null is a value that is explicitly empty, and no migration can improve on that - reshaping it would just respell
+  // "empty" (as per-langtag nulls, or as null again), and casting it would take `attributes->>0` as a SQL NULL, which
+  // strict jsonb_set turns into a wiped attributes column. Note that `attributes->0 IS NOT NULL` does not cover the
+  // JSON null case on its own: `->` hands JSON null back as a jsonb value, so that check is true for it.
+  private val slotHoldsAValue =
+    "attributes IS NOT NULL AND attributes->0 IS NOT NULL AND jsonb_typeof(attributes->0) <> 'null'"
+
   // Reshapes existing attribute values (position 0, the only slot while linkAttributes is capped at 1) to match a
   // multilanguage flip, before any kind cast runs on top. There's no cast for this - it's a structural change - so
   // false -> true duplicates the scalar under every table langtag, and true -> false collapses to the first langtag
@@ -1938,15 +1946,19 @@ class ColumnModel(val connection: DatabaseConnection)(
             t.query(
               s"""|UPDATE $linkTable
                   |SET attributes = jsonb_set(attributes, '{0}', jsonb_build_object($pairs))
-                  |WHERE attributes IS NOT NULL AND attributes->0 IS NOT NULL""".stripMargin,
+                  |WHERE $slotHoldsAValue""".stripMargin,
               Json.arr(langtags*)
             )
           } else {
-            val coalesceParts = (langtags.map(_ => "attributes->0->?::text") :+ "'null'::jsonb").mkString(", ")
+            // NULLIF is what makes "first langtag that actually has a value" true: `->` yields a JSON null (not a
+            // SQL NULL) for a langtag that is present but cleared, so a bare COALESCE would stop at that langtag
+            // and throw away a real value stored under a later one.
+            val coalesceParts =
+              (langtags.map(_ => "NULLIF(attributes->0->?::text, 'null'::jsonb)") :+ "'null'::jsonb").mkString(", ")
             t.query(
               s"""|UPDATE $linkTable
                   |SET attributes = jsonb_set(attributes, '{0}', COALESCE($coalesceParts))
-                  |WHERE attributes IS NOT NULL AND attributes->0 IS NOT NULL""".stripMargin,
+                  |WHERE $slotHoldsAValue""".stripMargin,
               Json.arr(langtags*)
             )
           }
@@ -1969,17 +1981,26 @@ class ColumnModel(val connection: DatabaseConnection)(
       t.query(
         s"""|UPDATE $linkTable
             |SET attributes = jsonb_set(attributes, '{0}', to_jsonb((attributes->>0)::${newDefinition.kind.toDbType}))
-            |WHERE attributes IS NOT NULL AND attributes->0 IS NOT NULL""".stripMargin
+            |WHERE $slotHoldsAValue""".stripMargin
       )
     } else {
+      // Cleared langtags cast to null and keep their key: jsonb_each_text hands them over as SQL NULL, the cast
+      // passes that through, and jsonb_object_agg puts them back as JSON null. The COALESCE only catches the
+      // degenerate all-langtags-removed slot ({}), where the aggregate over zero rows is a SQL NULL - which strict
+      // jsonb_set would turn into a wiped attributes column instead of an untouched empty object. The guard is
+      // narrower than slotHoldsAValue because jsonb_each_text errors on anything but an object; a multilanguage
+      // slot can only hold an object or JSON null anyway, since the reshape above runs first.
       t.query(
         s"""|UPDATE $linkTable
             |SET attributes = jsonb_set(
             |  attributes, '{0}',
-            |  (SELECT jsonb_object_agg(key, to_jsonb(value::${newDefinition.kind.toDbType}))
-            |   FROM jsonb_each_text(attributes->0))
+            |  COALESCE(
+            |    (SELECT jsonb_object_agg(key, to_jsonb(value::${newDefinition.kind.toDbType}))
+            |     FROM jsonb_each_text(attributes->0)),
+            |    '{}'::jsonb
+            |  )
             |)
-            |WHERE attributes IS NOT NULL AND attributes->0 IS NOT NULL""".stripMargin
+            |WHERE attributes IS NOT NULL AND jsonb_typeof(attributes->0) = 'object'""".stripMargin
       )
     }
   }
