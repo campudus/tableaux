@@ -5425,7 +5425,7 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "Name of the attribute. Used to reference its value, e.g. in formatPattern as {{attributes.<name>}}.",
+          "description": "Name of the attribute. Used to reference its value, e.g. in formatPattern as {{attributes.<name>}}. Only letters, digits and underscores are allowed, and the name must be unique within the column - it is an identifier, the human-readable label belongs in displayName.",
           "example": "percentage"
         },
         "displayName": {
