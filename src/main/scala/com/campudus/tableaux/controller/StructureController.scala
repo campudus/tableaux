@@ -872,10 +872,10 @@ class StructureController(
       _ <- eventClient.invalidateColumn(tableId, columnId)
 
       // Only a structure change can alter what other columns' cells resolve to; a display property (displayName,
-      // hidden, formatPattern, decimalDigits, ...) is rendered by the frontend and leaves every cached cell value
-      // valid. Gating on the same flag the authorization check above uses keeps the two notions of "structure
-      // change" from drifting apart, and spares the dependency walk - which fans out over every table linking here -
-      // on the common case of renaming a column.
+      // hidden, formatPattern, decimalDigits, maxLength, ...) is rendered by the frontend and leaves every cached
+      // cell value valid, so it does not need the dependency walk that fans out over every table linking here.
+      // Gating on the same flag the authorization check above uses keeps the two notions of "structure change" from
+      // drifting apart - note that this counts `name` and `ordering` as structural, so a rename still invalidates.
       _ <-
         if (isAtLeastOneStructureProperty) {
           invalidateDependentColumnCaches(tableId, columnId, changedColumn)

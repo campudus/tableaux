@@ -273,25 +273,22 @@ object LinkAttributeValueValidator {
     */
   private val dateTimeFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
 
-  def checkValidValue(
-      definitions: Seq[LinkAttributeDefinition],
-      attributes: JsonArray,
-      allowedLangtags: Seq[String] = Seq.empty
-  ): Try[Unit] = normalize(definitions, attributes, allowedLangtags).map(_ => ())
-
   /**
     * Validates a value array against its definitions and returns it in canonical form. Validating and normalizing are
     * the same pass on purpose: every kind that has more than one spelling for the same value (date, datetime) has to be
     * parsed to be checked anyway, and letting the parsed result fall on the floor is what allowed two spellings of one
     * instant to be stored side by side.
     *
-    * `allowedLangtags` empty means "don't check langtag keys" - the caller either has no table langtags to check
-    * against, or is a path where they aren't resolvable synchronously.
+    * Langtag keys are deliberately NOT validated against the table's langtags. A value belongs to the link, which two
+    * tables with different langtag sets share, and a langtag can be removed from a table long after a value was stored
+    * under it - so a stored key is not necessarily a key the addressed side would accept today. Rejecting it would make
+    * a value that the API hands out unwritable, which breaks read-modify-write and duplicateRow (it re-writes the
+    * values it just read). Keys nobody can address anymore are handled where it is safe to handle them: the
+    * multilanguage collapse in ColumnModel walks the stored object instead of the langtag list.
     */
   def normalize(
       definitions: Seq[LinkAttributeDefinition],
-      attributes: JsonArray,
-      allowedLangtags: Seq[String] = Seq.empty
+      attributes: JsonArray
   ): Try[JsonArray] = Try {
     val values = Option(attributes).map(_.asScala.toSeq).getOrElse(Seq.empty)
 
@@ -314,8 +311,6 @@ object LinkAttributeValueValidator {
 
               obj.getMap.asScala.foreach({
                 case (langtag, langValue) =>
-                  checkLangtag(definition, langtag, allowedLangtags)
-
                   normalizeKindValue(definition, langValue) match {
                     case null => normalizedObj.putNull(langtag)
                     case value => normalizedObj.put(langtag, value)
@@ -347,20 +342,6 @@ object LinkAttributeValueValidator {
     }
 
     normalized
-  }
-
-  private def checkLangtag(
-      definition: LinkAttributeDefinition,
-      langtag: String,
-      allowedLangtags: Seq[String]
-  ): Unit = {
-    if (allowedLangtags.nonEmpty && !allowedLangtags.contains(langtag)) {
-      throw InvalidJsonException(
-        s"Langtag '$langtag' of attribute '${definition.name}' is not one of its table's langtags " +
-          s"(${allowedLangtags.mkString(", ")}).",
-        "link-attributes"
-      )
-    }
   }
 
   /**

@@ -733,11 +733,7 @@ class TableauxModel(
             // Normalizing rather than only validating means what lands in the database is the canonical spelling of
             // each value, so this endpoint and a cell write store a given date/datetime identically.
             normalizedAttributes <- Future.fromTry(
-              LinkAttributeValueValidator.normalize(
-                linkColumn.linkAttributes,
-                attributes,
-                table.langtags.getOrElse(Seq.empty)
-              )
+              LinkAttributeValueValidator.normalize(linkColumn.linkAttributes, attributes)
             )
             _ <- createHistoryModel.createCellsInit(table, rowId, Seq((linkColumn, Seq(toId))))
             _ <- updateRowModel.updateLinkAttributes(table, linkColumn, rowId, toId, normalizedAttributes)

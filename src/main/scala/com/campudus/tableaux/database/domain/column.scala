@@ -602,12 +602,6 @@ case class LinkColumn(
       .mergeIn(formatPatternJson)
   }
 
-  // Langtags of the table this link column belongs to, used to reject unknown langtag keys in a multilanguage
-  // attribute value. TableModel.convertRowToTable falls back to the global langtags when a table has none of its
-  // own, so this is populated for every table that has any langtags at all; an empty Seq (a table explicitly
-  // created with `langtags: []`) turns the check off rather than failing every write.
-  private def tableLangtags: Seq[String] = columnInformation.table.langtags.getOrElse(Seq.empty)
-
   // Shared by both the `{"id": ..., "attributes": [...]}` (values array) and `{"to": ...,
   // "attributes": [...]}` (single-value) shapes, so attributes are honored the same way
   // regardless of which key carries the target row id.
@@ -615,7 +609,7 @@ case class LinkColumn(
     val attributes = Option(obj.getJsonArray("attributes"))
       .map(attrs =>
         LinkAttributeValueValidator
-          .normalize(linkAttributes, attrs, tableLangtags)
+          .normalize(linkAttributes, attrs)
           .fold(throw _, identity)
       )
       // An empty array carries no value for any definition (it only validates when there are none), so it is the

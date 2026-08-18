@@ -815,7 +815,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
         toCol = toTableColumns.head
 
-        langtags <- retrieveEffectiveLangtags(table)
+        langtags <- retrieveLinkLangtags(table, toTable)
 
         _ = {
           LinkAttributeDefinition.checkMultilanguageAllowed(langtags, linkColumnInfo.linkAttributes)
@@ -1917,11 +1917,31 @@ class ColumnModel(val connection: DatabaseConnection)(
       cast: String = ""
   ): String = s"UPDATE system_columns SET $columnName = ?$cast WHERE table_id = ? AND column_id = ?"
 
-  // The langtags a multilanguage link attribute value can be keyed by. TableModel.convertRowToTable already
-  // substitutes the global langtags for a table that has none of its own, so the fallback here only covers callers
-  // holding a Table built some other way; an empty result means the table was explicitly created with `langtags: []`.
+  // The langtags of a single table. TableModel.convertRowToTable already substitutes the global langtags for a table
+  // that has none of its own, so the fallback here only covers callers holding a Table built some other way; an empty
+  // result means the table was explicitly created with `langtags: []`.
   private def retrieveEffectiveLangtags(table: Table): Future[Seq[String]] =
     table.langtags.map(Future.successful).getOrElse(tableStruc.retrieveGlobalLangtags())
+
+  // The langtags a multilanguage link attribute can be keyed by: the union of BOTH linked tables' langtags. The
+  // definition and its values belong to the link, not to one of its two columns, so "can this be multilanguage?" is
+  // a question about the link. Asking only the addressed column's table meant the answer depended on which side the
+  // request came through - which locked the backlink side out of editing a perfectly valid definition whenever the
+  // two tables' langtag sets differed.
+  private def retrieveLinkLangtags(fromTable: Table, toTable: Table): Future[Seq[String]] =
+    for {
+      fromLangtags <- retrieveEffectiveLangtags(fromTable)
+      toLangtags <- retrieveEffectiveLangtags(toTable)
+    } yield (fromLangtags ++ toLangtags).distinct
+
+  // Same union, resolved for an existing link column. Deliberately called before the caller opens its transaction:
+  // retrieveLinkInformation reads on its own connection, which must not happen while we hold one.
+  private def retrieveLinkLangtags(table: Table, columnId: ColumnId)(
+      implicit user: TableauxUser
+  ): Future[Seq[String]] =
+    retrieveLinkInformation(table, columnId).flatMap({
+      case (_, _, toTable, _) => retrieveLinkLangtags(table, toTable)
+    })
 
   // Guards the value migrations below: only a slot that actually holds a value gets migrated. A slot holding JSON
   // null is a value that is explicitly empty, and no migration can improve on that - reshaping it would just respell
@@ -1933,11 +1953,15 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   // Reshapes existing attribute values (position 0, the only slot while linkAttributes is capped at 1) to match a
   // multilanguage flip, before any kind cast runs on top. There's no cast for this - it's a structural change - so
-  // false -> true duplicates the scalar under every table langtag, and true -> false collapses to the langtag that
-  // actually has a non-null value, discarding the rest.
+  // false -> true duplicates the scalar under every langtag of the link, and true -> false collapses to the langtag
+  // that actually has a non-null value, discarding the rest.
+  //
+  // `langtags` is the union over both linked tables (see retrieveLinkLangtags), the same set the multilanguage guard
+  // was evaluated against - a narrower set here would flip a value into langtags one side cannot read, or make the
+  // assertion below fire on a definition that was just accepted.
   private def reshapeLinkAttributeValues(
       t: DbTransaction,
-      table: Table,
+      langtags: Seq[String],
       linkTable: String,
       oldDefinition: LinkAttributeDefinition,
       newDefinition: LinkAttributeDefinition
@@ -1946,17 +1970,15 @@ class ColumnModel(val connection: DatabaseConnection)(
       Future.successful((t, Json.obj()))
     } else {
       for {
-        langtags <- retrieveEffectiveLangtags(table)
-
         result <-
           if (newDefinition.multilanguage) {
-            // Unreachable: checkMultilanguageAllowed rejects a multilanguage definition on a langtag-less table
+            // Unreachable: checkMultilanguageAllowed rejects a multilanguage definition on a link without langtags
             // before we get here. Asserted anyway because the failure mode is silent data loss - an empty langtag
             // list makes jsonb_build_object() return {}, which would replace every stored value with an empty
             // object and still commit.
             if (langtags.isEmpty) {
               throw UnprocessableEntityException(
-                s"Cannot make link attribute '${newDefinition.name}' multilanguage: table ${table.id} has no langtags."
+                s"Cannot make link attribute '${newDefinition.name}' multilanguage: its link has no langtags."
               )
             }
 
@@ -2067,18 +2089,22 @@ class ColumnModel(val connection: DatabaseConnection)(
       t: DbTransaction,
       table: Table,
       columnId: ColumnId,
-      newDefinitions: Seq[LinkAttributeDefinition]
+      newDefinitions: Seq[LinkAttributeDefinition],
+      langtags: Seq[String]
   ): Future[(DbTransaction, JsonObject)] = {
     for {
-      langtags <- retrieveEffectiveLangtags(table)
-
       // Both invariants are already enforced while parsing the request (JsonUtils.parseLinkAttributes) and in the
       // controller, so over HTTP neither can fire. They are re-asserted here because this is where the max-1
       // assumption is actually load-bearing: the migrations below only ever look at position 0, so a second entry
       // would be persisted but never reshaped or cast - a silent data bug rather than an error - and a multilanguage
       // definition without langtags is what used to make the reshape wipe values.
-      _ = LinkAttributeDefinition.checkMaxCount(newDefinitions.size)
-      _ = LinkAttributeDefinition.checkMultilanguageAllowed(langtags, newDefinitions)
+      //
+      // Inside a Future rather than a plain `_ =`: the caller applies rollbackAndFail() to the Future this method
+      // returns, so a throw that escaped synchronously would skip the rollback and leave the transaction open.
+      _ <- Future {
+        LinkAttributeDefinition.checkMaxCount(newDefinitions.size)
+        LinkAttributeDefinition.checkMultilanguageAllowed(langtags, newDefinitions)
+      }
 
       (t, linkIdResult) <- t.query(
         "SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?",
@@ -2103,7 +2129,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           // in place; an incompatible kind change fails and rolls back the whole update, same as
           // when the name stays the same.
           for {
-            (t, _) <- reshapeLinkAttributeValues(t, table, linkTable, oldDef, newDef)
+            (t, _) <- reshapeLinkAttributeValues(t, langtags, linkTable, oldDef, newDef)
             (t, result) <- castLinkAttributeValues(t, linkTable, oldDef, newDef)
           } yield (t, result)
 
@@ -2162,6 +2188,12 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
 
     for {
+      // Resolved before the transaction opens on purpose: this reads on its own connection (it has to retrieve the
+      // link's other table), which must not happen while we are holding one.
+      linkLangtags <-
+        if (linkAttributes.isDefined) retrieveLinkLangtags(table, columnId)
+        else Future.successful(Seq.empty[String])
+
       t <- connection.begin()
 
       // change column settings
@@ -2210,7 +2242,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         linkAttributes,
         t,
         { (newDefinitions: Seq[LinkAttributeDefinition]) =>
-          updateLinkAttributesDefinition(t, table, columnId, newDefinitions)
+          updateLinkAttributesDefinition(t, table, columnId, newDefinitions, linkLangtags)
         }
       ).recoverWith(t.rollbackAndFail())
 

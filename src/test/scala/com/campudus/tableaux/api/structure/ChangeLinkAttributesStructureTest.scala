@@ -923,4 +923,100 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase {
     }
   }
 
+  // ---------------------------------------------------------------------------------------------------------------
+  // The multilanguage guard asks the LINK, not the addressed column: linkAttributes live in system_link_table and are
+  // shared by both sides, so evaluating only the addressed table's langtags made the answer depend on which side the
+  // request came through - and locked the backlink side out of editing a perfectly valid definition.
+  // ---------------------------------------------------------------------------------------------------------------
+
+  // table 1 has langtags, table 2 does not; the link therefore has a langtag context
+  private def createLinkToTableWithoutLangtags(multilanguage: Boolean): Future[(TableId, ColumnId)] = {
+    for {
+      _ <- createDefaultTable()
+      toTableId <- createTableWithoutLangtags("No Langtags")
+      // createTableWithoutLangtags deliberately creates no rows; the flip test links to one
+      _ <- sendRequest("POST", s"/tables/$toTableId/rows", Json.obj())
+      columnId <- sendRequest(
+        "POST",
+        "/tables/1/columns",
+        Json.obj("columns" -> Json.arr(Json.obj(
+          "name" -> "Test Link 1",
+          "kind" -> "link",
+          "toTable" -> toTableId,
+          "singleDirection" -> false,
+          "linkAttributes" -> Json.arr(percentageAttribute(multilanguage = multilanguage))
+        )))
+      ).map(_.getJsonArray("columns").getJsonObject(0).getLong("id").toLong)
+    } yield (toTableId, columnId)
+  }
+
+  @Test
+  def createMultilanguageLinkAttributeSucceedsWhenOnlyOneSideHasLangtags(implicit c: TestContext): Unit = okTest {
+    for {
+      (_, columnId) <- createLinkToTableWithoutLangtags(multilanguage = true)
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertTrue(column.getJsonArray("linkAttributes").getJsonObject(0).getBoolean("multilanguage"))
+    }
+  }
+
+  @Test
+  def changeLinkAttributesFromBacklinkSideWithoutOwnLangtagsSucceeds(implicit c: TestContext): Unit = okTest {
+    for {
+      (toTableId, _) <- createLinkToTableWithoutLangtags(multilanguage = true)
+      backlinkId <- sendRequest("GET", s"/tables/$toTableId/columns").map(
+        _.getJsonArray("columns")
+          .asScala
+          .map(_.asInstanceOf[JsonObject])
+          .collectFirst({ case col if col.getString("kind") == "link" => col.getLong("id").toLong })
+          .get
+      )
+      // a pure rename from the side that has no langtags of its own
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$toTableId/columns/$backlinkId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true, name = "share")))
+      )
+      forwardColumn <- sendRequest("GET", "/tables/1/columns")
+    } yield {
+      val linkColumn = forwardColumn.getJsonArray("columns")
+        .asScala
+        .map(_.asInstanceOf[JsonObject])
+        .collectFirst({ case col if col.getString("kind") == "link" => col })
+        .get
+
+      assertEquals("share", linkColumn.getJsonArray("linkAttributes").getJsonObject(0).getString("name"))
+    }
+  }
+
+  // The multilanguage flip must target the link's langtags too, not just the addressed table's - otherwise a value
+  // flipped from the langtag-less side would end up in an empty object.
+  @Test
+  def multilanguageFlipFromBacklinkSideUsesTheLinksLangtags(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
+
+    for {
+      (toTableId, columnId) <- createLinkToTableWithoutLangtags(multilanguage = false)
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      backlinkId <- sendRequest("GET", s"/tables/$toTableId/columns").map(
+        _.getJsonArray("columns")
+          .asScala
+          .map(_.asInstanceOf[JsonObject])
+          .collectFirst({ case col if col.getString("kind") == "link" => col.getLong("id").toLong })
+          .get
+      )
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$toTableId/columns/$backlinkId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true)))
+      )
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      val attributeValue = cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getJsonObject(0)
+
+      assertEquals(50, attributeValue.getInteger("de-DE"))
+      assertEquals(50, attributeValue.getInteger("en-GB"))
+    }
+  }
+
 }

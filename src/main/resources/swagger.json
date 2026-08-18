@@ -2641,7 +2641,7 @@
       ],
       "put": {
         "summary": "Changes the attribute values of a link.",
-        "description": "Sets the attribute values for the given link. The attributes array is positional and validated against the link column's linkAttributes definitions (same length, matching kind per entry, and for a multilanguage attribute every langtag key must be one of the table's langtags). null is accepted for every kind and clears the value; for a multilanguage attribute a single langtag can be set to null to clear just that language. date and datetime values are normalized before being stored. Requires the column to have at least one linkAttributes entry defined.",
+        "description": "Sets the attribute values for the given link. The attributes array is positional and validated against the link column's linkAttributes definitions (same length, matching kind per entry). null is accepted for every kind and clears the value; for a multilanguage attribute a single langtag can be set to null to clear just that language. date and datetime values are normalized before being stored. Requires the column to have at least one linkAttributes entry defined.",
         "tags": [
           "content"
         ],
@@ -5448,7 +5448,7 @@
         },
         "multilanguage": {
           "type": "boolean",
-          "description": "If true, the attribute's value is a multi-language object keyed by langtag instead of a single value; langtags may be omitted or set to null to mean \"no value in this language\", and every key must be one of the table's langtags. Defaults to false. Requires the table to have langtags - a multi-language value is addressed by langtag, so it is rejected with 422 on a table created with \"langtags\": []. Changing this on an existing column reshapes stored values: false to true copies the value to every table langtag, true to false keeps the value of the langtag that has one (table langtags first in their configured order, then any other langtag still present in the stored value); a value that is null is left as null in both directions.",
+          "description": "If true, the attribute's value is a multi-language object keyed by langtag instead of a single value; langtags may be omitted or set to null to mean \"no value in this language\". Defaults to false. Requires the link to have langtags - a multi-language value is addressed by langtag, so it is rejected with 422 when neither of the two linked tables has any (both created with \"langtags\": []). Langtag keys of a stored value are not restricted to those langtags: the definition is shared by both linked tables, whose langtag sets may differ, and a langtag can be removed from a table after a value was stored under it. Changing this on an existing column reshapes stored values: false to true copies the value to every langtag of the link, true to false keeps the value of the langtag that has one (the link's langtags first in their configured order, then any other langtag still present in the stored value); a value that is null is left as null in both directions.",
           "example": false
         }
       },
