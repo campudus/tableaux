@@ -16,7 +16,7 @@ import com.campudus.tableaux.helper.UnionTableHelper
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
-import io.vertx.lang.scala.json.{JsonArray, JsonObject}
+import io.vertx.lang.scala.json.JsonArray
 
 import scala.concurrent.Future
 import scala.util.Try

@@ -567,8 +567,8 @@ case class LinkColumn(
     to: ColumnType[?],
     linkId: LinkId,
     linkDirection: LinkDirection,
-    linkAttributes: Seq[LinkAttributeDefinition] = Seq.empty,
-    formatPattern: Option[String] = None
+    linkAttributes: Seq[LinkAttributeDefinition],
+    formatPattern: Option[String]
 )(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ColumnType[Seq[LinkValue]]
     with LazyLogging {
   override val kind: LinkType.type = LinkType
