@@ -56,9 +56,7 @@ object CreateLinkColumn {
       displayInfos: Seq[DisplayInfo],
       constraint: Constraint,
       attributes: Option[JsonObject],
-      hidden: Boolean = false,
-      linkAttributes: Seq[LinkAttributeDefinition] = Seq.empty,
-      formatPattern: Option[String] = None
+      hidden: Boolean = false
   ): CreateLinkColumn = {
     val createBackLinkColumn = CreateBackLinkColumn(
       name = toName,
@@ -77,8 +75,10 @@ object CreateLinkColumn {
       createBackLinkColumn,
       attributes,
       hidden,
-      linkAttributes,
-      formatPattern
+      // This factory exists for the internal bootstrap callers (settings/taxonomy tables), which never carry link
+      // attributes. Requests that do go through the case class constructor directly - see JsonUtils.toCreateColumnSeq.
+      linkAttributes = Seq.empty,
+      formatPattern = None
     )
   }
 }
