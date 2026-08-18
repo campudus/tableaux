@@ -288,6 +288,54 @@ class ChangeStructureTest extends TableauxTestBase {
       createLinkColumn(Json.arr(percentageAttribute(kind = "link")))
     }
 
+  // the name is the only handle a value has - {{attributes.<name>}} in a formatPattern, matched by a \w-based
+  // regex - so a name that regex can never produce is rejected instead of being stored unreferenceable
+  private def createLinkColumnWithNameFails(name: String)(implicit c: TestContext): Unit =
+    exceptionTest("error.json.linkAttributes") {
+      createLinkColumn(Json.arr(percentageAttribute(name = name)))
+    }
+
+  @Test
+  def createLinkColumnWithEmptyLinkAttributeNameFails(implicit c: TestContext): Unit =
+    createLinkColumnWithNameFails("")
+
+  @Test
+  def createLinkColumnWithBlankLinkAttributeNameFails(implicit c: TestContext): Unit =
+    createLinkColumnWithNameFails("   ")
+
+  // a dot would make a token like {{attributes.a.b}} ambiguous
+  @Test
+  def createLinkColumnWithDottedLinkAttributeNameFails(implicit c: TestContext): Unit =
+    createLinkColumnWithNameFails("percentage.value")
+
+  @Test
+  def createLinkColumnWithSpaceInLinkAttributeNameFails(implicit c: TestContext): Unit =
+    createLinkColumnWithNameFails("percent age")
+
+  @Test
+  def createLinkColumnWithLinkAttributeNameOfLettersDigitsUnderscoreSucceeds(implicit c: TestContext): Unit = okTest {
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute(name = "percentage_2")))
+      result <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertEquals("percentage_2", result.getJsonArray("linkAttributes").getJsonObject(0).getString("name"))
+    }
+  }
+
+  // the change path parses linkAttributes with the same parser, so it rejects the same names
+  @Test
+  def changeLinkColumnToInvalidLinkAttributeNameFails(implicit c: TestContext): Unit =
+    exceptionTest("error.json.linkAttributes") {
+      for {
+        columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/1/columns/$columnId",
+          Json.obj("linkAttributes" -> Json.arr(percentageAttribute(name = "percent age")))
+        )
+      } yield ()
+    }
+
   @Test
   def changeLinkColumnAddLinkAttributes(implicit c: TestContext): Unit = okTest {
     for {
