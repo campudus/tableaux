@@ -730,12 +730,20 @@ class TableauxModel(
           Future.failed(UnprocessableEntityException(s"Column ${linkColumn.id} has no linkAttributes defined."))
         case linkColumn: LinkColumn => {
           for {
-            _ <- Future.fromTry(LinkAttributeValueValidator.checkValidValue(linkColumn.linkAttributes, attributes))
+            // Normalizing rather than only validating means what lands in the database is the canonical spelling of
+            // each value, so this endpoint and a cell write store a given date/datetime identically.
+            normalizedAttributes <- Future.fromTry(
+              LinkAttributeValueValidator.normalize(
+                linkColumn.linkAttributes,
+                attributes,
+                table.langtags.getOrElse(Seq.empty)
+              )
+            )
             _ <- createHistoryModel.createCellsInit(table, rowId, Seq((linkColumn, Seq(toId))))
-            _ <- updateRowModel.updateLinkAttributes(table, linkColumn, rowId, toId, attributes)
+            _ <- updateRowModel.updateLinkAttributes(table, linkColumn, rowId, toId, normalizedAttributes)
             _ <- invalidateCellAndDependentColumns(column, rowId)
             _ <- createHistoryModel.updateLinks(table, linkColumn, Seq(rowId))
-          } yield Future.successful(())
+          } yield ()
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
@@ -1911,10 +1919,17 @@ class TableauxModel(
             cell <- retrieveCell(concatenateColumn, rowId, true)
           } yield {
             val cellJson = cell.getJson
-            // Start from the raw linked row (carries fields the SQL projection already
-            // filled in, e.g. attributes/final/archived) and only overwrite its value,
-            // which the projection couldn't compute for a concat target.
-            list ++ List(linkedRow.copy().mergeIn(cellJson))
+            // The projection can't compute a value for a concat target, so the row is rebuilt around the
+            // separately fetched one. Only `attributes` is carried over from the raw row - deliberately not
+            // everything it happens to hold: passing its flags through as well would newly surface
+            // final/archived on link values whose target is a concat column, and inconsistently at that,
+            // since removeUnauthorizedLinkAndConcatValues rebuilds the object without them further down.
+            val attributesJson = Option(linkedRow.getValue("attributes")) match {
+              case Some(attributes) => Json.obj("attributes" -> attributes)
+              case None => Json.obj()
+            }
+
+            list ++ List(Json.obj("id" -> rowId).mergeIn(cellJson).mergeIn(attributesJson))
           }
       }
     }
