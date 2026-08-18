@@ -440,43 +440,113 @@ class LinkAttributesTest extends LinkTestBase {
     }
 
   // ---------------------------------------------------------------------------------------------------------------
-  // Langtag keys of a multilanguage attribute value are validated against the table's langtags. Writing was tolerant
-  // before, which let a value be stored under a langtag no migration would ever look at again.
+  // Langtag keys are deliberately NOT restricted to the addressed table's langtags. A value belongs to the link,
+  // which two tables with differing langtag sets share, and a langtag can be removed from a table after a value was
+  // stored under it - so rejecting an unknown key would make a value the API hands out unwritable.
   // ---------------------------------------------------------------------------------------------------------------
 
   @Test
-  def rejectUnknownLangtagInAttributeValue(implicit c: TestContext): Unit =
-    exceptionTest("error.json.link-attributes") {
-      val putLink = Json.obj(
-        "value" -> Json.obj(
-          "values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("kling-ON" -> 50))))
-        )
+  def attributeValueUnderForeignLangtagIsAccepted(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj(
+        "values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("kling-ON" -> 50))))
       )
+    )
 
-      for {
-        _ <- setupTwoTables()
-        linkColumnId <- createLinkColumnWithAttributes(1, 2, multilanguage = true)
-        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
-      } yield ()
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2, multilanguage = true)
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      cell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      val value = cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getJsonObject(0)
+      assertEquals(50, value.getInteger("kling-ON"))
     }
+  }
 
+  /**
+    * The round-trip invariant: whatever the API hands out has to be acceptable as a write again. Rejecting langtag keys
+    * broke this for a value stored under a langtag that was later removed from the table - both the explicit attributes
+    * endpoint and duplicateRow (which re-writes the values it just read) failed with 400.
+    */
   @Test
-  def rejectUnknownLangtagOnPutAttributesEndpoint(implicit c: TestContext): Unit =
-    exceptionTest("error.json.link-attributes") {
-      val putLink = Json.obj(
-        "value" -> Json.obj(
-          "values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("de-DE" -> 50))))
-        )
-      )
-      val putAttributes = Json.obj("attributes" -> Json.arr(Json.obj("kling-ON" -> 75)))
+  def attributeValueUnderRemovedLangtagStaysWritable(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("de-DE" -> 50)))))
+    )
 
-      for {
-        _ <- setupTwoTables()
-        linkColumnId <- createLinkColumnWithAttributes(1, 2, multilanguage = true)
-        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/1/attributes", putAttributes)
-      } yield ()
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2, multilanguage = true)
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+
+      // de-DE is no longer one of the table's langtags, but the stored value still sits under it
+      _ <- sendRequest("POST", "/tables/1", Json.obj("langtags" -> Json.arr("en-GB")))
+
+      cell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+      readBack = cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes")
+
+      // writing back exactly what was read must work
+      _ <- sendRequest(
+        "PUT",
+        s"/tables/1/columns/$linkColumnId/rows/1/link/1/attributes",
+        Json.obj("attributes" -> readBack)
+      )
+
+      // duplicateRow does the same round-trip internally
+      duplicated <- sendRequest("POST", "/tables/1/rows/1/duplicate")
+      duplicatedCell <-
+        sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/${duplicated.getNumber("id")}")
+    } yield {
+      assertEquals(Json.obj("de-DE" -> 50), readBack.getJsonObject(0))
+      assertEquals(
+        Json.obj("de-DE" -> 50),
+        duplicatedCell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getJsonObject(0)
+      )
     }
+  }
+
+  /**
+    * Same invariant, reached without anyone reconfiguring anything: two linked tables with different langtag sets. The
+    * value is written from the side that knows de-DE, then a row is duplicated on the side that does not.
+    */
+  @Test
+  def attributeValueSurvivesDuplicateOnSideWithNarrowerLangtags(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj("de-DE" -> 50)))))
+    )
+
+    for {
+      _ <- createDefaultTable()
+      toTableId <- sendRequest("POST", "/tables", Json.obj("name" -> "Narrow", "langtags" -> Json.arr("en-GB")))
+        .map(_.getLong("id").toLong)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$toTableId/columns",
+        Json.obj("columns" -> Json.arr(Json.obj("name" -> "name", "kind" -> "text", "identifier" -> true)))
+      )
+      _ <- sendRequest("POST", s"/tables/$toTableId/rows", Json.obj())
+
+      linkColumnId <- sendRequest(
+        "POST",
+        "/tables/1/columns",
+        Json.obj("columns" -> Json.arr(Json.obj(
+          "name" -> "Test Link 1",
+          "kind" -> "link",
+          "toTable" -> toTableId,
+          "singleDirection" -> false,
+          "linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true))
+        )))
+      ).map(_.getJsonArray("columns").getJsonObject(0).getLong("id").toLong)
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+
+      // duplicate a row of the table whose langtags do not include de-DE
+      duplicated <- sendRequest("POST", s"/tables/$toTableId/rows/1/duplicate")
+    } yield {
+      assertNotNull(duplicated.getNumber("id"))
+    }
+  }
 
   // ---------------------------------------------------------------------------------------------------------------
   // date/datetime values are normalized on write, so one instant has exactly one stored spelling.
