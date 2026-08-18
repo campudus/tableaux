@@ -1690,6 +1690,14 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         )
     }
 
+    // attributes must not go through jsonb_strip_nulls: that works recursively, so an explicitly null langtag of a
+    // multilanguage attribute value would silently vanish from the response ([{"de-DE": null, "en-GB": 50}] becomes
+    // [{"en-GB": 50}], and a value that is null in every langtag even collapses to [{}]). Stored values are handed
+    // out as-is instead; only the "no attributes at all" case still omits the key, which the CASE does explicitly.
+    val attributes =
+      s"CASE WHEN lt$linkId.attributes IS NULL THEN '{}'::jsonb " +
+        s"ELSE jsonb_build_object('attributes', lt$linkId.attributes) END"
+
     s"""(
        |SELECT
        |  json_agg(sub.value)
@@ -1701,10 +1709,10 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
        |      jsonb_strip_nulls(
        |        jsonb_build_object(
        |          'final', CASE WHEN ut$toTableId.final IS TRUE THEN ut$toTableId.final ELSE NULL END,
-       |          'archived', CASE WHEN ut$toTableId.archived IS TRUE THEN ut$toTableId.archived ELSE NULL END,
-       |          'attributes', lt$linkId.attributes
+       |          'archived', CASE WHEN ut$toTableId.archived IS TRUE THEN ut$toTableId.archived ELSE NULL END
        |        )
-       |      )
+       |      ) ||
+       |      $attributes
        |    ) AS value
        | FROM
        |    link_table_$linkId lt$linkId

@@ -2641,7 +2641,7 @@
       ],
       "put": {
         "summary": "Changes the attribute values of a link.",
-        "description": "Sets the attribute values for the given link. The attributes array is positional and validated against the link column's linkAttributes definitions (same length, matching kind per entry). Requires the column to have at least one linkAttributes entry defined.",
+        "description": "Sets the attribute values for the given link. The attributes array is positional and validated against the link column's linkAttributes definitions (same length, matching kind per entry). null is accepted for every kind and clears the value; for a multilanguage attribute a single langtag can be set to null to clear just that language. Requires the column to have at least one linkAttributes entry defined.",
         "tags": [
           "content"
         ],
@@ -3807,7 +3807,7 @@
       "properties": {
         "value": {
           "type": "any",
-          "description": "For link columns, each entry is an object with \"id\", \"value\" and, if the column has linkAttributes defined and a value is set for that link, an \"attributes\" array (one value per linkAttributes definition, positional). \"attributes\" is omitted for links without a stored value, and omitted entirely (along with \"value\") when the linked row is hidden by row permissions.",
+          "description": "For link columns, each entry is an object with \"id\", \"value\" and, if the column has linkAttributes defined and a value is set for that link, an \"attributes\" array (one value per linkAttributes definition, positional). Values are returned as stored, including cleared ones: an attribute without a value is null, and a multilanguage attribute keeps its cleared langtags as null. \"attributes\" is omitted for links without a stored value, and omitted entirely (along with \"value\") when the linked row is hidden by row permissions.",
           "example": {
             "de": "Bayern",
             "en": "Bavaria"
@@ -5445,7 +5445,7 @@
         },
         "multilanguage": {
           "type": "boolean",
-          "description": "If true, the attribute's value is a multi-language object keyed by langtag instead of a single value. Defaults to false.",
+          "description": "If true, the attribute's value is a multi-language object keyed by langtag instead of a single value; langtags may be omitted or set to null to mean \"no value in this language\". Defaults to false. Changing this on an existing column reshapes stored values: false to true copies the value to every table langtag, true to false keeps the value of the first langtag that has one; a value that is null is left as null in both directions.",
           "example": false
         }
       },
