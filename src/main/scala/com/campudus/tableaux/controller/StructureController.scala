@@ -890,8 +890,10 @@ class StructureController(
   // migrating/wiping values) can affect every row, not just one. Without this, a column shared
   // across tables (the backlink side of a bidirectional link, or a group column referencing this
   // one) keeps serving cell values cached before the change.
-  private def invalidateDependentColumnCaches(tableId: TableId, columnId: ColumnId, column: ColumnType[?])(
-      implicit user: TableauxUser
+  private def invalidateDependentColumnCaches(
+      tableId: TableId,
+      columnId: ColumnId,
+      column: ColumnType[?]
   ): Future[Unit] = {
     def invalidateColumnCache: (TableId, ColumnId) => Future[?] = eventClient.invalidateColumn
 

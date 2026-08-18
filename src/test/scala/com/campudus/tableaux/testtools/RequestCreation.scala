@@ -172,33 +172,4 @@ object RequestCreation {
     }
   }
 
-  case class LinkAttributeDef(
-      name: String,
-      displayName: Map[String, String] = Map.empty,
-      kind: String = "integer",
-      multilanguage: Boolean = false
-  ) extends DomainObject {
-
-    override def getJson: JsonObject = Json.obj(
-      "name" -> name,
-      "displayName" -> Json.obj(displayName.toSeq*),
-      "kind" -> kind,
-      "multilanguage" -> multilanguage
-    )
-  }
-
-  case class WithLinkAttributes(column: ColumnType, linkAttributes: Seq[LinkAttributeDef])
-      extends ColumnType(column.kind) {
-    val name: String = column.name
-
-    override def getJson: JsonObject =
-      column.getJson.mergeIn(Json.obj("linkAttributes" -> Json.arr(linkAttributes.map(_.getJson)*)))
-  }
-
-  case class WithFormatPattern(column: ColumnType, formatPattern: String) extends ColumnType(column.kind) {
-    val name: String = column.name
-
-    override def getJson: JsonObject = column.getJson.mergeIn(Json.obj("formatPattern" -> formatPattern))
-  }
-
 }
