@@ -789,7 +789,7 @@ class StructureController(
 
       // No maxCount check here: JsonUtils.parseLinkAttributes already rejects an oversized array while parsing the
       // request, so a second check would be unreachable over HTTP and could only ever drift away from the one that
-      // actually fires (error.json.linkAttributes).
+      // actually fires (error.json.linkAttributes). ColumnModel re-asserts it where the cap is load-bearing.
       _ <-
         linkAttributes match {
           case Some(_) =>
@@ -804,10 +804,20 @@ class StructureController(
           case None => Future.successful(())
         }
 
+      // A link column's formatPattern and its linkAttributes constrain each other - the pattern references the
+      // definitions by name as {{attributes.<name>}} - so both directions have to be validated. Changing only the
+      // definitions (renaming an attribute, or clearing them with an empty array) invalidates a pattern stored
+      // earlier just as thoroughly as changing only the pattern does, and since formatPattern can't be set back to
+      // null through this endpoint, such a pattern can't easily be repaired afterwards either.
+      //
+      // Scope: this covers the column being changed. linkAttributes live on the link (system_link_table, shared with
+      // the backlink column) while formatPattern lives on the column (system_columns), so changing the definitions
+      // from one side can still leave a pattern on the *other* side dangling. Deliberately not chased here - it
+      // would mean loading the opposite column on every change - see the swagger note on linkAttributes.
       _ <-
-        if (formatPattern.isDefined) {
+        if (formatPattern.isDefined || linkAttributes.isDefined) {
           column match {
-            case groupColumn: GroupColumn => {
+            case groupColumn: GroupColumn if formatPattern.isDefined => {
               if (!isColumnGroupMatchingToFormatPattern(formatPattern, groupColumn.columns)) {
                 val columnsIds = groupColumn.columns.map(_.id).mkString(", ");
 
@@ -819,23 +829,26 @@ class StructureController(
               }
             }
             case linkColumn: LinkColumn => {
-              // if linkAttributes is also being changed in this same request, validate against the new
-              // definitions rather than the column's current (pre-change) ones
+              // Whichever of the two the request omits is taken from the column as it stands, so the check always
+              // sees the pair as it will be after the change.
+              val effectiveFormatPattern = formatPattern.orElse(linkColumn.formatPattern)
               val effectiveLinkAttributes = linkAttributes.getOrElse(linkColumn.linkAttributes)
 
-              if (!isLinkColumnMatchingToFormatPattern(formatPattern, effectiveLinkAttributes)) {
+              if (!isLinkColumnMatchingToFormatPattern(effectiveFormatPattern, effectiveLinkAttributes)) {
                 Future.failed(UnprocessableEntityException(
-                  s"Invalid formatPattern: '$formatPattern' doesn't match link value/attributes"
+                  s"Invalid formatPattern: '${effectiveFormatPattern.orNull}' doesn't match link value/attributes"
                 ))
               } else {
                 Future.successful(())
               }
             }
-            case _ =>
+            case _ if formatPattern.isDefined =>
               Future.failed(ForbiddenException(
                 s"Update of formatPattern '$formatPattern' is not allowed for column ${column.kind}.",
                 "column"
               ))
+            // linkAttributes on a non-link column was already rejected above
+            case _ => Future.successful(())
           }
         } else {
           Future.successful(())
@@ -857,7 +870,18 @@ class StructureController(
       }
 
       _ <- eventClient.invalidateColumn(tableId, columnId)
-      _ <- invalidateDependentColumnCaches(tableId, columnId, changedColumn)
+
+      // Only a structure change can alter what other columns' cells resolve to; a display property (displayName,
+      // hidden, formatPattern, decimalDigits, ...) is rendered by the frontend and leaves every cached cell value
+      // valid. Gating on the same flag the authorization check above uses keeps the two notions of "structure
+      // change" from drifting apart, and spares the dependency walk - which fans out over every table linking here -
+      // on the common case of renaming a column.
+      _ <-
+        if (isAtLeastOneStructureProperty) {
+          invalidateDependentColumnCaches(tableId, columnId, changedColumn)
+        } else {
+          Future.successful(())
+        }
     } yield changedColumn
   }
 

@@ -210,18 +210,26 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
   // retrieveForeignIdentifierCells/getLinksData only fetch the *foreign row's* identifier value - this fetches the
   // join table's own per-link attributes column, keyed by the linked row id, for the given source row.
+  //
+  // A column without definitions can't have stored values, so it skips the query entirely: this runs for every link
+  // column on every link change, which for the whole pre-existing stock of link columns would otherwise be a
+  // guaranteed-empty round trip per column per changed row.
   private def retrieveLinkAttributesByRowId(column: LinkColumn, rowId: RowId): Future[Map[RowId, JsonArray]] = {
-    val linkTable = s"link_table_${column.linkId}"
-    val fromIdColumn = column.linkDirection.fromSql
-    val toIdColumn = column.linkDirection.toSql
+    if (column.linkAttributes.isEmpty) {
+      Future.successful(Map.empty)
+    } else {
+      val linkTable = s"link_table_${column.linkId}"
+      val fromIdColumn = column.linkDirection.fromSql
+      val toIdColumn = column.linkDirection.toSql
 
-    connection
-      .query(
-        s"SELECT $toIdColumn, attributes FROM $linkTable WHERE $fromIdColumn = ? AND attributes IS NOT NULL",
-        Json.arr(rowId)
-      )
-      .map(resultObjectToJsonArray)
-      .map(_.map(row => (row.getLong(0).longValue(), new JsonArray(row.getString(1)))).toMap)
+      connection
+        .query(
+          s"SELECT $toIdColumn, attributes FROM $linkTable WHERE $fromIdColumn = ? AND attributes IS NOT NULL",
+          Json.arr(rowId)
+        )
+        .map(resultObjectToJsonArray)
+        .map(_.map(row => (row.getLong(0).longValue(), new JsonArray(row.getString(1)))).toMap)
+    }
   }
 
   private def createLinks(

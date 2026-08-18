@@ -13,6 +13,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.database.model.structure.ColumnModel.isLinkColumnMatchingToFormatPattern
+import com.campudus.tableaux.database.model.tableaux.ModelHelper.{parseDateSql, parseDateTimeSql}
 import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
@@ -814,7 +815,11 @@ class ColumnModel(val connection: DatabaseConnection)(
 
         toCol = toTableColumns.head
 
+        langtags <- retrieveEffectiveLangtags(table)
+
         _ = {
+          LinkAttributeDefinition.checkMultilanguageAllowed(langtags, linkColumnInfo.linkAttributes)
+
           if (!isLinkColumnMatchingToFormatPattern(linkColumnInfo.formatPattern, linkColumnInfo.linkAttributes)) {
             throw UnprocessableEntityException(
               s"Invalid formatPattern: '${linkColumnInfo.formatPattern.orNull}' doesn't match link value/attributes"
@@ -1912,6 +1917,12 @@ class ColumnModel(val connection: DatabaseConnection)(
       cast: String = ""
   ): String = s"UPDATE system_columns SET $columnName = ?$cast WHERE table_id = ? AND column_id = ?"
 
+  // The langtags a multilanguage link attribute value can be keyed by. TableModel.convertRowToTable already
+  // substitutes the global langtags for a table that has none of its own, so the fallback here only covers callers
+  // holding a Table built some other way; an empty result means the table was explicitly created with `langtags: []`.
+  private def retrieveEffectiveLangtags(table: Table): Future[Seq[String]] =
+    table.langtags.map(Future.successful).getOrElse(tableStruc.retrieveGlobalLangtags())
+
   // Guards the value migrations below: only a slot that actually holds a value gets migrated. A slot holding JSON
   // null is a value that is explicitly empty, and no migration can improve on that - reshaping it would just respell
   // "empty" (as per-langtag nulls, or as null again), and casting it would take `attributes->>0` as a SQL NULL, which
@@ -1922,8 +1933,8 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   // Reshapes existing attribute values (position 0, the only slot while linkAttributes is capped at 1) to match a
   // multilanguage flip, before any kind cast runs on top. There's no cast for this - it's a structural change - so
-  // false -> true duplicates the scalar under every table langtag, and true -> false collapses to the first langtag
-  // (in configured priority order) that actually has a non-null value, discarding the rest.
+  // false -> true duplicates the scalar under every table langtag, and true -> false collapses to the langtag that
+  // actually has a non-null value, discarding the rest.
   private def reshapeLinkAttributeValues(
       t: DbTransaction,
       table: Table,
@@ -1935,10 +1946,20 @@ class ColumnModel(val connection: DatabaseConnection)(
       Future.successful((t, Json.obj()))
     } else {
       for {
-        langtags <- table.langtags.map(Future.successful).getOrElse(tableStruc.retrieveGlobalLangtags())
+        langtags <- retrieveEffectiveLangtags(table)
 
         result <-
           if (newDefinition.multilanguage) {
+            // Unreachable: checkMultilanguageAllowed rejects a multilanguage definition on a langtag-less table
+            // before we get here. Asserted anyway because the failure mode is silent data loss - an empty langtag
+            // list makes jsonb_build_object() return {}, which would replace every stored value with an empty
+            // object and still commit.
+            if (langtags.isEmpty) {
+              throw UnprocessableEntityException(
+                s"Cannot make link attribute '${newDefinition.name}' multilanguage: table ${table.id} has no langtags."
+              )
+            }
+
             // Postgres can't infer a bare `?` placeholder's type from a variadic "any" function like
             // jsonb_build_object - it needs an explicit cast, or every prepared execution fails with
             // "could not determine data type of parameter $1".
@@ -1950,20 +1971,49 @@ class ColumnModel(val connection: DatabaseConnection)(
               Json.arr(langtags*)
             )
           } else {
-            // NULLIF is what makes "first langtag that actually has a value" true: `->` yields a JSON null (not a
-            // SQL NULL) for a langtag that is present but cleared, so a bare COALESCE would stop at that langtag
-            // and throw away a real value stored under a later one.
-            val coalesceParts =
-              (langtags.map(_ => "NULLIF(attributes->0->?::text, 'null'::jsonb)") :+ "'null'::jsonb").mkString(", ")
+            // Collapsing walks the stored object itself instead of the table's langtag list, because the two can
+            // disagree: a value may sit under a langtag that was since removed from the table, or was written
+            // before langtag keys were validated. Iterating table langtags would drop those values without a
+            // trace, so jsonb_each decides what exists and array_position only decides the order - configured
+            // langtags first (in their configured priority), everything else after, key order as a tie-break so
+            // the outcome is deterministic.
+            //
+            // `jsonb_typeof(value) <> 'null'` is what makes "the langtag that actually has a value" true: a
+            // present-but-cleared langtag holds a JSON null, which is not a SQL NULL and would otherwise win.
+            val langtagArray =
+              if (langtags.isEmpty) "ARRAY[]::text[]"
+              else langtags.map(_ => "?::text").mkString("ARRAY[", ", ", "]")
+
             t.query(
               s"""|UPDATE $linkTable
-                  |SET attributes = jsonb_set(attributes, '{0}', COALESCE($coalesceParts))
-                  |WHERE $slotHoldsAValue""".stripMargin,
+                  |SET attributes = jsonb_set(attributes, '{0}', COALESCE(
+                  |  (SELECT entry.value
+                  |   FROM jsonb_each(attributes->0) entry
+                  |   WHERE jsonb_typeof(entry.value) <> 'null'
+                  |   ORDER BY COALESCE(array_position($langtagArray, entry.key), 2147483647), entry.key
+                  |   LIMIT 1),
+                  |  'null'::jsonb
+                  |))
+                  |WHERE $slotHoldsAValue AND jsonb_typeof(attributes->0) = 'object'""".stripMargin,
               Json.arr(langtags*)
             )
           }
       } yield result
     }
+  }
+
+  // Renders one attribute value, cast to `kind`, as jsonb. date/datetime go through the same TO_CHAR formats the row
+  // projections use, which are also the formats LinkAttributeValueValidator normalizes writes to - without that, the
+  // very same instant would be spelled one way when written through the API and another way after a kind migration
+  // had touched it.
+  private def castLinkAttributeValueSql(kind: TableauxDbType, textExpression: String): String = {
+    val castedValue = kind match {
+      case DateType => parseDateSql(s"($textExpression)::${DateType.toDbType}")
+      case DateTimeType => parseDateTimeSql(s"($textExpression)::${DateTimeType.toDbType}")
+      case other => s"($textExpression)::${other.toDbType}"
+    }
+
+    s"to_jsonb($castedValue)"
   }
 
   // Casts existing attribute values (position 0) to a new kind, all-or-nothing - a single value anywhere that can't
@@ -1980,7 +2030,9 @@ class ColumnModel(val connection: DatabaseConnection)(
     } else if (!newDefinition.multilanguage) {
       t.query(
         s"""|UPDATE $linkTable
-            |SET attributes = jsonb_set(attributes, '{0}', to_jsonb((attributes->>0)::${newDefinition.kind.toDbType}))
+            |SET attributes = jsonb_set(
+            |  attributes, '{0}', ${castLinkAttributeValueSql(newDefinition.kind, "attributes->>0")}
+            |)
             |WHERE $slotHoldsAValue""".stripMargin
       )
     } else {
@@ -1995,7 +2047,7 @@ class ColumnModel(val connection: DatabaseConnection)(
             |SET attributes = jsonb_set(
             |  attributes, '{0}',
             |  COALESCE(
-            |    (SELECT jsonb_object_agg(key, to_jsonb(value::${newDefinition.kind.toDbType}))
+            |    (SELECT jsonb_object_agg(key, ${castLinkAttributeValueSql(newDefinition.kind, "value")})
             |     FROM jsonb_each_text(attributes->0)),
             |    '{}'::jsonb
             |  )
@@ -2018,11 +2070,25 @@ class ColumnModel(val connection: DatabaseConnection)(
       newDefinitions: Seq[LinkAttributeDefinition]
   ): Future[(DbTransaction, JsonObject)] = {
     for {
+      langtags <- retrieveEffectiveLangtags(table)
+
+      // Both invariants are already enforced while parsing the request (JsonUtils.parseLinkAttributes) and in the
+      // controller, so over HTTP neither can fire. They are re-asserted here because this is where the max-1
+      // assumption is actually load-bearing: the migrations below only ever look at position 0, so a second entry
+      // would be persisted but never reshaped or cast - a silent data bug rather than an error - and a multilanguage
+      // definition without langtags is what used to make the reshape wipe values.
+      _ = LinkAttributeDefinition.checkMaxCount(newDefinitions.size)
+      _ = LinkAttributeDefinition.checkMultilanguageAllowed(langtags, newDefinitions)
+
       (t, linkIdResult) <- t.query(
         "SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?",
         Json.arr(table.id, columnId)
       )
-      linkId = selectNotNull(linkIdResult).head.getLong(0).longValue()
+      linkId = Option(selectNotNull(linkIdResult).head.getLong(0))
+        .map(_.longValue())
+        .getOrElse(throw UnprocessableEntityException(
+          s"Column $columnId of table ${table.id} is not a link column, it has no linkAttributes."
+        ))
       linkTable = s"link_table_$linkId"
 
       (t, currentResult) <- t.query("SELECT attributes FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
@@ -2042,8 +2108,10 @@ class ColumnModel(val connection: DatabaseConnection)(
           } yield (t, result)
 
         case (Some(_), None) =>
-          // pure remove - no definition is left to interpret the old values
-          t.query(s"UPDATE $linkTable SET attributes = NULL")
+          // pure remove - no definition is left to interpret the old values. The WHERE clause matters: without it
+          // this rewrites every row of a link table that may hold millions of them, for the common case (definition
+          // added, never used, removed again) where there is nothing to wipe at all.
+          t.query(s"UPDATE $linkTable SET attributes = NULL WHERE attributes IS NOT NULL")
 
         case (None, _) =>
           // pure add - no existing link rows can have a value yet

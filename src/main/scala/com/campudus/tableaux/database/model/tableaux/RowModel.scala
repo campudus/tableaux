@@ -26,7 +26,10 @@ import com.typesafe.scalalogging.LazyLogging
 import java.util.UUID
 import org.joda.time.DateTime
 
-private object ModelHelper {
+// Visible inside com.campudus.tableaux.database so ColumnModel's link-attribute kind migration can render
+// date/datetime values with exactly the same format the row projections use - two spellings of one instant is
+// precisely the bug that motivated normalizing them in the first place.
+private[database] object ModelHelper {
 
   val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
   val dateFormat = "YYYY-MM-DD"
