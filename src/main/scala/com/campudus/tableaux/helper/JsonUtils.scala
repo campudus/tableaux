@@ -334,9 +334,23 @@ object JsonUtils extends LazyLogging {
       )
     }
 
-    entries.map({
+    // A name is an identifier, not a label (that's displayName): it is how a value gets referenced in a
+    // formatPattern as {{attributes.<name>}}, and those tokens are matched by ColumnModel's
+    // isLinkColumnMatchingToFormatPattern via \{\{([\w.]+)\}\}. So anything outside \w could never be
+    // referenced at all, and a name containing a dot would make a token like {{attributes.a.b}} ambiguous.
+    val allowedName = "\\w+".r
+
+    val definitions = entries.map({
       case entryJson: JsonObject =>
         val name = checked(hasString("name", entryJson))
+
+        if (!allowedName.matches(name)) {
+          throw InvalidJsonException(
+            s"linkAttributes name '$name' is not allowed. Only letters, digits and underscores are allowed.",
+            "linkAttributes"
+          )
+        }
+
         val kind = checked(toTableauxType(checked(hasString("kind", entryJson))))
 
         if (!LinkAttributeDefinition.allowedKinds.contains(kind)) {
@@ -355,6 +369,20 @@ object JsonUtils extends LazyLogging {
       case other =>
         throw InvalidJsonException(s"linkAttributes entries must be JSON objects, but got $other.", "linkAttributes")
     })
+
+    // Unreachable while maxCount is 1 (two entries fail the size check above first), but a value is addressed by
+    // name only - both in a formatPattern and in {{attributes.<name>}} - so duplicates would be unresolvable as
+    // soon as the cap is raised.
+    val duplicateNames = definitions.groupBy(_.name).collect({ case (name, group) if group.size > 1 => name })
+
+    if (duplicateNames.nonEmpty) {
+      throw InvalidJsonException(
+        s"linkAttributes names must be unique, but got duplicates: ${duplicateNames.mkString(", ")}.",
+        "linkAttributes"
+      )
+    }
+
+    definitions
   }
 
   private def parseGroupReferences(json: JsonObject): (Seq[ColumnId], Seq[String]) = {
