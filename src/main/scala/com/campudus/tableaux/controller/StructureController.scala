@@ -787,19 +787,14 @@ class StructureController(
           Future(())
         }
 
+      // No maxCount check here: JsonUtils.parseLinkAttributes already rejects an oversized array while parsing the
+      // request, so a second check would be unreachable over HTTP and could only ever drift away from the one that
+      // actually fires (error.json.linkAttributes).
       _ <-
         linkAttributes match {
-          case Some(attrs) =>
+          case Some(_) =>
             column match {
-              case _: LinkColumn =>
-                if (attrs.size > LinkAttributeDefinition.maxCount) {
-                  Future.failed(UnprocessableEntityException(
-                    s"Only ${LinkAttributeDefinition.maxCount} linkAttributes entry is currently supported, " +
-                      s"but got ${attrs.size}."
-                  ))
-                } else {
-                  Future.successful(())
-                }
+              case _: LinkColumn => Future.successful(())
               case _ =>
                 Future.failed(ForbiddenException(
                   s"Update of linkAttributes is not allowed for column ${column.kind}.",
