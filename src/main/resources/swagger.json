@@ -1238,14 +1238,14 @@
                 },
                 "linkAttributes": {
                   "type": "array",
-                  "description": "Definitions of attributes attached to a link column (only applicable if the column is of kind \"link\"). Send an empty array to clear the definition and any stored attribute values; omit the field entirely to leave it untouched. Validated against the column's formatPattern in both directions: changing only the definitions is rejected with 422 if the stored pattern references an attribute that would no longer exist, and changing only the pattern is rejected if it references an attribute the column does not have.",
+                  "description": "Definitions of attributes attached to a link column (only applicable if the column is of kind \"link\"). Send an empty array (or null) to clear the definition and any stored attribute values; omit the field entirely to leave it untouched. Validated against the column's formatPattern in both directions: changing only the definitions is rejected with 422 if the stored pattern references an attribute that would no longer exist, and changing only the pattern is rejected if it references an attribute the column does not have.",
                   "items": {
                     "$ref": "#/definitions/LinkAttributeDefinition"
                   }
                 },
                 "formatPattern": {
                   "type": "string",
-                  "description": "Pattern for rendering a group or link column's content in the frontend. Only allowed for columns of kind \"group\" or \"link\".",
+                  "description": "Pattern for rendering a group or link column's content in the frontend. Only allowed for columns of kind \"group\" or \"link\". Send null to delete the pattern; omit the field entirely to leave it untouched. Deleting it is what makes clearing a link column's linkAttributes possible when the pattern references them - send both as null in the same request.",
                   "example": "{{value}} ({{attributes.percentage}}%)"
                 }
               }
@@ -5597,7 +5597,7 @@
         },
         "linkAttributes": {
           "type": "array",
-          "description": "Definitions of attributes attached to this link (only applicable if kind is \"link\"). Currently limited to a maximum of 1 entry. Can also be set/changed on an existing link column via the change-column endpoint; sending an empty array clears the definition and any stored attribute values, omitting the field leaves it untouched. A change is validated against the column's formatPattern - renaming or clearing an attribute that the stored pattern references as {{attributes.<name>}} is rejected with 422; send a matching formatPattern in the same request. Note that linkAttributes are shared with the auto-created backlink column while formatPattern is per column, so changing the definitions from one side is not validated against a formatPattern set on the other side.",
+          "description": "Definitions of attributes attached to this link (only applicable if kind is \"link\"). Currently limited to a maximum of 1 entry. Can also be set/changed on an existing link column via the change-column endpoint; sending an empty array (or null) clears the definition and any stored attribute values, omitting the field leaves it untouched. A change is validated against the column's formatPattern - renaming or clearing an attribute that the stored pattern references as {{attributes.<name>}} is rejected with 422; send a matching formatPattern in the same request, or formatPattern: null to delete the pattern along with the definitions. Note that linkAttributes are shared with the auto-created backlink column while formatPattern is per column, so changing the definitions from one side is not validated against a formatPattern set on the other side.",
           "items": {
             "$ref": "#/definitions/LinkAttributeDefinition"
           },
