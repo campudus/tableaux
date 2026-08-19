@@ -714,6 +714,128 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase {
     }
   }
 
+  // ... and when one does depend on them, clearing both together is the way out. `formatPattern: null` deletes the
+  // pattern (as opposed to omitting the key, which leaves it untouched) - without that, a link column that once had
+  // a pattern referencing an attribute could never get rid of its definitions again.
+  @Test
+  def clearingLinkAttributesTogetherWithFormatPatternSucceeds(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
+
+    for {
+      columnId <- createLinkColumn(
+        Json.arr(percentageAttribute()),
+        formatPattern = Some("{{value}} ({{attributes.percentage}}%)")
+      )
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(), "formatPattern" -> null)
+      )
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+      cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
+    } yield {
+      assertFalse(column.containsKey("linkAttributes"))
+      assertFalse(column.containsKey("formatPattern"))
+      // the definitions are gone, so the values stored under them have to be gone as well
+      assertFalse(cell.getJsonArray("value").getJsonObject(0).containsKey("attributes"))
+    }
+  }
+
+  // `linkAttributes: null` is the same request as `linkAttributes: []` - both mean "submitted, and empty".
+  @Test
+  def clearingLinkAttributesWithNullTogetherWithFormatPatternSucceeds(implicit c: TestContext): Unit = okTest {
+    for {
+      columnId <- createLinkColumn(
+        Json.arr(percentageAttribute()),
+        formatPattern = Some("{{attributes.percentage}}")
+      )
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> null, "formatPattern" -> null)
+      )
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertFalse(column.containsKey("linkAttributes"))
+      assertFalse(column.containsKey("formatPattern"))
+    }
+  }
+
+  // Same as clearingLinkAttributesLeavingFormatPatternDanglingFails, but with null instead of an empty array: the
+  // two spellings mean the same thing, so they have to be rejected the same way.
+  @Test
+  def clearingLinkAttributesWithNullLeavingFormatPatternDanglingFails(implicit c: TestContext): Unit =
+    exceptionTest("unprocessable.entity") {
+      for {
+        columnId <- createLinkColumn(
+          Json.arr(percentageAttribute()),
+          formatPattern = Some("{{attributes.percentage}}")
+        )
+        _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("linkAttributes" -> null))
+      } yield ()
+    }
+
+  // Deleting only the pattern is always safe - definitions without a pattern referencing them are a valid state.
+  @Test
+  def clearingOnlyFormatPatternKeepsLinkAttributes(implicit c: TestContext): Unit = okTest {
+    for {
+      columnId <- createLinkColumn(
+        Json.arr(percentageAttribute()),
+        formatPattern = Some("{{value}} ({{attributes.percentage}}%)")
+      )
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("formatPattern" -> null))
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertFalse(column.containsKey("formatPattern"))
+      assertJSONEquals(Json.arr(percentageAttribute()), column.getJsonArray("linkAttributes"))
+    }
+  }
+
+  // Replacing the definitions while dropping the pattern in the same request: the pattern is checked as deleted,
+  // not against the definitions being written.
+  @Test
+  def changeLinkAttributesTogetherWithClearedFormatPatternSucceeds(implicit c: TestContext): Unit = okTest {
+    for {
+      columnId <- createLinkColumn(
+        Json.arr(percentageAttribute()),
+        formatPattern = Some("{{value}} ({{attributes.percentage}}%)")
+      )
+      _ <- sendRequest(
+        "POST",
+        s"/tables/1/columns/$columnId",
+        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(name = "share")), "formatPattern" -> null)
+      )
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertFalse(column.containsKey("formatPattern"))
+      assertEquals("share", column.getJsonArray("linkAttributes").getJsonObject(0).getString("name"))
+    }
+  }
+
+  // Omitting formatPattern still means "leave it untouched" - deleting it has to be requested explicitly.
+  @Test
+  def omittingFormatPatternLeavesItUntouched(implicit c: TestContext): Unit = okTest {
+    for {
+      columnId <- createLinkColumn(Json.arr(percentageAttribute()), formatPattern = Some("{{value}}"))
+      _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("name" -> "renamed"))
+      column <- sendRequest("GET", s"/tables/1/columns/$columnId")
+    } yield {
+      assertEquals("{{value}}", column.getString("formatPattern"))
+    }
+  }
+
+  // Anything that is neither a string nor null can't be a pattern - and must not be silently ignored, which is what
+  // would make a "delete" that was spelled wrong look like it worked.
+  @Test
+  def changeFormatPatternToNonStringFails(implicit c: TestContext): Unit =
+    exceptionTest("error.json.formatPattern") {
+      for {
+        columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+        _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("formatPattern" -> 42))
+      } yield ()
+    }
+
   // ---------------------------------------------------------------------------------------------------------------
   // A multilanguage attribute value is keyed by langtag, so a table without langtags can't carry one. Allowing it
   // used to let the multilanguage reshape run with an empty langtag list, which replaced every stored value with an
