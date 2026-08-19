@@ -641,6 +641,35 @@ class GroupColumnTest extends TableauxTestBase {
     }
   }
 
+  // A formatPattern is deletable by submitting it as null (omitting the key means "leave it untouched"). Without a
+  // pattern a group column just falls back to concatenating its members, so this is a valid state to return to.
+  @Test
+  def changeGroupColumnClearingFormatPattern(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textCol1 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn1"))
+        textCol2 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn2"))
+
+        groupColumnCreated <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnWithFormatPatternJson("groupcolumn", Seq(textCol1, textCol2), "{{1}} × {{2}} mm")
+        ).map(_.getJsonArray("columns").getJsonObject(0))
+
+        groupColumnChanged <- sendRequest(
+          "POST",
+          s"/tables/1/columns/${groupColumnCreated.getInteger("id")}",
+          Json.obj("formatPattern" -> null)
+        )
+      } yield {
+        assertEquals("{{1}} × {{2}} mm", groupColumnCreated.getString("formatPattern"))
+        assertFalse(groupColumnChanged.containsKey("formatPattern"))
+      }
+    }
+  }
+
   @Test
   def createAndChangeTripleGroupColumnWithInvalidFormat(implicit c: TestContext): Unit = {
     exceptionTest("unprocessable.entity") {

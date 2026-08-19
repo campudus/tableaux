@@ -491,7 +491,7 @@ object JsonUtils extends LazyLogging {
       Option[Int],
       Option[Boolean],
       Option[Int],
-      Option[String],
+      Option[Option[String]],
       Option[Seq[LinkAttributeDefinition]]
   ) = {
 
@@ -528,7 +528,21 @@ object JsonUtils extends LazyLogging {
     val maxLength = getNullableJsonIntegerValue("maxLength", json).toOption
     val minLength = getNullableJsonIntegerValue("minLength", json).toOption
     val decimalDigits = parseDecimalDigits(json)
-    val formatPattern = hasString("formatPattern", json).toOption
+
+    // Same None/Some(None)/Some(Some(...)) distinction as linkAttributes below: None means "formatPattern wasn't
+    // submitted at all, leave it untouched", Some(None) means "submitted as null", the wire-level way to delete an
+    // existing formatPattern. Deleting it has to be expressible because a formatPattern and the linkAttributes it
+    // references constrain each other - without it, clearing the definitions would leave a dangling pattern behind
+    // that could never be repaired (see StructureController.changeColumn).
+    val formatPattern = booleanToValueOption(
+      json.containsKey("formatPattern"),
+      json.getValue("formatPattern") match {
+        case null => None
+        case value: String => Some(value)
+        case other =>
+          throw InvalidJsonException(s"formatPattern must be a string or null, but got $other.", "formatPattern")
+      }
+    )
 
     // None means "linkAttributes wasn't submitted at all, leave existing definition untouched" - as opposed to
     // Some(Seq.empty) which means "submitted as an explicit empty array", the wire-level way to delete an

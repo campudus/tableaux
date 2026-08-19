@@ -697,7 +697,8 @@ class StructureController(
       minLength: Option[Int] = None,
       showMemberColumns: Option[Boolean] = None,
       decimalDigits: Option[Int] = None,
-      formatPattern: Option[String] = None,
+      // outer None: not submitted, leave untouched; Some(None): submitted as null, delete it
+      formatPattern: Option[Option[String]] = None,
       linkAttributes: Option[Seq[LinkAttributeDefinition]] = None
   )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     checkArguments(
@@ -807,8 +808,10 @@ class StructureController(
       // A link column's formatPattern and its linkAttributes constrain each other - the pattern references the
       // definitions by name as {{attributes.<name>}} - so both directions have to be validated. Changing only the
       // definitions (renaming an attribute, or clearing them with an empty array) invalidates a pattern stored
-      // earlier just as thoroughly as changing only the pattern does, and since formatPattern can't be set back to
-      // null through this endpoint, such a pattern can't easily be repaired afterwards either.
+      // earlier just as thoroughly as changing only the pattern does. Which is why a request that would leave the
+      // two inconsistent is rejected and the caller has to submit both together - and why `formatPattern: null`
+      // has to be accepted as "delete it": clearing the definitions is only possible if the pattern referencing
+      // them can be cleared in the same request.
       //
       // Scope: this covers the column being changed. linkAttributes live on the link (system_link_table, shared with
       // the backlink column) while formatPattern lives on the column (system_columns), so changing the definitions
@@ -818,11 +821,14 @@ class StructureController(
         if (formatPattern.isDefined || linkAttributes.isDefined) {
           column match {
             case groupColumn: GroupColumn if formatPattern.isDefined => {
-              if (!isColumnGroupMatchingToFormatPattern(formatPattern, groupColumn.columns)) {
+              // formatPattern.flatten: a submitted null is None here, i.e. no pattern to check at all - deleting a
+              // pattern can never make it inconsistent with the grouped columns.
+              if (!isColumnGroupMatchingToFormatPattern(formatPattern.flatten, groupColumn.columns)) {
                 val columnsIds = groupColumn.columns.map(_.id).mkString(", ");
 
                 Future.failed(UnprocessableEntityException(
-                  s"Invalid formatPattern: columns ($columnsIds) don't match with formatPattern '$formatPattern'"
+                  s"Invalid formatPattern: columns ($columnsIds) don't match with formatPattern " +
+                    s"'${formatPattern.flatten.orNull}'"
                 ))
               } else {
                 Future.successful(())
@@ -830,8 +836,9 @@ class StructureController(
             }
             case linkColumn: LinkColumn => {
               // Whichever of the two the request omits is taken from the column as it stands, so the check always
-              // sees the pair as it will be after the change.
-              val effectiveFormatPattern = formatPattern.orElse(linkColumn.formatPattern)
+              // sees the pair as it will be after the change. getOrElse (not flatten.orElse) on purpose: a
+              // submitted null means the pattern is gone afterwards, it must not fall back to the stored one.
+              val effectiveFormatPattern = formatPattern.getOrElse(linkColumn.formatPattern)
               val effectiveLinkAttributes = linkAttributes.getOrElse(linkColumn.linkAttributes)
 
               if (!isLinkColumnMatchingToFormatPattern(effectiveFormatPattern, effectiveLinkAttributes)) {
@@ -844,7 +851,7 @@ class StructureController(
             }
             case _ if formatPattern.isDefined =>
               Future.failed(ForbiddenException(
-                s"Update of formatPattern '$formatPattern' is not allowed for column ${column.kind}.",
+                s"Update of formatPattern '${formatPattern.flatten.orNull}' is not allowed for column ${column.kind}.",
                 "column"
               ))
             // linkAttributes on a non-link column was already rejected above

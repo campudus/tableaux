@@ -222,7 +222,8 @@ class CachedColumnModel(
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
       decimalDigits: Option[Int],
-      formatPattern: Option[String],
+      // outer None: not submitted, leave untouched; Some(None): submitted as null, delete it
+      formatPattern: Option[Option[String]],
       linkAttributes: Option[Seq[LinkAttributeDefinition]]
   )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     for {
@@ -2166,7 +2167,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
       decimalDigits: Option[Int],
-      formatPattern: Option[String],
+      // outer None: not submitted, leave untouched; Some(None): submitted as null, delete it
+      formatPattern: Option[Option[String]],
       linkAttributes: Option[Seq[LinkAttributeDefinition]]
   )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     val tableId = table.id
@@ -2208,7 +2210,9 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t, resultHidden) <- maybeUpdateColumn(t, "hidden", hidden)
       (t, resultShowMemberColumns) <- maybeUpdateColumn(t, "show_member_columns", showMemberColumns)
       (t, resultDecimalDigits) <- maybeUpdateColumn(t, "decimal_digits", decimalDigits)
-      (t, resultFormatPattern) <- maybeUpdateColumn(t, "format_pattern", formatPattern)
+      // trans unwraps the inner Option so a submitted null actually writes NULL instead of being skipped
+      (t, resultFormatPattern) <-
+        maybeUpdateColumn(t, "format_pattern", formatPattern, (p: Option[String]) => p.orNull)
 
       // cannot use optionToValidFuture here, we need to be able to set these settings to null
       (t, resultMaxLength) <- maxLength match {
