@@ -217,6 +217,40 @@ object LinkAttributeDefinition {
     maxCountOverride = None
   }
 
+  val defaultMultilanguageSupported = false
+
+  private var multilanguageSupportedOverride: Option[Boolean] = None
+
+  /**
+    * Whether a definition may be `multilanguage`. Like [[maxCount]] this is a rollout decision rather than a structural
+    * limit - a multilanguage value is stored, read, reshaped and cast by code that exists and works (see
+    * LinkAttributesTest and ChangeLinkAttributesStructureTest, which both lift this gate), it is only not offered yet
+    * because the frontend has no editor for a per-langtag attribute value.
+    *
+    * Kept switchable for exactly the same reason as the cap: gating it with a hard-coded `false` would turn every
+    * multilanguage code path - the reshape on a flip, the collapse back, the per-langtag cast - into dead code that no
+    * test could reach. Nothing in production ever flips it.
+    */
+  def multilanguageSupported: Boolean = multilanguageSupportedOverride.getOrElse(defaultMultilanguageSupported)
+
+  /**
+    * Test-only seam for [[multilanguageSupported]] - see LinkAttributeTestOverrides, which lifts the gate per test
+    * class and resets it afterwards. LinkAttributeRolloutGatesTest is the class that lifts nothing and pins down what
+    * the API answers with the gate in place.
+    */
+  def setMultilanguageSupportedForTest(supported: Boolean): Unit = {
+    multilanguageSupportedOverride = Some(supported)
+  }
+
+  /**
+    * Restores [[multilanguageSupported]] to [[defaultMultilanguageSupported]]. Tests that call
+    * [[setMultilanguageSupportedForTest]] have to call this afterwards (in an `@After`), or they leak the enabled
+    * feature into every test that runs after them in the same JVM.
+    */
+  def resetMultilanguageSupportedForTest(): Unit = {
+    multilanguageSupportedOverride = None
+  }
+
   def fromJson(json: JsonObject): LinkAttributeDefinition = {
     LinkAttributeDefinition(
       name = json.getString("name"),
@@ -269,6 +303,23 @@ object LinkAttributeDefinition {
       definitions.filter(_.multilanguage).foreach(definition =>
         throw UnprocessableEntityException(
           s"Link attribute '${definition.name}' can't be multilanguage because its table has no langtags."
+        )
+      )
+    }
+  }
+
+  /**
+    * Rejects a multilanguage definition while [[multilanguageSupported]] is off. Separate from
+    * [[checkMultilanguageAllowed]] on purpose: that one is a permanent rule about a link without langtags, this one is
+    * a rollout gate that is meant to be lifted - so it reports itself as a `linkAttributes` problem, exactly like the
+    * count cap does, rather than as something about the table's langtags.
+    */
+  def checkMultilanguageSupported(definitions: Seq[LinkAttributeDefinition]): Unit = {
+    if (!multilanguageSupported) {
+      definitions.filter(_.multilanguage).foreach(definition =>
+        throw InvalidJsonException(
+          s"Multilanguage linkAttributes are not supported yet, but '${definition.name}' is multilanguage.",
+          "linkAttributes"
         )
       )
     }
