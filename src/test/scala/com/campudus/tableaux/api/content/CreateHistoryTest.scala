@@ -1335,12 +1335,18 @@ class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
 @RunWith(classOf[VertxUnitRunner])
 class CreateLinkAttributesHistoryTest extends LinkTestBase with TestHelper {
 
-  private def percentageAttribute: JsonObject = Json.obj(
-    "name" -> "percentage",
-    "displayName" -> Json.obj("de-DE" -> "Prozentanteil"),
-    "kind" -> "integer",
-    "multilanguage" -> false
-  )
+  private def attribute(
+      name: String,
+      kind: String = "integer",
+      multilanguage: Boolean = false
+  ): JsonObject = {
+    Json.obj(
+      "name" -> name,
+      "displayName" -> Json.obj("de-DE" -> s"Attribut $name"),
+      "kind" -> kind,
+      "multilanguage" -> multilanguage
+    )
+  }
 
   private def createLinkColumnWithAttributes(tableId: Long, toTableId: Long): Future[Long] = {
     val json = Json.obj(
@@ -1349,7 +1355,7 @@ class CreateLinkAttributesHistoryTest extends LinkTestBase with TestHelper {
           "name" -> "Test Link 1",
           "kind" -> "link",
           "toTable" -> toTableId,
-          "linkAttributes" -> Json.arr(percentageAttribute)
+          "linkAttributes" -> Json.arr(attribute("percentage"))
         )
       )
     )

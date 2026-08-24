@@ -26,10 +26,14 @@ class LinkAttributesTest extends LinkTestBase with LinkAttributeTestOverrides {
 
   override protected def testMultilanguageLinkAttributesSupported: Boolean = true
 
-  private def percentageAttribute(multilanguage: Boolean = false, kind: String = "integer"): JsonObject = {
+  private def attribute(
+      name: String,
+      kind: String = "integer",
+      multilanguage: Boolean = false
+  ): JsonObject = {
     Json.obj(
-      "name" -> "percentage",
-      "displayName" -> Json.obj("de-DE" -> "Prozentanteil"),
+      "name" -> name,
+      "displayName" -> Json.obj("de-DE" -> s"Attribut $name"),
       "kind" -> kind,
       "multilanguage" -> multilanguage
     )
@@ -49,7 +53,7 @@ class LinkAttributesTest extends LinkTestBase with LinkAttributeTestOverrides {
           "kind" -> "link",
           "toTable" -> toTableId,
           "singleDirection" -> singleDirection,
-          "linkAttributes" -> Json.arr(percentageAttribute(multilanguage, kind))
+          "linkAttributes" -> Json.arr(attribute("percentage", kind = kind, multilanguage = multilanguage))
         )
       )
     )
@@ -544,7 +548,7 @@ class LinkAttributesTest extends LinkTestBase with LinkAttributeTestOverrides {
           "kind" -> "link",
           "toTable" -> toTableId,
           "singleDirection" -> false,
-          "linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true))
+          "linkAttributes" -> Json.arr(attribute("percentage", multilanguage = true))
         )))
       ).map(_.getJsonArray("columns").getJsonObject(0).getLong("id").toLong)
 
@@ -639,7 +643,7 @@ class LinkAttributesTest extends LinkTestBase with LinkAttributeTestOverrides {
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$migratedColumnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "datetime")))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", kind = "datetime")))
       )
       migratedCell <- sendRequest("GET", s"/tables/1/columns/$migratedColumnId/rows/1")
     } yield {
