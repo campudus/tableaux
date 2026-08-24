@@ -2163,9 +2163,15 @@ class ColumnModel(val connection: DatabaseConnection)(
         "SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?",
         Json.arr(table.id, columnId)
       )
-      // No "is this a link column?" guard here: change() resolves the link's langtags before opening the transaction,
-      // which already fails for a column without a link_id - so by this point there is one.
-      linkId = selectNotNull(linkIdResult).head.getLong(0).longValue()
+      // change() resolves the link's langtags before opening the transaction, which already fails for a column
+      // without a link_id, and the controller turns a non-link column away before even that - so over HTTP this
+      // is unreachable. Kept anyway because change() isn't private to the controller: without it a NULL link_id
+      // becomes an NPE on getLong, i.e. a 500 for what is really a wrong-kind-of-column request.
+      linkId = Option(selectNotNull(linkIdResult).head.getLong(0))
+        .map(_.longValue())
+        .getOrElse(throw UnprocessableEntityException(
+          s"Column $columnId of table ${table.id} is not a link column, it has no linkAttributes."
+        ))
       linkTable = s"link_table_$linkId"
 
       (t, currentResult) <- t.query("SELECT attributes FROM system_link_table WHERE link_id = ?", Json.arr(linkId))

@@ -323,9 +323,15 @@ object JsonUtils extends LazyLogging {
   }
 
   private def parseLinkAttributes(json: JsonObject): Seq[LinkAttributeDefinition] = {
-    val entries = Option(json.getJsonArray("linkAttributes"))
-      .map(_.asScala.toSeq)
-      .getOrElse(Seq.empty)
+    // Deliberately not getJsonArray: that casts, so anything but an array escapes as a ClassCastException and
+    // surfaces as a 500 for what is a plain request error. null is not one of those - it is the wire-level way to
+    // clear the definitions, exactly like an empty array (see toColumnChanges).
+    val entries = json.getValue("linkAttributes") match {
+      case null => Seq.empty
+      case array: JsonArray => array.asScala.toSeq
+      case other =>
+        throw InvalidJsonException(s"linkAttributes must be an array or null, but got $other.", "linkAttributes")
+    }
 
     LinkAttributeDefinition.checkMaxCount(entries.size)
 
