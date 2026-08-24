@@ -3,7 +3,7 @@ package com.campudus.tableaux.api.structure
 import com.campudus.tableaux.database.domain.LinkAttributeDefinition
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.Json
-import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.{LinkAttributeTestOverrides, TableauxTestBase}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -12,8 +12,8 @@ import io.vertx.lang.scala.json.{JsonArray, JsonObject}
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
-import org.junit.{After, Before, Test}
 import org.junit.Assert._
+import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
@@ -28,16 +28,14 @@ import org.junit.runner.RunWith
   * enforced at all - which is why the one cap test below is about the raised cap still being a cap.
   */
 @RunWith(classOf[VertxUnitRunner])
-class MultipleLinkAttributesTest extends TableauxTestBase {
+class MultipleLinkAttributesTest extends TableauxTestBase with LinkAttributeTestOverrides {
 
   private val raisedMaxCount = 3
 
-  @Before
-  def raiseLinkAttributeMaxCount(): Unit = LinkAttributeDefinition.setMaxCountForTest(raisedMaxCount)
+  override protected def testLinkAttributeMaxCount: Int = raisedMaxCount
 
-  // Without this the raised cap leaks into every test class that runs after this one in the same JVM
-  @After
-  def resetLinkAttributeMaxCount(): Unit = LinkAttributeDefinition.resetMaxCountForTest()
+  // one test pairs a multilanguage definition with a single-language one, which needs that gate lifted too
+  override protected def testMultilanguageLinkAttributesSupported: Boolean = true
 
   private def attribute(
       name: String,

@@ -2,6 +2,7 @@ package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.helper.Json
+import com.campudus.tableaux.testtools.LinkAttributeTestOverrides
 import com.campudus.tableaux.testtools.RequestCreation.{Identifier, NumericCol, TextCol}
 
 import io.vertx.ext.unit.TestContext
@@ -14,8 +15,16 @@ import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/**
+  * Value-level tests for a link column's `linkAttributes`. Multilanguage definitions are gated off for rollout, so this
+  * class lifts that gate - per-langtag attribute values are stored, read and normalized by code that has to keep
+  * working for the gate to be liftable later. That the gate holds by default is covered by
+  * LinkAttributeRolloutGatesTest.
+  */
 @RunWith(classOf[VertxUnitRunner])
-class LinkAttributesTest extends LinkTestBase {
+class LinkAttributesTest extends LinkTestBase with LinkAttributeTestOverrides {
+
+  override protected def testMultilanguageLinkAttributesSupported: Boolean = true
 
   private def percentageAttribute(multilanguage: Boolean = false, kind: String = "integer"): JsonObject = {
     Json.obj(

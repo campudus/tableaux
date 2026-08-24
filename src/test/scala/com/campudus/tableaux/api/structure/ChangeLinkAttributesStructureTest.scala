@@ -2,7 +2,7 @@ package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.helper.Json
-import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.{LinkAttributeTestOverrides, TableauxTestBase}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -18,9 +18,15 @@ import org.junit.runner.RunWith
 /**
   * Structure-level tests for a link column's `linkAttributes` definition: creating it, changing it, and migrating
   * values that were already stored under the previous definition.
+  *
+  * Multilanguage definitions are gated off for rollout, so this class lifts that gate - the reshape and collapse
+  * migrations it covers are the whole reason the gate can be lifted later at all. That the gate holds by default is
+  * covered by LinkAttributeRolloutGatesTest; the one-definition cap is not lifted here and still applies.
   */
 @RunWith(classOf[VertxUnitRunner])
-class ChangeLinkAttributesStructureTest extends TableauxTestBase {
+class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttributeTestOverrides {
+
+  override protected def testMultilanguageLinkAttributesSupported: Boolean = true
 
   private def percentageAttribute(
       kind: String = "integer",

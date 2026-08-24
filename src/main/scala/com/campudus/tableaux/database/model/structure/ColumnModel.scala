@@ -2145,16 +2145,17 @@ class ColumnModel(val connection: DatabaseConnection)(
       langtags: Seq[String]
   ): Future[(DbTransaction, JsonObject)] = {
     for {
-      // Both invariants are already enforced while parsing the request (JsonUtils.parseLinkAttributes) and in the
-      // controller, so over HTTP neither can fire. They are re-asserted here because this is the last point before
-      // stored values are rewritten: a definition list that got past the cap some other way would be persisted
-      // against values migrated under a different one, and a multilanguage definition without langtags is what used
-      // to make the reshape wipe values.
+      // All three invariants are already enforced while parsing the request (JsonUtils.parseLinkAttributes) and in
+      // the controller, so over HTTP none of them can fire. They are re-asserted here because this is the last point
+      // before stored values are rewritten: a definition list that got past the cap or the multilanguage gate some
+      // other way would be persisted against values migrated under a different one, and a multilanguage definition
+      // without langtags is what used to make the reshape wipe values.
       //
       // Inside a Future rather than a plain `_ =`: the caller applies rollbackAndFail() to the Future this method
       // returns, so a throw that escaped synchronously would skip the rollback and leave the transaction open.
       _ <- Future {
         LinkAttributeDefinition.checkMaxCount(newDefinitions.size)
+        LinkAttributeDefinition.checkMultilanguageSupported(newDefinitions)
         LinkAttributeDefinition.checkMultilanguageAllowed(langtags, newDefinitions)
       }
 
