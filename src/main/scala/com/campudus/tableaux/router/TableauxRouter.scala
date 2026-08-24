@@ -873,7 +873,14 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           val json = getJson(context)
-          val attributes = json.getJsonArray("attributes")
+          // Deliberately not getJsonArray: that casts, so a non-array body would escape as a 500 instead of a 400.
+          // A missing key is turned away here as well rather than passed on as null, which the value validator
+          // could only report as a length mismatch against the column's definitions.
+          val attributes = json.getValue("attributes") match {
+            case null => throw InvalidJsonException("attributes is required and must be an array.", "attributes")
+            case array: JsonArray => array
+            case other => throw InvalidJsonException(s"attributes must be an array, but got $other.", "attributes")
+          }
           controller.updateCellLinkAttributes(tableId, columnId, rowId, toId, attributes)
         }
       )

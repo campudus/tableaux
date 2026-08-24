@@ -438,6 +438,44 @@ class LinkAttributesTest extends LinkTestBase with LinkAttributeTestOverrides {
       } yield ()
     }
 
+  // A body whose "attributes" is not an array is a request error, so it has to be reported as one - reading it
+  // with getJsonArray would let a ClassCastException through as a 500.
+  @Test
+  def putLinkAttributesEndpointWithNonArrayAttributesFails(implicit c: TestContext): Unit =
+    exceptionTest("error.json.attributes") {
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumnWithAttributes(1, 2)
+        _ <- sendRequest(
+          "POST",
+          s"/tables/1/columns/$linkColumnId/rows/1",
+          Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
+        )
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/1/columns/$linkColumnId/rows/1/link/1/attributes",
+          Json.obj("attributes" -> 75)
+        )
+      } yield ()
+    }
+
+  // Reported as a missing field rather than being passed on as null, which the value validator could only describe
+  // as "expected 1 value(s) but got 0" - true, but not what the caller got wrong.
+  @Test
+  def putLinkAttributesEndpointWithoutAttributesKeyFails(implicit c: TestContext): Unit =
+    exceptionTest("error.json.attributes") {
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumnWithAttributes(1, 2)
+        _ <- sendRequest(
+          "POST",
+          s"/tables/1/columns/$linkColumnId/rows/1",
+          Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
+        )
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/1/attributes", Json.obj())
+      } yield ()
+    }
+
   @Test
   def putLinkAttributesEndpointOnColumnWithoutDefinitionFails(implicit c: TestContext): Unit =
     exceptionTest("unprocessable.entity") {

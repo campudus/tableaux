@@ -842,6 +842,36 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       } yield ()
     }
 
+  // Same reasoning one field over: a linkAttributes value that isn't an array is a request error and has to be
+  // reported as one. Reading it with getJsonArray would let a ClassCastException through as a 500 instead.
+  @Test
+  def changeLinkAttributesToNonArrayFails(implicit c: TestContext): Unit =
+    exceptionTest("error.json.linkAttributes") {
+      for {
+        columnId <- createLinkColumn(Json.arr(attribute("percentage")))
+        _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("linkAttributes" -> "percentage"))
+      } yield ()
+    }
+
+  // Same check on the create path, which reaches parseLinkAttributes through toCreateColumnSeq rather than
+  // toColumnChanges. A single definition object instead of an array of them is the plausible way to get this wrong.
+  @Test
+  def createLinkColumnWithNonArrayLinkAttributesFails(implicit c: TestContext): Unit =
+    exceptionTest("error.json.linkAttributes") {
+      val columnJson = Json.obj(
+        "name" -> "Test Link 1",
+        "kind" -> "link",
+        "toTable" -> 2,
+        "linkAttributes" -> attribute("percentage")
+      )
+
+      for {
+        _ <- createDefaultTable()
+        _ <- createDefaultTable("Test Table 2", 2)
+        _ <- sendRequest("POST", "/tables/1/columns", Json.obj("columns" -> Json.arr(columnJson)))
+      } yield ()
+    }
+
   // ---------------------------------------------------------------------------------------------------------------
   // A multilanguage attribute value is keyed by langtag, so a table without langtags can't carry one. Allowing it
   // used to let the multilanguage reshape run with an empty langtag list, which replaced every stored value with an
