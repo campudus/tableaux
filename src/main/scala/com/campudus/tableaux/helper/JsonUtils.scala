@@ -365,9 +365,9 @@ object JsonUtils extends LazyLogging {
         throw InvalidJsonException(s"linkAttributes entries must be JSON objects, but got $other.", "linkAttributes")
     })
 
-    // Unreachable while maxCount is 1 (two entries fail the size check above first), but a value is addressed by
-    // name only - both in a formatPattern and in {{attributes.<name>}} - so duplicates would be unresolvable as
-    // soon as the cap is raised.
+    // Unreachable over HTTP while maxCount is at its default of 1 (two entries fail the size check above first),
+    // but a value is addressed by name only - both in a formatPattern and in {{attributes.<name>}} - so duplicates
+    // would be unresolvable as soon as the cap is raised. MultipleLinkAttributesTest raises it and covers this.
     val duplicateNames = definitions.groupBy(_.name).collect({ case (name, group) if group.size > 1 => name })
 
     if (duplicateNames.nonEmpty) {
