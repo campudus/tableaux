@@ -181,7 +181,41 @@ object LinkAttributeDefinition {
 
   val allowedKinds: Set[TableauxDbType] = Set(TextType, NumericType, IntegerType, BooleanType, DateType, DateTimeType)
 
-  val maxCount = 1
+  val defaultMaxCount = 1
+
+  private var maxCountOverride: Option[Int] = None
+
+  /**
+    * How many definitions one link column may carry. The cap is a rollout decision, not a structural limit: nothing
+    * below it is written for exactly one definition - values are positional arrays, migrations walk them slot by slot,
+    * and a formatPattern addresses a definition by name - so it can be raised without touching any of that.
+    *
+    * Which is exactly why it is read through a `def` with an override behind it instead of being a constant: the only
+    * way to keep the N-definition code paths honest is to actually exercise them, and with a hard-coded 1 every one of
+    * them is dead code that no test can reach. Nothing in production ever calls the override, so over HTTP this is the
+    * constant it looks like.
+    */
+  def maxCount: Int = maxCountOverride.getOrElse(defaultMaxCount)
+
+  /**
+    * Test-only seam for [[maxCount]] - see MultipleLinkAttributesTest, which raises the cap for its own tests and
+    * resets it afterwards. Deliberately global mutable state rather than a config value threaded through
+    * TableauxConfig: the cap is enforced while parsing a request (JsonUtils) and while migrating stored values
+    * (ColumnModel), neither of which has a config in reach, and a config key would be an API for operators to raise a
+    * cap that the frontend isn't ready for yet.
+    */
+  def setMaxCountForTest(count: Int): Unit = {
+    require(count >= 1, s"link attribute maxCount must be at least 1, but was $count")
+    maxCountOverride = Some(count)
+  }
+
+  /**
+    * Restores [[maxCount]] to [[defaultMaxCount]]. Tests that call [[setMaxCountForTest]] have to call this afterwards
+    * (in an `@After`), or they leak the raised cap into every test that runs after them in the same JVM.
+    */
+  def resetMaxCountForTest(): Unit = {
+    maxCountOverride = None
+  }
 
   def fromJson(json: JsonObject): LinkAttributeDefinition = {
     LinkAttributeDefinition(
@@ -245,7 +279,8 @@ object LinkAttributeDefinition {
   def checkMaxCount(count: Int): Unit = {
     if (count > maxCount) {
       throw InvalidJsonException(
-        s"Only $maxCount linkAttributes entry is currently supported, but got $count.",
+        s"Only $maxCount linkAttributes ${if (maxCount == 1) "entry is" else "entries are"} currently supported, " +
+          s"but got $count.",
         "linkAttributes"
       )
     }

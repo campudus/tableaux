@@ -1946,16 +1946,17 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   // Guards the value migrations below: only a slot that actually holds a value gets migrated. A slot holding JSON
   // null is a value that is explicitly empty, and no migration can improve on that - reshaping it would just respell
-  // "empty" (as per-langtag nulls, or as null again), and casting it would take `attributes->>0` as a SQL NULL, which
-  // strict jsonb_set turns into a wiped attributes column. Note that `attributes->0 IS NOT NULL` does not cover the
-  // JSON null case on its own: `->` hands JSON null back as a jsonb value, so that check is true for it.
-  private val slotHoldsAValue =
-    "attributes IS NOT NULL AND attributes->0 IS NOT NULL AND jsonb_typeof(attributes->0) <> 'null'"
+  // "empty" (as per-langtag nulls, or as null again), and casting it would take `attributes->>$slot` as a SQL NULL,
+  // which strict jsonb_set turns into a wiped attributes column. Note that `attributes->$slot IS NOT NULL` does not
+  // cover the JSON null case on its own: `->` hands JSON null back as a jsonb value, so that check is true for it.
+  // It does rule out a slot that isn't stored at all, which is what a row looks like that was written before this
+  // definition was added and hasn't been padded by resizeLinkAttributeValues yet.
+  private def slotHoldsAValue(slot: Int) =
+    s"attributes IS NOT NULL AND attributes->$slot IS NOT NULL AND jsonb_typeof(attributes->$slot) <> 'null'"
 
-  // Reshapes existing attribute values (position 0, the only slot while linkAttributes is capped at 1) to match a
-  // multilanguage flip, before any kind cast runs on top. There's no cast for this - it's a structural change - so
-  // false -> true duplicates the scalar under every langtag of the link, and true -> false collapses to the langtag
-  // that actually has a non-null value, discarding the rest.
+  // Reshapes existing attribute values in one slot to match a multilanguage flip, before any kind cast runs on top.
+  // There's no cast for this - it's a structural change - so false -> true duplicates the scalar under every langtag
+  // of the link, and true -> false collapses to the langtag that actually has a non-null value, discarding the rest.
   //
   // `langtags` is the union over both linked tables (see retrieveLinkLangtags), the same set the multilanguage guard
   // was evaluated against - a narrower set here would flip a value into langtags one side cannot read, or make the
@@ -1964,6 +1965,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       t: DbTransaction,
       langtags: Seq[String],
       linkTable: String,
+      slot: Int,
       oldDefinition: LinkAttributeDefinition,
       newDefinition: LinkAttributeDefinition
   ): Future[(DbTransaction, JsonObject)] = {
@@ -1986,11 +1988,11 @@ class ColumnModel(val connection: DatabaseConnection)(
             // Postgres can't infer a bare `?` placeholder's type from a variadic "any" function like
             // jsonb_build_object - it needs an explicit cast, or every prepared execution fails with
             // "could not determine data type of parameter $1".
-            val pairs = langtags.map(_ => "?::text, attributes->0").mkString(", ")
+            val pairs = langtags.map(_ => s"?::text, attributes->$slot").mkString(", ")
             t.query(
               s"""|UPDATE $linkTable
-                  |SET attributes = jsonb_set(attributes, '{0}', jsonb_build_object($pairs))
-                  |WHERE $slotHoldsAValue""".stripMargin,
+                  |SET attributes = jsonb_set(attributes, '{$slot}', jsonb_build_object($pairs))
+                  |WHERE ${slotHoldsAValue(slot)}""".stripMargin,
               Json.arr(langtags*)
             )
           } else {
@@ -2009,15 +2011,15 @@ class ColumnModel(val connection: DatabaseConnection)(
 
             t.query(
               s"""|UPDATE $linkTable
-                  |SET attributes = jsonb_set(attributes, '{0}', COALESCE(
+                  |SET attributes = jsonb_set(attributes, '{$slot}', COALESCE(
                   |  (SELECT entry.value
-                  |   FROM jsonb_each(attributes->0) entry
+                  |   FROM jsonb_each(attributes->$slot) entry
                   |   WHERE jsonb_typeof(entry.value) <> 'null'
                   |   ORDER BY COALESCE(array_position($langtagArray, entry.key), 2147483647), entry.key
                   |   LIMIT 1),
                   |  'null'::jsonb
                   |))
-                  |WHERE $slotHoldsAValue AND jsonb_typeof(attributes->0) = 'object'""".stripMargin,
+                  |WHERE ${slotHoldsAValue(slot)} AND jsonb_typeof(attributes->$slot) = 'object'""".stripMargin,
               Json.arr(langtags*)
             )
           }
@@ -2039,12 +2041,13 @@ class ColumnModel(val connection: DatabaseConnection)(
     s"to_jsonb($castedValue)"
   }
 
-  // Casts existing attribute values (position 0) to a new kind, all-or-nothing - a single value anywhere that can't
+  // Casts existing attribute values in one slot to a new kind, all-or-nothing - a single value anywhere that can't
   // cast fails the whole UPDATE, which (combined with the caller's rollbackAndFail) rolls back the entire change,
   // exactly mirroring how a plain column's kind change behaves today (ALTER COLUMN ... USING ...::type).
   private def castLinkAttributeValues(
       t: DbTransaction,
       linkTable: String,
+      slot: Int,
       oldDefinition: LinkAttributeDefinition,
       newDefinition: LinkAttributeDefinition
   ): Future[(DbTransaction, JsonObject)] = {
@@ -2054,9 +2057,9 @@ class ColumnModel(val connection: DatabaseConnection)(
       t.query(
         s"""|UPDATE $linkTable
             |SET attributes = jsonb_set(
-            |  attributes, '{0}', ${castLinkAttributeValueSql(newDefinition.kind, "attributes->>0")}
+            |  attributes, '{$slot}', ${castLinkAttributeValueSql(newDefinition.kind, s"attributes->>$slot")}
             |)
-            |WHERE $slotHoldsAValue""".stripMargin
+            |WHERE ${slotHoldsAValue(slot)}""".stripMargin
       )
     } else {
       // Cleared langtags cast to null and keep their key: jsonb_each_text hands them over as SQL NULL, the cast
@@ -2068,24 +2071,72 @@ class ColumnModel(val connection: DatabaseConnection)(
       t.query(
         s"""|UPDATE $linkTable
             |SET attributes = jsonb_set(
-            |  attributes, '{0}',
+            |  attributes, '{$slot}',
             |  COALESCE(
             |    (SELECT jsonb_object_agg(key, ${castLinkAttributeValueSql(newDefinition.kind, "value")})
-            |     FROM jsonb_each_text(attributes->0)),
+            |     FROM jsonb_each_text(attributes->$slot)),
             |    '{}'::jsonb
             |  )
             |)
-            |WHERE attributes IS NOT NULL AND jsonb_typeof(attributes->0) = 'object'""".stripMargin
+            |WHERE attributes IS NOT NULL AND jsonb_typeof(attributes->$slot) = 'object'""".stripMargin
+      )
+    }
+  }
+
+  // Grows or shrinks every stored value array to match the new number of definitions, after the slots the two
+  // definition lists have in common have been migrated in place. A stored array is positional - `attributes[i]`
+  // belongs to `linkAttributes[i]` - so its length is part of that contract: LinkAttributeValueValidator insists on
+  // exactly one value per definition, which means a row left at the old length can be read but no longer written.
+  //
+  // Growing pads with JSON null ("no value yet") rather than leaving the slot absent, so that a value read from the
+  // API stays acceptable as a write. Shrinking to zero wipes the column instead of storing `[]`, which is what "no
+  // attributes stored at all" has always looked like on this table.
+  private def resizeLinkAttributeValues(
+      t: DbTransaction,
+      linkTable: String,
+      oldSize: Int,
+      newSize: Int
+  ): Future[(DbTransaction, JsonObject)] = {
+    if (newSize == oldSize) {
+      Future.successful((t, Json.obj()))
+    } else if (newSize == 0) {
+      // The WHERE clause matters: without it this rewrites every row of a link table that may hold millions of
+      // them, for the common case (definition added, never used, removed again) where there is nothing to wipe.
+      t.query(s"UPDATE $linkTable SET attributes = NULL WHERE attributes IS NOT NULL")
+    } else if (newSize < oldSize) {
+      t.query(
+        s"""|UPDATE $linkTable
+            |SET attributes = (
+            |  SELECT COALESCE(jsonb_agg(slot.value ORDER BY slot.ordinality), '[]'::jsonb)
+            |  FROM jsonb_array_elements(attributes) WITH ORDINALITY slot(value, ordinality)
+            |  WHERE slot.ordinality <= $newSize
+            |)
+            |WHERE attributes IS NOT NULL AND jsonb_array_length(attributes) > $newSize""".stripMargin
+      )
+    } else {
+      // Pads up to newSize from whatever length a row actually has rather than appending a fixed
+      // (newSize - oldSize) nulls, so a row that is short for any other reason ends up correct too.
+      t.query(
+        s"""|UPDATE $linkTable
+            |SET attributes = attributes || COALESCE(
+            |  (SELECT jsonb_agg('null'::jsonb) FROM generate_series(jsonb_array_length(attributes) + 1, $newSize)),
+            |  '[]'::jsonb
+            |)
+            |WHERE attributes IS NOT NULL AND jsonb_array_length(attributes) < $newSize""".stripMargin
       )
     }
   }
 
   // Applies a linkAttributes definition change to system_link_table plus, when needed, migrates existing values
-  // already stored on link_table_<linkId>. Diffing is by position (max-1 keeps this simple, there's only ever
-  // position 0): no old + new = pure add (nothing to migrate); old + no new = pure remove, so stored values are
-  // wiped since no definition is left to interpret them; old + new = same slot regardless of name/displayName
+  // already stored on link_table_<linkId>. Diffing is by position, the same way a stored value array is positional:
+  // slot i of the old definitions and slot i of the new ones are the same slot regardless of name/displayName
   // (those are cosmetic and don't affect how a stored value is interpreted) - reshape (multilanguage) then cast
-  // (kind) in place.
+  // (kind) in place. Slots beyond the shorter of the two lists are not a migration but a resize: added ones have no
+  // value yet, removed ones have no definition left to interpret their values (see resizeLinkAttributeValues).
+  //
+  // What this deliberately does not do is match definitions up by name: a rename would then be indistinguishable
+  // from "remove one attribute, add another", and the whole point of the positional contract is that a rename is
+  // cosmetic and keeps its values.
   private def updateLinkAttributesDefinition(
       t: DbTransaction,
       table: Table,
@@ -2095,10 +2146,10 @@ class ColumnModel(val connection: DatabaseConnection)(
   ): Future[(DbTransaction, JsonObject)] = {
     for {
       // Both invariants are already enforced while parsing the request (JsonUtils.parseLinkAttributes) and in the
-      // controller, so over HTTP neither can fire. They are re-asserted here because this is where the max-1
-      // assumption is actually load-bearing: the migrations below only ever look at position 0, so a second entry
-      // would be persisted but never reshaped or cast - a silent data bug rather than an error - and a multilanguage
-      // definition without langtags is what used to make the reshape wipe values.
+      // controller, so over HTTP neither can fire. They are re-asserted here because this is the last point before
+      // stored values are rewritten: a definition list that got past the cap some other way would be persisted
+      // against values migrated under a different one, and a multilanguage definition without langtags is what used
+      // to make the reshape wipe values.
       //
       // Inside a Future rather than a plain `_ =`: the caller applies rollbackAndFail() to the Future this method
       // returns, so a throw that escaped synchronously would skip the rollback and leave the transaction open.
@@ -2121,27 +2172,25 @@ class ColumnModel(val connection: DatabaseConnection)(
         .map(str => LinkAttributeDefinition.seqFromJson(new JsonArray(str)))
         .getOrElse(Seq.empty)
 
-      (t, _) <- (currentDefinitions.headOption, newDefinitions.headOption) match {
-        case (Some(oldDef), Some(newDef)) =>
-          // Same slot whether or not the name changed - a rename or displayName edit is cosmetic
-          // and must not invalidate stored values. Multilanguage/kind changes still reshape/cast
-          // in place; an incompatible kind change fails and rolls back the whole update, same as
-          // when the name stays the same.
-          for {
-            (t, _) <- reshapeLinkAttributeValues(t, langtags, linkTable, oldDef, newDef)
-            (t, result) <- castLinkAttributeValues(t, linkTable, oldDef, newDef)
-          } yield (t, result)
+      // Slot by slot, in order, because they all rewrite the same `attributes` column of the same rows - running
+      // them concurrently on one transaction would have them overwrite each other's jsonb_set results.
+      (t, _) <- currentDefinitions.zip(newDefinitions).zipWithIndex.foldLeft(
+        Future.successful((t, Json.obj()))
+      )({
+        case (previous, ((oldDef, newDef), slot)) =>
+          previous.flatMap({
+            case (t, _) =>
+              // A rename or displayName edit is cosmetic and must not invalidate stored values, so it produces no
+              // query at all. Multilanguage/kind changes reshape/cast in place; an incompatible kind change fails
+              // and rolls back the whole update, same as when the name stays the same.
+              for {
+                (t, _) <- reshapeLinkAttributeValues(t, langtags, linkTable, slot, oldDef, newDef)
+                (t, result) <- castLinkAttributeValues(t, linkTable, slot, oldDef, newDef)
+              } yield (t, result)
+          })
+      })
 
-        case (Some(_), None) =>
-          // pure remove - no definition is left to interpret the old values. The WHERE clause matters: without it
-          // this rewrites every row of a link table that may hold millions of them, for the common case (definition
-          // added, never used, removed again) where there is nothing to wipe at all.
-          t.query(s"UPDATE $linkTable SET attributes = NULL WHERE attributes IS NOT NULL")
-
-        case (None, _) =>
-          // pure add - no existing link rows can have a value yet
-          Future.successful((t, Json.obj()))
-      }
+      (t, _) <- resizeLinkAttributeValues(t, linkTable, currentDefinitions.size, newDefinitions.size)
 
       (t, result) <- t.query(
         "UPDATE system_link_table SET attributes = ?::jsonb WHERE link_id = ?",
