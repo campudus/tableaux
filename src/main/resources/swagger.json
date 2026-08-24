@@ -5417,7 +5417,7 @@
     },
     "LinkAttributeDefinition": {
       "type": "object",
-      "description": "Definition of an attribute that can be attached to a link, in addition to which rows it connects. Its structure orients on ColumnDefinition, but it isn't a real column - it has no own id and is referenced by name only. Currently limited to a maximum of 1 entry per link column.",
+      "description": "Definition of an attribute that can be attached to a link, in addition to which rows it connects. Its structure orients on ColumnDefinition, but it isn't a real column - it has no own id and is referenced by name only. Currently limited to a maximum of 1 entry per link column, and multilanguage attributes are not supported yet.",
       "required": [
         "name",
         "kind"
@@ -5448,7 +5448,7 @@
         },
         "multilanguage": {
           "type": "boolean",
-          "description": "If true, the attribute's value is a multi-language object keyed by langtag instead of a single value; langtags may be omitted or set to null to mean \"no value in this language\". Defaults to false. Requires the link to have langtags - a multi-language value is addressed by langtag, so it is rejected with 422 when neither of the two linked tables has any (both created with \"langtags\": []). Langtag keys of a stored value are not restricted to those langtags: the definition is shared by both linked tables, whose langtag sets may differ, and a langtag can be removed from a table after a value was stored under it. Changing this on an existing column reshapes stored values: false to true copies the value to every langtag of the link, true to false keeps the value of the langtag that has one (the link's langtags first in their configured order, then any other langtag still present in the stored value); a value that is null is left as null in both directions.",
+          "description": "Not supported yet: sending true is rejected with 400 (error.json.linkAttributes) - the documentation below describes what it will do once it is enabled. If true, the attribute's value is a multi-language object keyed by langtag instead of a single value; langtags may be omitted or set to null to mean \"no value in this language\". Defaults to false. Requires the link to have langtags - a multi-language value is addressed by langtag, so it is rejected with 422 when neither of the two linked tables has any (both created with \"langtags\": []). Langtag keys of a stored value are not restricted to those langtags: the definition is shared by both linked tables, whose langtag sets may differ, and a langtag can be removed from a table after a value was stored under it. Changing this on an existing column reshapes stored values: false to true copies the value to every langtag of the link, true to false keeps the value of the langtag that has one (the link's langtags first in their configured order, then any other langtag still present in the stored value); a value that is null is left as null in both directions.",
           "example": false
         }
       },
@@ -5597,7 +5597,7 @@
         },
         "linkAttributes": {
           "type": "array",
-          "description": "Definitions of attributes attached to this link (only applicable if kind is \"link\"). Currently limited to a maximum of 1 entry. Can also be set/changed on an existing link column via the change-column endpoint; sending an empty array (or null) clears the definition and any stored attribute values, omitting the field leaves it untouched. A change is validated against the column's formatPattern - renaming or clearing an attribute that the stored pattern references as {{attributes.<name>}} is rejected with 422; send a matching formatPattern in the same request, or formatPattern: null to delete the pattern along with the definitions. Note that linkAttributes are shared with the auto-created backlink column while formatPattern is per column, so changing the definitions from one side is not validated against a formatPattern set on the other side.",
+          "description": "Definitions of attributes attached to this link (only applicable if kind is \"link\"). Currently limited to a maximum of 1 entry, and multilanguage attributes are not supported yet. Can also be set/changed on an existing link column via the change-column endpoint; sending an empty array (or null) clears the definition and any stored attribute values, omitting the field leaves it untouched. A change is validated against the column's formatPattern - renaming or clearing an attribute that the stored pattern references as {{attributes.<name>}} is rejected with 422; send a matching formatPattern in the same request, or formatPattern: null to delete the pattern along with the definitions. Note that linkAttributes are shared with the auto-created backlink column while formatPattern is per column, so changing the definitions from one side is not validated against a formatPattern set on the other side.",
           "items": {
             "$ref": "#/definitions/LinkAttributeDefinition"
           },

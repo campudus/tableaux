@@ -377,6 +377,11 @@ object JsonUtils extends LazyLogging {
       )
     }
 
+    // Rollout gate, checked here for the same reason as the count cap: this is the one place every create and every
+    // change request passes through, so it is where a not-yet-offered feature is turned away - before anything
+    // downstream has to decide what to do with it.
+    LinkAttributeDefinition.checkMultilanguageSupported(definitions)
+
     definitions
   }
 
