@@ -28,14 +28,14 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
 
   override protected def testMultilanguageLinkAttributesSupported: Boolean = true
 
-  private def percentageAttribute(
+  private def attribute(
+      name: String,
       kind: String = "integer",
-      multilanguage: Boolean = false,
-      name: String = "percentage"
+      multilanguage: Boolean = false
   ): JsonObject = {
     Json.obj(
       "name" -> name,
-      "displayName" -> Json.obj("de-DE" -> "Prozentanteil"),
+      "displayName" -> Json.obj("de-DE" -> s"Attribut $name"),
       "kind" -> kind,
       "multilanguage" -> multilanguage
     )
@@ -85,30 +85,30 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   @Test
   def createLinkColumnWithLinkAttributes(implicit c: TestContext): Unit = okTest {
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage")))
       result <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
-      assertJSONEquals(Json.arr(percentageAttribute()), result.getJsonArray("linkAttributes"))
+      assertJSONEquals(Json.arr(attribute("percentage")), result.getJsonArray("linkAttributes"))
     }
   }
 
   @Test
   def createLinkColumnWithTooManyLinkAttributesFails(implicit c: TestContext): Unit =
     exceptionTest("error.json.linkAttributes") {
-      createLinkColumn(Json.arr(percentageAttribute(), percentageAttribute()))
+      createLinkColumn(Json.arr(attribute("percentage"), attribute("percentage")))
     }
 
   @Test
   def createLinkColumnWithDisallowedLinkAttributeKindFails(implicit c: TestContext): Unit =
     exceptionTest("error.json.linkAttributes") {
-      createLinkColumn(Json.arr(percentageAttribute(kind = "link")))
+      createLinkColumn(Json.arr(attribute("percentage", kind = "link")))
     }
 
   // the name is the only handle a value has - {{attributes.<name>}} in a formatPattern, matched by a \w-based
   // regex - so a name that regex can never produce is rejected instead of being stored unreferenceable
   private def createLinkColumnWithNameFails(name: String)(implicit c: TestContext): Unit =
     exceptionTest("error.json.linkAttributes") {
-      createLinkColumn(Json.arr(percentageAttribute(name = name)))
+      createLinkColumn(Json.arr(attribute(name)))
     }
 
   @Test
@@ -131,7 +131,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   @Test
   def createLinkColumnWithLinkAttributeNameOfLettersDigitsUnderscoreSucceeds(implicit c: TestContext): Unit = okTest {
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(name = "percentage_2")))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage_2")))
       result <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
       assertEquals("percentage_2", result.getJsonArray("linkAttributes").getJsonObject(0).getString("name"))
@@ -143,11 +143,11 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   def changeLinkColumnToInvalidLinkAttributeNameFails(implicit c: TestContext): Unit =
     exceptionTest("error.json.linkAttributes") {
       for {
-        columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+        columnId <- createLinkColumn(Json.arr(attribute("percentage")))
         _ <- sendRequest(
           "POST",
           s"/tables/1/columns/$columnId",
-          Json.obj("linkAttributes" -> Json.arr(percentageAttribute(name = "percent age")))
+          Json.obj("linkAttributes" -> Json.arr(attribute("percent age")))
         )
       } yield ()
     }
@@ -159,11 +159,11 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute()))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage")))
       )
       result <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
-      assertJSONEquals(Json.arr(percentageAttribute()), result.getJsonArray("linkAttributes"))
+      assertJSONEquals(Json.arr(attribute("percentage")), result.getJsonArray("linkAttributes"))
     }
   }
 
@@ -171,11 +171,11 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   def changeLinkColumnToTooManyLinkAttributesFails(implicit c: TestContext): Unit =
     exceptionTest("error.json.linkAttributes") {
       for {
-        columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+        columnId <- createLinkColumn(Json.arr(attribute("percentage")))
         _ <- sendRequest(
           "POST",
           s"/tables/1/columns/$columnId",
-          Json.obj("linkAttributes" -> Json.arr(percentageAttribute(), percentageAttribute()))
+          Json.obj("linkAttributes" -> Json.arr(attribute("percentage"), attribute("percentage")))
         )
       } yield ()
     }
@@ -188,7 +188,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
         _ <- sendRequest(
           "POST",
           "/tables/1/columns/1",
-          Json.obj("linkAttributes" -> Json.arr(percentageAttribute()))
+          Json.obj("linkAttributes" -> Json.arr(attribute("percentage")))
         )
       } yield ()
     }
@@ -198,7 +198,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("linkAttributes" -> Json.arr()))
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
@@ -212,11 +212,11 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   @Test
   def changeLinkColumnOmittingLinkAttributesLeavesItUntouched(implicit c: TestContext): Unit = okTest {
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("name" -> "renamed"))
       result <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
-      assertJSONEquals(Json.arr(percentageAttribute()), result.getJsonArray("linkAttributes"))
+      assertJSONEquals(Json.arr(attribute("percentage")), result.getJsonArray("linkAttributes"))
     }
   }
 
@@ -225,13 +225,13 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(name = "percentage")))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       // rename only - same kind, same multilanguage flag, just a different name/displayName label
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(name = "percent")))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percent")))
       )
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
@@ -246,12 +246,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "integer")))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", kind = "integer")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "numeric")))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", kind = "numeric")))
       )
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
@@ -269,12 +269,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     val failed = Json.obj("failed" -> "failed")
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "text")))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", kind = "text")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       changeResult <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "integer")))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", kind = "integer")))
       ).recoverWith({ case _ => Future.successful(failed) })
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
@@ -290,12 +290,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50)))))
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = false)))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", multilanguage = false)))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true)))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", multilanguage = true)))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -314,12 +314,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     )
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = true)))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", multilanguage = true)))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = false)))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", multilanguage = false)))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -335,12 +335,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr().addNull()))))
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = false)))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", multilanguage = false)))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true)))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", multilanguage = true)))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -360,12 +360,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     )
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = true)))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", multilanguage = true)))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = false)))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", multilanguage = false)))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -382,12 +382,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     )
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "integer", multilanguage = true)))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", kind = "integer", multilanguage = true)))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "numeric", multilanguage = true)))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", kind = "numeric", multilanguage = true)))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -407,12 +407,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(Json.obj())))))
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "integer", multilanguage = true)))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", kind = "integer", multilanguage = true)))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "numeric", multilanguage = true)))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", kind = "numeric", multilanguage = true)))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -438,12 +438,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr().addNull()))))
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "integer", multilanguage = multilanguage)))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", kind = "integer", multilanguage = multilanguage)))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "numeric", multilanguage = multilanguage)))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", kind = "numeric", multilanguage = multilanguage)))
       )
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
@@ -458,7 +458,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     val pattern = "{{value}} ({{attributes.percentage}}%)"
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("formatPattern" -> pattern))
       result <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
@@ -470,7 +470,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   def changeLinkColumnFormatPatternRejectedForUnknownToken(implicit c: TestContext): Unit =
     exceptionTest("unprocessable.entity") {
       for {
-        columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+        columnId <- createLinkColumn(Json.arr(attribute("percentage")))
         _ <- sendRequest(
           "POST",
           s"/tables/1/columns/$columnId",
@@ -484,7 +484,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     val pattern = "{{value}} ({{attributes.percentage}}%)"
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute()), formatPattern = Some(pattern))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage")), formatPattern = Some(pattern))
       result <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
       assertEquals(pattern, result.getString("formatPattern"))
@@ -496,7 +496,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     // same pattern that changeLinkColumnFormatPatternRejectedForUnknownToken rejects on the change path -
     // creating a link column must be rejected the same way instead of silently storing a broken pattern
     exceptionTest("unprocessable.entity") {
-      createLinkColumn(Json.arr(percentageAttribute()), formatPattern = Some("{{attributes.doesNotExist}}"))
+      createLinkColumn(Json.arr(attribute("percentage")), formatPattern = Some("{{attributes.doesNotExist}}"))
     }
 
   // linkAttributes definitions live once in system_link_table, keyed by link_id, shared by both
@@ -509,7 +509,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(30)))))
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "integer")))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", kind = "integer")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       backlinkColumnId <- findBacklinkColumnId(toTable = 1)
 
@@ -541,7 +541,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       Json.obj("value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr("50")))))
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "text")))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", kind = "text")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       backlinkColumnId <- findBacklinkColumnId(toTable = 1)
 
@@ -551,7 +551,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "integer")))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", kind = "integer")))
       )
 
       forwardCellAfter <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
@@ -637,14 +637,14 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     exceptionTest("unprocessable.entity") {
       for {
         columnId <- createLinkColumn(
-          Json.arr(percentageAttribute()),
+          Json.arr(attribute("percentage")),
           formatPattern = Some("{{value}} ({{attributes.percentage}}%)")
         )
         // no formatPattern in this request - the stored one still references {{attributes.percentage}}
         _ <- sendRequest(
           "POST",
           s"/tables/1/columns/$columnId",
-          Json.obj("linkAttributes" -> Json.arr(percentageAttribute(name = "share")))
+          Json.obj("linkAttributes" -> Json.arr(attribute("share")))
         )
       } yield ()
     }
@@ -654,7 +654,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     exceptionTest("unprocessable.entity") {
       for {
         columnId <- createLinkColumn(
-          Json.arr(percentageAttribute()),
+          Json.arr(attribute("percentage")),
           formatPattern = Some("{{attributes.percentage}}")
         )
         _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("linkAttributes" -> Json.arr()))
@@ -669,7 +669,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
 
     for {
       columnId <- createLinkColumn(
-        Json.arr(percentageAttribute()),
+        Json.arr(attribute("percentage")),
         formatPattern = Some("{{value}} ({{attributes.percentage}}%)")
       )
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
@@ -677,7 +677,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
         "POST",
         s"/tables/1/columns/$columnId",
         Json.obj(
-          "linkAttributes" -> Json.arr(percentageAttribute(name = "share")),
+          "linkAttributes" -> Json.arr(attribute("share")),
           "formatPattern" -> "{{value}} ({{attributes.share}}%)"
         )
       )
@@ -695,11 +695,11 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   @Test
   def changeLinkAttributesRenameWithValueOnlyFormatPatternSucceeds(implicit c: TestContext): Unit = okTest {
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute()), formatPattern = Some("{{value}}"))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage")), formatPattern = Some("{{value}}"))
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(name = "share")))
+        Json.obj("linkAttributes" -> Json.arr(attribute("share")))
       )
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
@@ -712,7 +712,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   @Test
   def clearingLinkAttributesWithoutFormatPatternSucceeds(implicit c: TestContext): Unit = okTest {
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("linkAttributes" -> Json.arr()))
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
@@ -729,7 +729,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
 
     for {
       columnId <- createLinkColumn(
-        Json.arr(percentageAttribute()),
+        Json.arr(attribute("percentage")),
         formatPattern = Some("{{value}} ({{attributes.percentage}}%)")
       )
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
@@ -753,7 +753,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   def clearingLinkAttributesWithNullTogetherWithFormatPatternSucceeds(implicit c: TestContext): Unit = okTest {
     for {
       columnId <- createLinkColumn(
-        Json.arr(percentageAttribute()),
+        Json.arr(attribute("percentage")),
         formatPattern = Some("{{attributes.percentage}}")
       )
       _ <- sendRequest(
@@ -775,7 +775,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     exceptionTest("unprocessable.entity") {
       for {
         columnId <- createLinkColumn(
-          Json.arr(percentageAttribute()),
+          Json.arr(attribute("percentage")),
           formatPattern = Some("{{attributes.percentage}}")
         )
         _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("linkAttributes" -> null))
@@ -787,14 +787,14 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   def clearingOnlyFormatPatternKeepsLinkAttributes(implicit c: TestContext): Unit = okTest {
     for {
       columnId <- createLinkColumn(
-        Json.arr(percentageAttribute()),
+        Json.arr(attribute("percentage")),
         formatPattern = Some("{{value}} ({{attributes.percentage}}%)")
       )
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("formatPattern" -> null))
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
       assertFalse(column.containsKey("formatPattern"))
-      assertJSONEquals(Json.arr(percentageAttribute()), column.getJsonArray("linkAttributes"))
+      assertJSONEquals(Json.arr(attribute("percentage")), column.getJsonArray("linkAttributes"))
     }
   }
 
@@ -804,13 +804,13 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   def changeLinkAttributesTogetherWithClearedFormatPatternSucceeds(implicit c: TestContext): Unit = okTest {
     for {
       columnId <- createLinkColumn(
-        Json.arr(percentageAttribute()),
+        Json.arr(attribute("percentage")),
         formatPattern = Some("{{value}} ({{attributes.percentage}}%)")
       )
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(name = "share")), "formatPattern" -> null)
+        Json.obj("linkAttributes" -> Json.arr(attribute("share")), "formatPattern" -> null)
       )
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
@@ -823,7 +823,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   @Test
   def omittingFormatPatternLeavesItUntouched(implicit c: TestContext): Unit = okTest {
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute()), formatPattern = Some("{{value}}"))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage")), formatPattern = Some("{{value}}"))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("name" -> "renamed"))
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
@@ -837,7 +837,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
   def changeFormatPatternToNonStringFails(implicit c: TestContext): Unit =
     exceptionTest("error.json.formatPattern") {
       for {
-        columnId <- createLinkColumn(Json.arr(percentageAttribute()))
+        columnId <- createLinkColumn(Json.arr(attribute("percentage")))
         _ <- sendRequest("POST", s"/tables/1/columns/$columnId", Json.obj("formatPattern" -> 42))
       } yield ()
     }
@@ -875,7 +875,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
             "name" -> "Test Link 1",
             "kind" -> "link",
             "toTable" -> toTableId,
-            "linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true))
+            "linkAttributes" -> Json.arr(attribute("percentage", multilanguage = true))
           )))
         )
       } yield ()
@@ -894,13 +894,13 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
             "name" -> "Test Link 1",
             "kind" -> "link",
             "toTable" -> toTableId,
-            "linkAttributes" -> Json.arr(percentageAttribute(multilanguage = false))
+            "linkAttributes" -> Json.arr(attribute("percentage", multilanguage = false))
           )))
         ).map(_.getJsonArray("columns").getJsonObject(0).getLong("id").toLong)
         _ <- sendRequest(
           "POST",
           s"/tables/$tableId/columns/$columnId",
-          Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true)))
+          Json.obj("linkAttributes" -> Json.arr(attribute("percentage", multilanguage = true)))
         )
       } yield ()
     }
@@ -919,7 +919,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
           "name" -> "Test Link 1",
           "kind" -> "link",
           "toTable" -> toTableId,
-          "linkAttributes" -> Json.arr(percentageAttribute(multilanguage = false))
+          "linkAttributes" -> Json.arr(attribute("percentage", multilanguage = false))
         )))
       )
     } yield {
@@ -944,7 +944,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     )
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = true)))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", multilanguage = true)))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
 
       // de-DE is dropped from the table, so the only stored value now sits under a langtag the table
@@ -954,7 +954,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = false)))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", multilanguage = false)))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -1012,12 +1012,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     )
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "text")))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", kind = "text")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "datetime")))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", kind = "datetime")))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -1035,12 +1035,12 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
     )
 
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(kind = "text")))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", kind = "text")))
       _ <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", putLink)
       _ <- sendRequest(
         "POST",
         s"/tables/1/columns/$columnId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(kind = "date")))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", kind = "date")))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -1072,7 +1072,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
           "kind" -> "link",
           "toTable" -> toTableId,
           "singleDirection" -> false,
-          "linkAttributes" -> Json.arr(percentageAttribute(multilanguage = multilanguage))
+          "linkAttributes" -> Json.arr(attribute("percentage", multilanguage = multilanguage))
         )))
       ).map(_.getJsonArray("columns").getJsonObject(0).getLong("id").toLong)
     } yield (toTableId, columnId)
@@ -1103,7 +1103,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       _ <- sendRequest(
         "POST",
         s"/tables/$toTableId/columns/$backlinkId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true, name = "share")))
+        Json.obj("linkAttributes" -> Json.arr(attribute("share", multilanguage = true)))
       )
       forwardColumn <- sendRequest("GET", "/tables/1/columns")
     } yield {
@@ -1136,7 +1136,7 @@ class ChangeLinkAttributesStructureTest extends TableauxTestBase with LinkAttrib
       _ <- sendRequest(
         "POST",
         s"/tables/$toTableId/columns/$backlinkId",
-        Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true)))
+        Json.obj("linkAttributes" -> Json.arr(attribute("percentage", multilanguage = true)))
       )
       cell <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {

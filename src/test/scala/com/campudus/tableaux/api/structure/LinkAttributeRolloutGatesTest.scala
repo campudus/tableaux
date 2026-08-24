@@ -26,11 +26,15 @@ import org.junit.runner.RunWith
 @RunWith(classOf[VertxUnitRunner])
 class LinkAttributeRolloutGatesTest extends TableauxTestBase {
 
-  private def percentageAttribute(multilanguage: Boolean): JsonObject = {
+  private def attribute(
+      name: String,
+      kind: String = "integer",
+      multilanguage: Boolean = false
+  ): JsonObject = {
     Json.obj(
-      "name" -> "percentage",
-      "displayName" -> Json.obj("de-DE" -> "Prozentanteil"),
-      "kind" -> "integer",
+      "name" -> name,
+      "displayName" -> Json.obj("de-DE" -> s"Attribut $name"),
+      "kind" -> kind,
       "multilanguage" -> multilanguage
     )
   }
@@ -55,18 +59,18 @@ class LinkAttributeRolloutGatesTest extends TableauxTestBase {
   @Test
   def createLinkColumnWithMultilanguageAttributeFails(implicit c: TestContext): Unit =
     exceptionTest("error.json.linkAttributes") {
-      createLinkColumn(Json.arr(percentageAttribute(multilanguage = true)))
+      createLinkColumn(Json.arr(attribute("percentage", multilanguage = true)))
     }
 
   @Test
   def changeLinkColumnToMultilanguageAttributeFails(implicit c: TestContext): Unit =
     exceptionTest("error.json.linkAttributes") {
       for {
-        columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = false)))
+        columnId <- createLinkColumn(Json.arr(attribute("percentage", multilanguage = false)))
         _ <- sendRequest(
           "POST",
           s"/tables/1/columns/$columnId",
-          Json.obj("linkAttributes" -> Json.arr(percentageAttribute(multilanguage = true)))
+          Json.obj("linkAttributes" -> Json.arr(attribute("percentage", multilanguage = true)))
         )
       } yield ()
     }
@@ -76,10 +80,10 @@ class LinkAttributeRolloutGatesTest extends TableauxTestBase {
   @Test
   def createLinkColumnWithLanguageNeutralAttributeSucceeds(implicit c: TestContext): Unit = okTest {
     for {
-      columnId <- createLinkColumn(Json.arr(percentageAttribute(multilanguage = false)))
+      columnId <- createLinkColumn(Json.arr(attribute("percentage", multilanguage = false)))
       column <- sendRequest("GET", s"/tables/1/columns/$columnId")
     } yield {
-      assertJSONEquals(Json.arr(percentageAttribute(multilanguage = false)), column.getJsonArray("linkAttributes"))
+      assertJSONEquals(Json.arr(attribute("percentage", multilanguage = false)), column.getJsonArray("linkAttributes"))
     }
   }
 }
