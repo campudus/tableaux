@@ -35,6 +35,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     s"/tables/$tableId/columns/$columnId/rows/$rowId/attachment/$uuidRegex/order"
   private val linkOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId"
   private val linkOrderOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId/order"
+  private val linkAttributesOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId/attributes"
 
   private val columnsValues: String = s"/tables/$tableId/columns/$columnId/values"
   private val columnsValuesWithLangtag: String = s"/tables/$tableId/columns/$columnId/values/$langtagRegex"
@@ -133,6 +134,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.postWithRegex(cell).handler(updateCell)
     router.putWithRegex(cell).handler(replaceCell)
     router.putWithRegex(linkOrderOfCell).handler(changeLinkOrder)
+    router.putWithRegex(linkAttributesOfCell).handler(changeLinkAttributes)
     router.putWithRegex(attachmentOrderOfCell).handler(changeAttachmentOrder)
     router.putWithRegex(row).handler(setRow)
 
@@ -851,6 +853,35 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val json = getJson(context)
           controller.updateCellLinkOrder(tableId, columnId, rowId, linkId, toLocationType[Long](json))
+        }
+      )
+    }
+  }
+
+  /**
+    * Change attribute values of a link
+    */
+  private def changeLinkAttributes(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      rowId <- getRowId(context)
+      toId <- getLinkId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+          // Deliberately not getJsonArray: that casts, so a non-array body would escape as a 500 instead of a 400.
+          // A missing key is turned away here as well rather than passed on as null, which the value validator
+          // could only report as a length mismatch against the column's definitions.
+          val attributes = json.getValue("attributes") match {
+            case null => throw InvalidJsonException("attributes is required and must be an array.", "attributes")
+            case array: JsonArray => array
+            case other => throw InvalidJsonException(s"attributes must be an array, but got $other.", "attributes")
+          }
+          controller.updateCellLinkAttributes(tableId, columnId, rowId, toId, attributes)
         }
       )
     }

@@ -19,6 +19,7 @@
       - [`link`](#link)
       - [`concat` and `group`](#concat-and-group)
       - [`attachment`](#attachment)
+  - [2.3. Errors](#23-errors)
 
 # 1. Preface
 
@@ -399,9 +400,45 @@ A link column always points to a specific table — in this case table `1`. A li
 ]
 ```
 
+A link can also carry values of its own — a percentage, a date or a note per association — by defining `linkAttributes` on the link column. The definitions belong to the link itself and are therefore identical on the link column and its backlink column, while the values belong to each individual association:
+
+```json
+{
+  "id": 8,
+  "name": "country",
+  "kind": "link",
+  "toTable": 1,
+  "linkAttributes": [ // only present if at least one attribute is defined
+    {
+      "name": "percentage", // referenced by name only, has no id and no ordering
+      "kind": "integer", // text, numeric, integer, boolean, date or datetime
+      "multilanguage": false,
+      "displayName": {},
+      "description": {}
+    }
+  ],
+  "formatPattern": "{{value}} ({{attributes.percentage}}%)" // only present if set
+  // ...
+}
+```
+
+The cell value carries the attribute values positionally — `attributes[i]` belongs to `linkAttributes[i]`:
+
+```json
+[
+  {
+    "id": 13,
+    "value": "Czech Republic",
+    "attributes": [50] // only present if something is stored for this link
+  }
+]
+```
+
+See [Link attributes](docs/features/link-attributes.md) for the full behaviour: how stored values are migrated when a definition changes, and which requests can write them.
+
 #### `concat` and `group`
 
-This column kinds combine multiple columns into one column. Setting multiple `identifier` columns in a table will automatically add a `concat` column at the beginning of the columns array. A `concat` column combines the values of the `identifier` columns into one column and is used to reference a foreign row in a link. The `group` column lets you combine multiple columns into one, for example grouping three columns `height`, `length`, and `depth` together into a single field for the UI as `<height> x <length> x <depth>`.
+This column kinds combine multiple columns into one column. Setting multiple `identifier` columns in a table will automatically add a `concat` column at the beginning of the columns array. A `concat` column combines the values of the `identifier` columns into one column and is used to reference a foreign row in a link. The `group` column lets you combine multiple columns into one, for example grouping three columns `height`, `length`, and `depth` together into a single field for the UI as `<height> x <length> x <depth>`. How such a combined value is rendered can be controlled with a `formatPattern` on the column, using `{{...}}` placeholders. `formatPattern` also exists on [`link`](#link) columns, where the available placeholders are `{{value}}` and `{{attributes.<name>}}`.
 
 Here is an example of a `concat` cell which combines three columns (`link`, `shorttext`, and `numeric`):
 
@@ -450,3 +487,15 @@ Here is an example of an attachment cell:
   "updatedAt": "2017-03-23T10:01:47.604+01:00"
 }
 ```
+
+## 2.3. Errors
+
+Errors are not returned as JSON. The response body is the plain error message, and the machine-readable error id is sent as the **HTTP reason phrase** next to the status code:
+
+```txt
+HTTP/1.1 400 error.json.linkAttributes
+
+Multilanguage linkAttributes are not supported yet, but 'note' is multilanguage.
+```
+
+**Take note of the behavior!** The reason phrase, not the body, is what a client should switch on — the body is human-readable text and its wording is not part of the contract. And `404` is the exception: its reason phrase is always the literal `NOT FOUND`, so a not-found response does not carry its error id at all.

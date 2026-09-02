@@ -1,6 +1,11 @@
 package com.campudus.tableaux.database.model.tableaux
 
-import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
+import com.campudus.tableaux.{
+  NotFoundInDatabaseException,
+  RowNotFoundException,
+  UnknownServerException,
+  UnprocessableEntityException
+}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
@@ -21,7 +26,10 @@ import com.typesafe.scalalogging.LazyLogging
 import java.util.UUID
 import org.joda.time.DateTime
 
-private object ModelHelper {
+// Visible inside com.campudus.tableaux.database so ColumnModel's link-attribute kind migration can render
+// date/datetime values with exactly the same format the row projections use - two spellings of one instant is
+// precisely the bug that motivated normalizing them in the first place.
+private[database] object ModelHelper {
 
   val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
   val dateFormat = "YYYY-MM-DD"
@@ -56,10 +64,11 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
   private def generateInsertSelectAndBinds(
       rowId: RowId,
       column: LinkColumn,
-      toId: RowId
-  ): (String, Seq[Long]) = {
+      linkValue: LinkValue
+  ): (String, Seq[Any]) = {
     val linkId = column.linkId
     val direction = column.linkDirection
+    val toId = linkValue.id
 
     // Both cardinality checks use a plain "+ 1": each insert now runs on its own, sequentially, so by the time a
     // later toId's insert runs, the COUNT(*) already reflects the earlier ones in this same batch - unlike the
@@ -67,14 +76,15 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
     // needed a running "+ index" offset to account for its own batch-mates.
     val select =
       s"""
-         |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
+         |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq'), ?::jsonb
          |WHERE
          |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
          |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + 1 <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
          |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
          |""".stripMargin
 
-    val binds = List(rowId, toId, rowId, toId, rowId, linkId, toId, linkId)
+    val binds =
+      List(rowId, toId, linkValue.attributes.map(_.encode()).orNull, rowId, toId, rowId, linkId, toId, linkId)
 
     (select, binds)
   }
@@ -126,11 +136,11 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
   def updateLinks(
       table: Table,
       rowId: RowId,
-      values: Seq[(LinkColumn, Seq[RowId])],
+      values: Seq[(LinkColumn, Seq[LinkValue])],
       maybeTransaction: Option[DbTransaction] = None
   )(implicit ec: ExecutionContext): Future[Unit] = {
-    val func = (value: (LinkColumn, Seq[RowId])) => {
-      val (column, toIds) = value
+    val func = (value: (LinkColumn, Seq[LinkValue])) => {
+      val (column, linkValues) = value
 
       val linkId = column.linkId
       val direction = column.linkDirection
@@ -141,20 +151,20 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
           t <- rowExists(t, column.table.id, rowId)
 
           // check if "to-be-linked" rows really exist
-          t <- toIds
-            .foldLeft(Future(t))((futureT, toId) => {
-              futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
+          t <- linkValues
+            .foldLeft(Future(t))((futureT, linkValue) => {
+              futureT.flatMap(t => rowExists(t, column.to.table.id, linkValue.id))
             })
             .recoverWith({ case ex: Throwable =>
               Future.failed(UnprocessableEntityException(ex.getMessage))
             })
 
-          t <- toIds.foldLeft(Future.successful(t))((futureT, toId) => {
-            val (select, binds) = generateInsertSelectAndBinds(rowId, column, toId)
+          t <- linkValues.foldLeft(Future.successful(t))((futureT, linkValue) => {
+            val (select, binds) = generateInsertSelectAndBinds(rowId, column, linkValue)
 
             futureT.flatMap(t =>
               t.query(
-                s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $select RETURNING *",
+                s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}, attributes) $select RETURNING *",
                 Json.arr(binds*)
               ).map({
                 // if no row comes back we hit the cardinality limit or the link already exists
@@ -266,7 +276,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
             if (simple.isEmpty) Future.successful(())
             else updateSimple(table, rowId, simple.map({ case (c, _) => (c, None) }))
           _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis.map(_._1))
-          _ <- if (links.isEmpty) Future.successful(()) else clearLinksWithValues(table, rowId, links, deleteRowFn)
+          _ <-
+            if (links.isEmpty) Future.successful(())
+            else clearLinksWithValues(table, rowId, links.map({ case (c, vs) => (c, vs.map(_.id)) }), deleteRowFn)
           _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments.map(_._1))
         } yield ()
     }
@@ -443,6 +455,30 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           deleteRowFn(column.to.table, toRowId)
         } else {
           connection.query(sql, Json.arr(fromRowId, toRowId))
+        }
+    } yield ()
+  }
+
+  def updateLinkAttributes(
+      table: Table,
+      column: LinkColumn,
+      rowId: RowId,
+      toId: RowId,
+      attributes: JsonArray
+  ): Future[Unit] = {
+    val rowIdColumn = column.linkDirection.fromSql
+    val toIdColumn = column.linkDirection.toSql
+    val linkTable = s"link_table_${column.linkId}"
+
+    val sql = s"UPDATE $linkTable SET attributes = ?::jsonb WHERE $rowIdColumn = ? AND $toIdColumn = ? RETURNING *"
+
+    for {
+      result <- connection.query(sql, Json.arr(Option(attributes).map(_.encode()).orNull, rowId, toId))
+      // an UPDATE ... RETURNING is routed through the SELECT-shaped result path (see doMagicQuery), so its
+      // "rows" count - not its "message" string - is what actually reflects whether a row was updated
+      _ =
+        if (result.getInteger("rows") != 1) {
+          throw NotFoundInDatabaseException(s"Link from row $rowId to row $toId not found", "link")
         }
     } yield ()
   }
@@ -1657,6 +1693,14 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         )
     }
 
+    // attributes must not go through jsonb_strip_nulls: that works recursively, so an explicitly null langtag of a
+    // multilanguage attribute value would silently vanish from the response ([{"de-DE": null, "en-GB": 50}] becomes
+    // [{"en-GB": 50}], and a value that is null in every langtag even collapses to [{}]). Stored values are handed
+    // out as-is instead; only the "no attributes at all" case still omits the key, which the CASE does explicitly.
+    val attributes =
+      s"CASE WHEN lt$linkId.attributes IS NULL THEN '{}'::jsonb " +
+        s"ELSE jsonb_build_object('attributes', lt$linkId.attributes) END"
+
     s"""(
        |SELECT
        |  json_agg(sub.value)
@@ -1670,13 +1714,14 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
        |          'final', CASE WHEN ut$toTableId.final IS TRUE THEN ut$toTableId.final ELSE NULL END,
        |          'archived', CASE WHEN ut$toTableId.archived IS TRUE THEN ut$toTableId.archived ELSE NULL END
        |        )
-       |      )
+       |      ) ||
+       |      $attributes
        |    ) AS value
        | FROM
        |    link_table_$linkId lt$linkId
        |    JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
        |    LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
-       |  GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
+       |  GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}, lt$linkId.attributes
        |  ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
        |) sub
        |WHERE sub.${direction.fromSql} = ut.id

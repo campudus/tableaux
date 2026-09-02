@@ -16,7 +16,7 @@ import com.campudus.tableaux.helper.UnionTableHelper
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
-import io.vertx.lang.scala.json.JsonObject
+import io.vertx.lang.scala.json.JsonArray
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -575,6 +575,22 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       _ = UnionTableHelper.notImplemented(table)
       filled <- repository.updateCellLinkOrder(table, columnId, rowId, toId, locationType)
+    } yield filled
+  }
+
+  def updateCellLinkAttributes(
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      toId: RowId,
+      attributes: JsonArray
+  )(implicit user: TableauxUser): Future[Cell[?]] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
+    logger.info(s"updateCellLinkAttributes $tableId $columnId $rowId $toId $attributes")
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
+      filled <- repository.updateCellLinkAttributes(table, columnId, rowId, toId, attributes)
     } yield filled
   }
 

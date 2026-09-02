@@ -194,6 +194,9 @@ object JsonUtils extends LazyLogging {
                         finalCascade
                       )
 
+                    val linkAttributes = parseLinkAttributes(json)
+                    val linkFormatPattern = hasString("formatPattern", json).toOption
+
                     CreateLinkColumn(
                       name,
                       ordering,
@@ -204,7 +207,9 @@ object JsonUtils extends LazyLogging {
                       constraint.getOrElse(DefaultConstraint),
                       createBackLinkColumn,
                       attributes,
-                      hidden
+                      hidden,
+                      linkAttributes,
+                      linkFormatPattern
                     )
 
                   case (GroupType) =>
@@ -315,6 +320,75 @@ object JsonUtils extends LazyLogging {
         throw InvalidJsonException(s"Decimal digits must be between 0 and 10, but was $value.", "decimalDigits")
       case value => value
     })
+  }
+
+  private def parseLinkAttributes(json: JsonObject): Seq[LinkAttributeDefinition] = {
+    // Deliberately not getJsonArray: that casts, so anything but an array escapes as a ClassCastException and
+    // surfaces as a 500 for what is a plain request error. null is not one of those - it is the wire-level way to
+    // clear the definitions, exactly like an empty array (see toColumnChanges).
+    val entries = json.getValue("linkAttributes") match {
+      case null => Seq.empty
+      case array: JsonArray => array.asScala.toSeq
+      case other =>
+        throw InvalidJsonException(s"linkAttributes must be an array or null, but got $other.", "linkAttributes")
+    }
+
+    LinkAttributeDefinition.checkMaxCount(entries.size)
+
+    // A name is an identifier, not a label (that's displayName): it is how a value gets referenced in a
+    // formatPattern as {{attributes.<name>}}, and those tokens are matched by ColumnModel's
+    // isLinkColumnMatchingToFormatPattern via \{\{([\w.]+)\}\}. So anything outside \w could never be
+    // referenced at all, and a name containing a dot would make a token like {{attributes.a.b}} ambiguous.
+    val allowedName = "\\w+".r
+
+    val definitions = entries.map({
+      case entryJson: JsonObject =>
+        val name = checked(hasString("name", entryJson))
+
+        if (!allowedName.matches(name)) {
+          throw InvalidJsonException(
+            s"linkAttributes name '$name' is not allowed. Only letters, digits and underscores are allowed.",
+            "linkAttributes"
+          )
+        }
+
+        val kind = checked(toTableauxType(checked(hasString("kind", entryJson))))
+
+        if (!LinkAttributeDefinition.allowedKinds.contains(kind)) {
+          throw InvalidJsonException(
+            s"linkAttributes kind '$kind' is not allowed. Allowed kinds: ${LinkAttributeDefinition.allowedKinds
+                .mkString(", ")}.",
+            "linkAttributes"
+          )
+        }
+
+        val multilanguage = entryJson.getBoolean("multilanguage", false)
+        val displayInfos = DisplayInfos.fromJson(entryJson)
+
+        LinkAttributeDefinition(name, displayInfos, kind, multilanguage)
+
+      case other =>
+        throw InvalidJsonException(s"linkAttributes entries must be JSON objects, but got $other.", "linkAttributes")
+    })
+
+    // Unreachable over HTTP while maxCount is at its default of 1 (two entries fail the size check above first),
+    // but a value is addressed by name only - both in a formatPattern and in {{attributes.<name>}} - so duplicates
+    // would be unresolvable as soon as the cap is raised. MultipleLinkAttributesTest raises it and covers this.
+    val duplicateNames = definitions.groupBy(_.name).collect({ case (name, group) if group.size > 1 => name })
+
+    if (duplicateNames.nonEmpty) {
+      throw InvalidJsonException(
+        s"linkAttributes names must be unique, but got duplicates: ${duplicateNames.mkString(", ")}.",
+        "linkAttributes"
+      )
+    }
+
+    // Rollout gate, checked here for the same reason as the count cap: this is the one place every create and every
+    // change request passes through, so it is where a not-yet-offered feature is turned away - before anything
+    // downstream has to decide what to do with it.
+    LinkAttributeDefinition.checkMultilanguageSupported(definitions)
+
+    definitions
   }
 
   private def parseGroupReferences(json: JsonObject): (Seq[ColumnId], Seq[String]) = {
@@ -428,7 +502,8 @@ object JsonUtils extends LazyLogging {
       Option[Int],
       Option[Boolean],
       Option[Int],
-      Option[String]
+      Option[Option[String]],
+      Option[Seq[LinkAttributeDefinition]]
   ) = {
 
     val name = hasString("name", json).toOption
@@ -464,7 +539,26 @@ object JsonUtils extends LazyLogging {
     val maxLength = getNullableJsonIntegerValue("maxLength", json).toOption
     val minLength = getNullableJsonIntegerValue("minLength", json).toOption
     val decimalDigits = parseDecimalDigits(json)
-    val formatPattern = hasString("formatPattern", json).toOption
+
+    // Same None/Some(None)/Some(Some(...)) distinction as linkAttributes below: None means "formatPattern wasn't
+    // submitted at all, leave it untouched", Some(None) means "submitted as null", the wire-level way to delete an
+    // existing formatPattern. Deleting it has to be expressible because a formatPattern and the linkAttributes it
+    // references constrain each other - without it, clearing the definitions would leave a dangling pattern behind
+    // that could never be repaired (see StructureController.changeColumn).
+    val formatPattern = booleanToValueOption(
+      json.containsKey("formatPattern"),
+      json.getValue("formatPattern") match {
+        case null => None
+        case value: String => Some(value)
+        case other =>
+          throw InvalidJsonException(s"formatPattern must be a string or null, but got $other.", "formatPattern")
+      }
+    )
+
+    // None means "linkAttributes wasn't submitted at all, leave existing definition untouched" - as opposed to
+    // Some(Seq.empty) which means "submitted as an explicit empty array", the wire-level way to delete an
+    // existing linkAttributes definition (see ColumnModel.change).
+    val linkAttributes = booleanToValueOption(json.containsKey("linkAttributes"), parseLinkAttributes(json))
 
     (
       name,
@@ -481,7 +575,8 @@ object JsonUtils extends LazyLogging {
       minLength,
       showMemberColumns,
       decimalDigits,
-      formatPattern
+      formatPattern,
+      linkAttributes
     )
   }
 

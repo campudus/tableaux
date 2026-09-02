@@ -714,6 +714,40 @@ class TableauxModel(
     } yield updatedCell
   }
 
+  def updateCellLinkAttributes(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      toId: RowId,
+      attributes: JsonArray
+  )(implicit user: TableauxUser): Future[Cell[?]] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+      _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
+
+      _ <- column match {
+        case linkColumn: LinkColumn if linkColumn.linkAttributes.isEmpty =>
+          Future.failed(UnprocessableEntityException(s"Column ${linkColumn.id} has no linkAttributes defined."))
+        case linkColumn: LinkColumn => {
+          for {
+            // Normalizing rather than only validating means what lands in the database is the canonical spelling of
+            // each value, so this endpoint and a cell write store a given date/datetime identically.
+            normalizedAttributes <- Future.fromTry(
+              LinkAttributeValueValidator.normalize(linkColumn.linkAttributes, attributes)
+            )
+            _ <- createHistoryModel.createCellsInit(table, rowId, Seq((linkColumn, Seq(toId))))
+            _ <- updateRowModel.updateLinkAttributes(table, linkColumn, rowId, toId, normalizedAttributes)
+            _ <- invalidateCellAndDependentColumns(column, rowId)
+            _ <- createHistoryModel.updateLinks(table, linkColumn, Seq(rowId))
+          } yield ()
+        }
+        case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
+      }
+
+      updatedCell <- retrieveCell(column, rowId, true)
+    } yield updatedCell
+  }
+
   def updateAttachmentOrder(
       table: Table,
       columnId: ColumnId,
@@ -1260,15 +1294,21 @@ class TableauxModel(
 
                 val buildReturnJson: (Option[Any], Boolean) => JsonObject = (valueOpt, userCanView) => {
                   if (shouldHideValuesByRowPermissions && !userCanView) {
+                    // attributes belong to the foreign row's protected payload too, so they're hidden here as well
                     Json.obj(
                       "id" -> linkRowId,
                       "hiddenByRowPermissions" -> true
                     )
                   } else {
-                    Json.obj(
+                    val baseJson = Json.obj(
                       "id" -> linkRowId,
                       "value" -> valueOpt.getOrElse(null)
                     )
+
+                    Option(link.getValue("attributes")) match {
+                      case Some(attributes) => baseJson.mergeIn(Json.obj("attributes" -> attributes))
+                      case None => baseJson
+                    }
                   }
                 }
 
@@ -1428,7 +1468,7 @@ class TableauxModel(
           }
         })
 
-      (_, linkDirection, _) <- structureModel.columnStruc.retrieveLinkInformation(table, linkColumn.id)
+      (_, linkDirection, _, _) <- structureModel.columnStruc.retrieveLinkInformation(table, linkColumn.id)
       totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId, linkDirection, finalFlagOpt, archivedFlagOpt)
       rawRows <- retrieveRowModel.retrieveForeign(
         linkColumn,
@@ -1875,7 +1915,17 @@ class TableauxModel(
             cell <- retrieveCell(concatenateColumn, rowId, true)
           } yield {
             val cellJson = cell.getJson
-            list ++ List(Json.obj("id" -> rowId).mergeIn(cellJson))
+            // The projection can't compute a value for a concat target, so the row is rebuilt around the
+            // separately fetched one. Only `attributes` is carried over from the raw row - deliberately not
+            // everything it happens to hold: passing its flags through as well would newly surface
+            // final/archived on link values whose target is a concat column, and inconsistently at that,
+            // since removeUnauthorizedLinkAndConcatValues rebuilds the object without them further down.
+            val attributesJson = Option(linkedRow.getValue("attributes")) match {
+              case Some(attributes) => Json.obj("attributes" -> attributes)
+              case None => Json.obj()
+            }
+
+            list ++ List(Json.obj("id" -> rowId).mergeIn(cellJson).mergeIn(attributesJson))
           }
       }
     }

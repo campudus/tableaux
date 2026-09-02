@@ -191,13 +191,45 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     (languageType, cellValues)
   }
 
-  private def wrapLinkValue(linksData: Seq[(RowId, Object)] = Seq.empty[(RowId, Object)]): JsonObject = {
+  private def wrapLinkValue(
+      linksData: Seq[(RowId, Object)] = Seq.empty[(RowId, Object)],
+      attributesByRowId: Map[RowId, JsonArray] = Map.empty
+  ): JsonObject = {
     Json.obj(
       "value" ->
         linksData.map({
-          case (rowId, value) => Json.obj("id" -> rowId, "value" -> value)
+          case (rowId, value) =>
+            val baseJson = Json.obj("id" -> rowId, "value" -> value)
+            attributesByRowId.get(rowId) match {
+              case Some(attributes) => baseJson.mergeIn(Json.obj("attributes" -> attributes))
+              case None => baseJson
+            }
         })
     )
+  }
+
+  // retrieveForeignIdentifierCells/getLinksData only fetch the *foreign row's* identifier value - this fetches the
+  // join table's own per-link attributes column, keyed by the linked row id, for the given source row.
+  //
+  // A column without definitions can't have stored values, so it skips the query entirely: this runs for every link
+  // column on every link change, which for the whole pre-existing stock of link columns would otherwise be a
+  // guaranteed-empty round trip per column per changed row.
+  private def retrieveLinkAttributesByRowId(column: LinkColumn, rowId: RowId): Future[Map[RowId, JsonArray]] = {
+    if (column.linkAttributes.isEmpty) {
+      Future.successful(Map.empty)
+    } else {
+      val linkTable = s"link_table_${column.linkId}"
+      val fromIdColumn = column.linkDirection.fromSql
+      val toIdColumn = column.linkDirection.toSql
+
+      connection
+        .query(
+          s"SELECT $toIdColumn, attributes FROM $linkTable WHERE $fromIdColumn = ? AND attributes IS NOT NULL",
+          Json.arr(rowId)
+        )
+        .map(resultObjectToJsonArray)
+        .map(_.map(row => (row.getLong(0).longValue(), new JsonArray(row.getString(1)))).toMap)
+    }
   }
 
   private def createLinks(
@@ -236,9 +268,17 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
               linkIds <- tableauxModel.retrieveCurrentLinkIds(table, column, rowId)
               identifierCellSeq <- retrieveForeignIdentifierCells(column, linkIds)
               langTags <- getLangTags(table)
+              attributesByRowId <- retrieveLinkAttributesByRowId(column, rowId)
 
               (languageType, linksData) = getLinksData(identifierCellSeq, langTags)
-              _ <- insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapLinkValue(linksData))
+              _ <- insertCellHistory(
+                table,
+                rowId,
+                column.id,
+                column.kind,
+                languageType,
+                wrapLinkValue(linksData, attributesByRowId)
+              )
 
               _ <-
                 if (allowRecursion) {
@@ -292,8 +332,16 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       linkIds <- tableauxModel.retrieveCurrentLinkIds(table, linkColumn, rowId)
       identifierCellSeq <- retrieveForeignIdentifierCells(linkColumn, linkIds)
       langTags <- getLangTags(table)
+      attributesByRowId <- retrieveLinkAttributesByRowId(linkColumn, rowId)
       (languageType, linksData) = getLinksData(identifierCellSeq, langTags)
-      _ <- insertCellHistory(table, rowId, linkColumn.id, linkColumn.kind, languageType, wrapLinkValue(linksData))
+      _ <- insertCellHistory(
+        table,
+        rowId,
+        linkColumn.id,
+        linkColumn.kind,
+        languageType,
+        wrapLinkValue(linksData, attributesByRowId)
+      )
     } yield ()
   }
 
@@ -711,7 +759,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
             case (linkColumn, newForeignIds) =>
               for {
                 foreignIdsBeforeClearing <- tableauxModel.updateRowModel.retrieveLinkedRows(table, rowId, linkColumn)
-                _ <- createClearBackLinks(table, foreignIdsBeforeClearing.diff(newForeignIds))
+                _ <- createClearBackLinks(table, foreignIdsBeforeClearing.diff(newForeignIds.map(_.id)))
               } yield ()
           })
           Future.sequence(futureSeq)
@@ -890,7 +938,13 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis, oldCell)
-          _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, allowRecursion = true)
+          _ <-
+            if (links.isEmpty) Future.successful(())
+            else {
+              // createLinks always re-reads current DB state for the history value it writes (see getLinksData) -
+              // it only needs ids here, not attribute values
+              createLinks(table, rowId, links.map({ case (c, vs) => (c, vs.map(_.id)) }), allowRecursion = true)
+            }
           _ <-
             if (attachments.isEmpty) Future.successful(())
             else createAttachments(table, rowId, attachments.map({ case (column, _) => column }))

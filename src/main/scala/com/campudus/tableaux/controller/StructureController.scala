@@ -14,6 +14,7 @@ import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
+import com.campudus.tableaux.database.model.structure.ColumnModel.isLinkColumnMatchingToFormatPattern
 import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.toCreateColumnSeq
 import com.campudus.tableaux.helper.JsonUtils.toJsonObjectSeq
@@ -696,7 +697,9 @@ class StructureController(
       minLength: Option[Int] = None,
       showMemberColumns: Option[Boolean] = None,
       decimalDigits: Option[Int] = None,
-      formatPattern: Option[String] = None
+      // outer None: not submitted, leave untouched; Some(None): submitted as null, delete it
+      formatPattern: Option[Option[String]] = None,
+      linkAttributes: Option[Seq[LinkAttributeDefinition]] = None
   )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     checkArguments(
       greaterZero(tableId),
@@ -717,14 +720,16 @@ class StructureController(
           minLength,
           showMemberColumns,
           decimalDigits,
-          formatPattern
+          formatPattern,
+          linkAttributes
         ),
         "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, " +
-          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits, formatPattern"
+          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits, formatPattern, linkAttributes"
       )
     )
 
-    val structureProperties: Seq[Option[Any]] = Seq(columnName, ordering, kind, identifier, countryCodes)
+    val structureProperties: Seq[Option[Any]] =
+      Seq(columnName, ordering, kind, identifier, countryCodes, linkAttributes)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
     logger.info(
@@ -751,7 +756,8 @@ class StructureController(
           minLength,
           showMemberColumns,
           decimalDigits,
-          formatPattern
+          formatPattern,
+          linkAttributes
         )
 
     for {
@@ -782,25 +788,74 @@ class StructureController(
           Future(())
         }
 
+      // No maxCount check here: JsonUtils.parseLinkAttributes already rejects an oversized array while parsing the
+      // request, so a second check would be unreachable over HTTP and could only ever drift away from the one that
+      // actually fires (error.json.linkAttributes). ColumnModel re-asserts it where the cap is load-bearing.
       _ <-
-        if (formatPattern.isDefined) {
+        linkAttributes match {
+          case Some(_) =>
+            column match {
+              case _: LinkColumn => Future.successful(())
+              case _ =>
+                Future.failed(ForbiddenException(
+                  s"Update of linkAttributes is not allowed for column ${column.kind}.",
+                  "column"
+                ))
+            }
+          case None => Future.successful(())
+        }
+
+      // A link column's formatPattern and its linkAttributes constrain each other - the pattern references the
+      // definitions by name as {{attributes.<name>}} - so both directions have to be validated. Changing only the
+      // definitions (renaming an attribute, or clearing them with an empty array) invalidates a pattern stored
+      // earlier just as thoroughly as changing only the pattern does. Which is why a request that would leave the
+      // two inconsistent is rejected and the caller has to submit both together - and why `formatPattern: null`
+      // has to be accepted as "delete it": clearing the definitions is only possible if the pattern referencing
+      // them can be cleared in the same request.
+      //
+      // Scope: this covers the column being changed. linkAttributes live on the link (system_link_table, shared with
+      // the backlink column) while formatPattern lives on the column (system_columns), so changing the definitions
+      // from one side can still leave a pattern on the *other* side dangling. Deliberately not chased here - it
+      // would mean loading the opposite column on every change - see the swagger note on linkAttributes.
+      _ <-
+        if (formatPattern.isDefined || linkAttributes.isDefined) {
           column match {
-            case groupColumn: GroupColumn => {
-              if (!isColumnGroupMatchingToFormatPattern(formatPattern, groupColumn.columns)) {
+            case groupColumn: GroupColumn if formatPattern.isDefined => {
+              // formatPattern.flatten: a submitted null is None here, i.e. no pattern to check at all - deleting a
+              // pattern can never make it inconsistent with the grouped columns.
+              if (!isColumnGroupMatchingToFormatPattern(formatPattern.flatten, groupColumn.columns)) {
                 val columnsIds = groupColumn.columns.map(_.id).mkString(", ");
 
                 Future.failed(UnprocessableEntityException(
-                  s"Invalid formatPattern: columns ($columnsIds) don't match with formatPattern '$formatPattern'"
+                  s"Invalid formatPattern: columns ($columnsIds) don't match with formatPattern " +
+                    s"'${formatPattern.flatten.orNull}'"
                 ))
               } else {
                 Future.successful(())
               }
             }
-            case _ =>
+            case linkColumn: LinkColumn => {
+              // Whichever of the two the request omits is taken from the column as it stands, so the check always
+              // sees the pair as it will be after the change. getOrElse (not flatten.orElse) on purpose: a
+              // submitted null means the pattern is gone afterwards, it must not fall back to the stored one.
+              val effectiveFormatPattern = formatPattern.getOrElse(linkColumn.formatPattern)
+              val effectiveLinkAttributes = linkAttributes.getOrElse(linkColumn.linkAttributes)
+
+              if (!isLinkColumnMatchingToFormatPattern(effectiveFormatPattern, effectiveLinkAttributes)) {
+                Future.failed(UnprocessableEntityException(
+                  s"Invalid formatPattern: '${effectiveFormatPattern.orNull}' doesn't match link value/attributes"
+                ))
+              } else {
+                Future.successful(())
+              }
+            }
+            case _ if formatPattern.isDefined =>
               Future.failed(ForbiddenException(
-                s"Update of formatPattern '$formatPattern' is not allowed for column ${column.kind}.",
+                s"Update of formatPattern '${formatPattern.flatten.orNull}' is not allowed for column ${column.kind}.",
                 "column"
               ))
+            // linkAttributes on a non-link column was already rejected above
+            case _ => Future.successful(())
           }
         } else {
           Future.successful(())
@@ -822,7 +877,66 @@ class StructureController(
       }
 
       _ <- eventClient.invalidateColumn(tableId, columnId)
+
+      // Only a structure change can alter what other columns' cells resolve to; a display property (displayName,
+      // hidden, formatPattern, decimalDigits, maxLength, ...) is rendered by the frontend and leaves every cached
+      // cell value valid, so it does not need the dependency walk that fans out over every table linking here.
+      // Gating on the same flag the authorization check above uses keeps the two notions of "structure change" from
+      // drifting apart - note that this counts `name` and `ordering` as structural, so a rename still invalidates.
+      _ <-
+        if (isAtLeastOneStructureProperty) {
+          invalidateDependentColumnCaches(tableId, columnId, column, changedColumn)
+        } else {
+          Future.successful(())
+        }
     } yield changedColumn
+  }
+
+  // Mirrors TableauxModel.invalidateCellAndDependentColumns' dependent-column walk, but for the
+  // whole column (every row) rather than a single cell - a structure change (e.g. linkAttributes
+  // migrating/wiping values) can affect every row, not just one. Without this, a column shared
+  // across tables (the backlink side of a bidirectional link, or a group column referencing this
+  // one) keeps serving cell values cached before the change.
+  private def invalidateDependentColumnCaches(
+      tableId: TableId,
+      columnId: ColumnId,
+      columnBeforeChange: ColumnType[?],
+      column: ColumnType[?]
+  ): Future[Unit] = {
+    def invalidateColumnCache: (TableId, ColumnId) => Future[?] = eventClient.invalidateColumn
+
+    for {
+      // The whole-column analog of that method's "invalidate the concat cell if column is an identifier" step. It has
+      // to happen here because retrieveDependencies filters the own table out (d.table_id != ?), so the walk below
+      // never reaches this table's concat column. Both states of the column are checked: turning `identifier` off
+      // changes what the concat column resolves to just as much as turning it on does.
+      _ <-
+        if (columnBeforeChange.identifier || column.identifier) {
+          invalidateColumnCache(tableId, 0)
+        } else {
+          Future.successful(())
+        }
+
+      _ <-
+        if (column.columnInformation.groupColumnIds.nonEmpty) {
+          Future.sequence(column.columnInformation.groupColumnIds.map(invalidateColumnCache(tableId, _)))
+        } else {
+          Future.successful(())
+        }
+
+      dependentGroupColumns <- columnStruc.retrieveDependentGroupColumn(tableId, columnId)
+      dependentLinkColumns <- columnStruc.retrieveDependencies(tableId)
+      dependentColumns = dependentGroupColumns ++ dependentLinkColumns
+
+      _ <- Future.sequence(dependentColumns.map({
+        case DependentColumnInformation(depTableId, depColumnId, _, _, groupColumnIds) =>
+          val invalidateLinkColumn = invalidateColumnCache(depTableId, depColumnId)
+          val invalidateConcatColumn = invalidateColumnCache(depTableId, 0)
+          val invalidateGroupColumns = Future.sequence(groupColumnIds.map(invalidateColumnCache(depTableId, _)))
+
+          invalidateLinkColumn.zip(invalidateConcatColumn).zip(invalidateGroupColumns)
+      }))
+    } yield ()
   }
 
   def createTableGroup(displayInfos: Seq[DisplayInfo])(implicit user: TableauxUser): Future[TableGroup] = {

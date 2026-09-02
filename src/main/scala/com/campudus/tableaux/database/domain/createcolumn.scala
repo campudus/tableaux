@@ -74,7 +74,11 @@ object CreateLinkColumn {
       constraint,
       createBackLinkColumn,
       attributes,
-      hidden
+      hidden,
+      // This factory exists for the internal bootstrap callers (settings/taxonomy tables), which never carry link
+      // attributes. Requests that do go through the case class constructor directly - see JsonUtils.toCreateColumnSeq.
+      linkAttributes = Seq.empty,
+      formatPattern = None
     )
   }
 }
@@ -89,7 +93,9 @@ case class CreateLinkColumn(
     constraint: Constraint,
     foreignLinkColumn: CreateBackLinkColumn,
     override val attributes: Option[JsonObject],
-    override val hidden: Boolean
+    override val hidden: Boolean,
+    linkAttributes: Seq[LinkAttributeDefinition],
+    formatPattern: Option[String]
 ) extends CreateColumn {
   override val kind: LinkType.type = LinkType
   override val languageType: LanguageNeutral.type = LanguageNeutral

@@ -12,6 +12,8 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
+import com.campudus.tableaux.database.model.structure.ColumnModel.isLinkColumnMatchingToFormatPattern
+import com.campudus.tableaux.database.model.tableaux.ModelHelper.{parseDateSql, parseDateTimeSql}
 import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
@@ -220,7 +222,9 @@ class CachedColumnModel(
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
       decimalDigits: Option[Int],
-      formatPattern: Option[String]
+      // outer None: not submitted, leave untouched; Some(None): submitted as null, delete it
+      formatPattern: Option[Option[String]],
+      linkAttributes: Option[Seq[LinkAttributeDefinition]]
   )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
@@ -242,8 +246,14 @@ class CachedColumnModel(
           minLength,
           showMemberColumns,
           decimalDigits,
-          formatPattern
+          formatPattern,
+          linkAttributes
         )
+      // Again afterwards, exactly like delete: a concurrent retrieve between the first removeCache and the commit of
+      // super.change would repopulate the cache with the pre-change definition, and nothing else would ever evict it.
+      // eventClient.invalidateColumn only reaches the CacheVerticle's cell cache, not this process-local one - and a
+      // stale linkAttributes definition means values get validated against the wrong arity and kind.
+      _ <- removeCache(table.id, Some(columnId))
     } yield r
   }
 
@@ -280,6 +290,37 @@ object ColumnModel extends LazyLogging {
         )
 
         distinctWildcards.subsetOf(columnIDs)
+      }
+      case None => true
+    }
+  }
+
+  // Kept as its own regex/val (rather than reusing isColumnGroupMatchingToFormatPattern's) so GroupColumn's existing
+  // numeric-column-id-only wildcard behaviour is unaffected by allowing dotted paths here (e.g. attributes.percentage).
+  def isLinkColumnMatchingToFormatPattern(
+      formatPattern: Option[String],
+      linkAttributes: Seq[LinkAttributeDefinition]
+  ): Boolean = {
+    val formatVariable = "\\{\\{([\\w.]+)\\}\\}".r
+
+    formatPattern match {
+      case Some(patternString) => {
+        val distinctWildcards =
+          formatVariable
+            .findAllMatchIn(patternString)
+            .toSeq
+            .flatMap(_.subgroups)
+            .distinct
+            .to(SortedSet)
+
+        val allowedTokens = (Set("value") ++ linkAttributes.map(a => s"attributes.${a.name}")).to(SortedSet)
+
+        logger.info(
+          s"Compare distinct wildcards (${distinctWildcards.mkString(", ")}) " +
+            s"with allowed link tokens (${allowedTokens.mkString(", ")})"
+        )
+
+        distinctWildcards.subsetOf(allowedTokens)
       }
       case None => true
     }
@@ -346,7 +387,14 @@ class ColumnModel(val connection: DatabaseConnection)(
             .map({
               case (linkId, toCol, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
                 val linkDirection = LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
-                LinkColumn(applyColumnInformation(id, ordering, displayInfos), toCol, linkId, linkDirection)
+                LinkColumn(
+                  applyColumnInformation(id, ordering, displayInfos),
+                  toCol,
+                  linkId,
+                  linkDirection,
+                  linkColumnInfo.linkAttributes,
+                  linkColumnInfo.formatPattern
+                )
             })
 
         case attachmentColumnInfo: CreateAttachmentColumn =>
@@ -773,6 +821,18 @@ class ColumnModel(val connection: DatabaseConnection)(
 
         toCol = toTableColumns.head
 
+        langtags <- retrieveLinkLangtags(table, toTable)
+
+        _ = {
+          LinkAttributeDefinition.checkMultilanguageAllowed(langtags, linkColumnInfo.linkAttributes)
+
+          if (!isLinkColumnMatchingToFormatPattern(linkColumnInfo.formatPattern, linkColumnInfo.linkAttributes)) {
+            throw UnprocessableEntityException(
+              s"Invalid formatPattern: '${linkColumnInfo.formatPattern.orNull}' doesn't match link value/attributes"
+            )
+          }
+        }
+
         (t, result) <- t.query(
           """|INSERT INTO system_link_table (
              |  table_id_1,
@@ -781,8 +841,9 @@ class ColumnModel(val connection: DatabaseConnection)(
              |  cardinality_2,
              |  delete_cascade,
              |  archive_cascade,
-             |  final_cascade
-             |) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING link_id""".stripMargin,
+             |  final_cascade,
+             |  attributes
+             |) VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb) RETURNING link_id""".stripMargin,
           Json.arr(
             tableId,
             linkColumnInfo.toTable,
@@ -790,13 +851,15 @@ class ColumnModel(val connection: DatabaseConnection)(
             linkColumnInfo.constraint.cardinality.to,
             linkColumnInfo.constraint.deleteCascade,
             linkColumnInfo.constraint.archiveCascade,
-            linkColumnInfo.constraint.finalCascade
+            linkColumnInfo.constraint.finalCascade,
+            Json.arr(linkColumnInfo.linkAttributes.map(LinkAttributeDefinition.getJson)*).encode()
           )
         )
         linkId = insertNotNull(result).head.get[Long](0)
 
         // insert link column on source table
-        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), None, false)
+        (t, columnInfo) <-
+          insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), linkColumnInfo.formatPattern, false)
 
         // only add the second link column if tableId != toTableId or singleDirection is false
         t <- {
@@ -829,7 +892,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                               |  id_2 bigint,
                               |  ordering_1 serial,
                               |  ordering_2 serial,
-                              |  
+                              |  attributes jsonb,
+                              |
                               |  PRIMARY KEY(id_1, id_2),
                               |  
                               |  CONSTRAINT link_table_${linkId}_foreign_1
@@ -1373,7 +1437,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     kind match {
       case AttachmentType => Future(AttachmentColumn(columnInformation))
       case StatusType => mapStatusColumn(columnInformation, rules)
-      case LinkType => mapLinkColumn(depth, columnInformation)
+      case LinkType => mapLinkColumn(depth, columnInformation, formatPattern)
       // placeholder for now, grouped columns will be filled in later
       case GroupType => Future(GroupColumn(columnInformation, Seq.empty, formatPattern, showMemberColumns))
       case _ => Future(SimpleValueColumn(kind, languageType, columnInformation))
@@ -1472,11 +1536,12 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield columns
   }
 
-  private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation)(
+  private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation, formatPattern: Option[String])(
       implicit user: TableauxUser
   ): Future[LinkColumn] = {
     for {
-      (linkId, linkDirection, toTable) <- retrieveLinkInformation(columnInformation.table, columnInformation.id)
+      (linkId, linkDirection, toTable, linkAttributes) <-
+        retrieveLinkInformation(columnInformation.table, columnInformation.id)
 
       foreignColumns <- {
         if (depth > 0) {
@@ -1496,7 +1561,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       }
 
       val toColumn = toColumnOpt.get
-      LinkColumn(columnInformation, toColumn, linkId, linkDirection)
+      LinkColumn(columnInformation, toColumn, linkId, linkDirection, linkAttributes, formatPattern)
     }
   }
 
@@ -1587,7 +1652,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   def retrieveLinkInformation(fromTable: Table, columnId: ColumnId)(
       implicit user: TableauxUser
-  ): Future[(LinkId, LinkDirection, Table)] = {
+  ): Future[(LinkId, LinkDirection, Table, Seq[LinkAttributeDefinition])] = {
     for {
       result <- connection.query(
         """
@@ -1599,7 +1664,8 @@ class ColumnModel(val connection: DatabaseConnection)(
           | cardinality_2,
           | delete_cascade,
           | archive_cascade,
-          | final_cascade
+          | final_cascade,
+          | attributes
           |FROM system_link_table
           |WHERE link_id = (
           |  SELECT link_id
@@ -1609,7 +1675,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         Json.arr(fromTable.id, columnId)
       )
 
-      (linkId, linkDirection) = {
+      (linkId, linkDirection, linkAttributes) = {
         val res = selectNotNull(result).head
 
         val table1 = res.getLong(0).longValue()
@@ -1620,6 +1686,9 @@ class ColumnModel(val connection: DatabaseConnection)(
         val deleteCascade = res.getBoolean(5)
         val archiveCascade = res.getBoolean(6)
         val finalCascade = res.getBoolean(7)
+        val linkAttributes = Option(res.getString(8))
+          .map(str => LinkAttributeDefinition.seqFromJson(new JsonArray(str)))
+          .getOrElse(Seq.empty)
 
         (
           linkId,
@@ -1632,13 +1701,14 @@ class ColumnModel(val connection: DatabaseConnection)(
             deleteCascade,
             archiveCascade,
             finalCascade
-          )
+          ),
+          linkAttributes
         )
       }
 
       toTable <- tableStruc.retrieve(linkDirection.to, isInternalCall = true)
 
-    } yield (linkId, linkDirection, toTable)
+    } yield (linkId, linkDirection, toTable, linkAttributes)
   }
 
   def deleteLinkBothDirections(table: Table, columnId: ColumnId)(
@@ -1853,6 +1923,294 @@ class ColumnModel(val connection: DatabaseConnection)(
       cast: String = ""
   ): String = s"UPDATE system_columns SET $columnName = ?$cast WHERE table_id = ? AND column_id = ?"
 
+  // The langtags of a single table. TableModel.convertRowToTable already substitutes the global langtags for a table
+  // that has none of its own, so the fallback here only covers callers holding a Table built some other way; an empty
+  // result means the table was explicitly created with `langtags: []`.
+  private def retrieveEffectiveLangtags(table: Table): Future[Seq[String]] =
+    table.langtags.map(Future.successful).getOrElse(tableStruc.retrieveGlobalLangtags())
+
+  // The langtags a multilanguage link attribute can be keyed by: the union of BOTH linked tables' langtags. The
+  // definition and its values belong to the link, not to one of its two columns, so "can this be multilanguage?" is
+  // a question about the link. Asking only the addressed column's table meant the answer depended on which side the
+  // request came through - which locked the backlink side out of editing a perfectly valid definition whenever the
+  // two tables' langtag sets differed.
+  private def retrieveLinkLangtags(fromTable: Table, toTable: Table): Future[Seq[String]] =
+    for {
+      fromLangtags <- retrieveEffectiveLangtags(fromTable)
+      toLangtags <- retrieveEffectiveLangtags(toTable)
+    } yield (fromLangtags ++ toLangtags).distinct
+
+  // Same union, resolved for an existing link column. retrieveLinkInformation reads on its own connection, so
+  // `change` calls this before opening its transaction to avoid occupying two pool connections at once (see there).
+  private def retrieveLinkLangtags(table: Table, columnId: ColumnId)(
+      implicit user: TableauxUser
+  ): Future[Seq[String]] =
+    retrieveLinkInformation(table, columnId).flatMap({
+      case (_, _, toTable, _) => retrieveLinkLangtags(table, toTable)
+    })
+
+  // Guards the value migrations below: only a slot that actually holds a value gets migrated. A slot holding JSON
+  // null is a value that is explicitly empty, and no migration can improve on that - reshaping it would just respell
+  // "empty" (as per-langtag nulls, or as null again), and casting it would take `attributes->>$slot` as a SQL NULL,
+  // which strict jsonb_set turns into a wiped attributes column. Note that `attributes->$slot IS NOT NULL` does not
+  // cover the JSON null case on its own: `->` hands JSON null back as a jsonb value, so that check is true for it.
+  // It does rule out a slot that isn't stored at all, which is what a row looks like that was written before this
+  // definition was added and hasn't been padded by resizeLinkAttributeValues yet.
+  private def slotHoldsAValue(slot: Int) =
+    s"attributes IS NOT NULL AND attributes->$slot IS NOT NULL AND jsonb_typeof(attributes->$slot) <> 'null'"
+
+  // Reshapes existing attribute values in one slot to match a multilanguage flip, before any kind cast runs on top.
+  // There's no cast for this - it's a structural change - so false -> true duplicates the scalar under every langtag
+  // of the link, and true -> false collapses to the langtag that actually has a non-null value, discarding the rest.
+  //
+  // `langtags` is the union over both linked tables (see retrieveLinkLangtags), the same set the multilanguage guard
+  // was evaluated against - a narrower set here would flip a value into langtags one side cannot read, or make the
+  // assertion below fire on a definition that was just accepted.
+  private def reshapeLinkAttributeValues(
+      t: DbTransaction,
+      langtags: Seq[String],
+      linkTable: String,
+      slot: Int,
+      oldDefinition: LinkAttributeDefinition,
+      newDefinition: LinkAttributeDefinition
+  ): Future[(DbTransaction, JsonObject)] = {
+    if (oldDefinition.multilanguage == newDefinition.multilanguage) {
+      Future.successful((t, Json.obj()))
+    } else {
+      for {
+        result <-
+          if (newDefinition.multilanguage) {
+            // Unreachable: checkMultilanguageAllowed rejects a multilanguage definition on a link without langtags
+            // before we get here. Asserted anyway because the failure mode is silent data loss - an empty langtag
+            // list makes jsonb_build_object() return {}, which would replace every stored value with an empty
+            // object and still commit.
+            if (langtags.isEmpty) {
+              throw UnprocessableEntityException(
+                s"Cannot make link attribute '${newDefinition.name}' multilanguage: its link has no langtags."
+              )
+            }
+
+            // Postgres can't infer a bare `?` placeholder's type from a variadic "any" function like
+            // jsonb_build_object - it needs an explicit cast, or every prepared execution fails with
+            // "could not determine data type of parameter $1".
+            val pairs = langtags.map(_ => s"?::text, attributes->$slot").mkString(", ")
+            t.query(
+              s"""|UPDATE $linkTable
+                  |SET attributes = jsonb_set(attributes, '{$slot}', jsonb_build_object($pairs))
+                  |WHERE ${slotHoldsAValue(slot)}""".stripMargin,
+              Json.arr(langtags*)
+            )
+          } else {
+            // Collapsing walks the stored object itself instead of the table's langtag list, because the two can
+            // disagree: a value may sit under a langtag that was since removed from the table, or was written
+            // before langtag keys were validated. Iterating table langtags would drop those values without a
+            // trace, so jsonb_each decides what exists and array_position only decides the order - configured
+            // langtags first (in their configured priority), everything else after, key order as a tie-break so
+            // the outcome is deterministic.
+            //
+            // `jsonb_typeof(value) <> 'null'` is what makes "the langtag that actually has a value" true: a
+            // present-but-cleared langtag holds a JSON null, which is not a SQL NULL and would otherwise win.
+            val langtagArray =
+              if (langtags.isEmpty) "ARRAY[]::text[]"
+              else langtags.map(_ => "?::text").mkString("ARRAY[", ", ", "]")
+
+            t.query(
+              s"""|UPDATE $linkTable
+                  |SET attributes = jsonb_set(attributes, '{$slot}', COALESCE(
+                  |  (SELECT entry.value
+                  |   FROM jsonb_each(attributes->$slot) entry
+                  |   WHERE jsonb_typeof(entry.value) <> 'null'
+                  |   ORDER BY COALESCE(array_position($langtagArray, entry.key), 2147483647), entry.key
+                  |   LIMIT 1),
+                  |  'null'::jsonb
+                  |))
+                  |WHERE ${slotHoldsAValue(slot)} AND jsonb_typeof(attributes->$slot) = 'object'""".stripMargin,
+              Json.arr(langtags*)
+            )
+          }
+      } yield result
+    }
+  }
+
+  // Renders one attribute value, cast to `kind`, as jsonb. date/datetime go through the same TO_CHAR formats the row
+  // projections use, which are also the formats LinkAttributeValueValidator normalizes writes to - without that, the
+  // very same instant would be spelled one way when written through the API and another way after a kind migration
+  // had touched it.
+  private def castLinkAttributeValueSql(kind: TableauxDbType, textExpression: String): String = {
+    val castedValue = kind match {
+      case DateType => parseDateSql(s"($textExpression)::${DateType.toDbType}")
+      case DateTimeType => parseDateTimeSql(s"($textExpression)::${DateTimeType.toDbType}")
+      case other => s"($textExpression)::${other.toDbType}"
+    }
+
+    s"to_jsonb($castedValue)"
+  }
+
+  // Casts existing attribute values in one slot to a new kind, all-or-nothing - a single value anywhere that can't
+  // cast fails the whole UPDATE, which (combined with the caller's rollbackAndFail) rolls back the entire change,
+  // exactly mirroring how a plain column's kind change behaves today (ALTER COLUMN ... USING ...::type).
+  private def castLinkAttributeValues(
+      t: DbTransaction,
+      linkTable: String,
+      slot: Int,
+      oldDefinition: LinkAttributeDefinition,
+      newDefinition: LinkAttributeDefinition
+  ): Future[(DbTransaction, JsonObject)] = {
+    if (oldDefinition.kind == newDefinition.kind) {
+      Future.successful((t, Json.obj()))
+    } else if (!newDefinition.multilanguage) {
+      t.query(
+        s"""|UPDATE $linkTable
+            |SET attributes = jsonb_set(
+            |  attributes, '{$slot}', ${castLinkAttributeValueSql(newDefinition.kind, s"attributes->>$slot")}
+            |)
+            |WHERE ${slotHoldsAValue(slot)}""".stripMargin
+      )
+    } else {
+      // Cleared langtags cast to null and keep their key: jsonb_each_text hands them over as SQL NULL, the cast
+      // passes that through, and jsonb_object_agg puts them back as JSON null. The COALESCE only catches the
+      // degenerate all-langtags-removed slot ({}), where the aggregate over zero rows is a SQL NULL - which strict
+      // jsonb_set would turn into a wiped attributes column instead of an untouched empty object. The guard is
+      // narrower than slotHoldsAValue because jsonb_each_text errors on anything but an object; a multilanguage
+      // slot can only hold an object or JSON null anyway, since the reshape above runs first.
+      t.query(
+        s"""|UPDATE $linkTable
+            |SET attributes = jsonb_set(
+            |  attributes, '{$slot}',
+            |  COALESCE(
+            |    (SELECT jsonb_object_agg(key, ${castLinkAttributeValueSql(newDefinition.kind, "value")})
+            |     FROM jsonb_each_text(attributes->$slot)),
+            |    '{}'::jsonb
+            |  )
+            |)
+            |WHERE attributes IS NOT NULL AND jsonb_typeof(attributes->$slot) = 'object'""".stripMargin
+      )
+    }
+  }
+
+  // Grows or shrinks every stored value array to match the new number of definitions, after the slots the two
+  // definition lists have in common have been migrated in place. A stored array is positional - `attributes[i]`
+  // belongs to `linkAttributes[i]` - so its length is part of that contract: LinkAttributeValueValidator insists on
+  // exactly one value per definition, which means a row left at the old length can be read but no longer written.
+  //
+  // Growing pads with JSON null ("no value yet") rather than leaving the slot absent, so that a value read from the
+  // API stays acceptable as a write. Shrinking to zero wipes the column instead of storing `[]`, which is what "no
+  // attributes stored at all" has always looked like on this table.
+  private def resizeLinkAttributeValues(
+      t: DbTransaction,
+      linkTable: String,
+      oldSize: Int,
+      newSize: Int
+  ): Future[(DbTransaction, JsonObject)] = {
+    if (newSize == oldSize) {
+      Future.successful((t, Json.obj()))
+    } else if (newSize == 0) {
+      // The WHERE clause matters: without it this rewrites every row of a link table that may hold millions of
+      // them, for the common case (definition added, never used, removed again) where there is nothing to wipe.
+      t.query(s"UPDATE $linkTable SET attributes = NULL WHERE attributes IS NOT NULL")
+    } else if (newSize < oldSize) {
+      t.query(
+        s"""|UPDATE $linkTable
+            |SET attributes = (
+            |  SELECT COALESCE(jsonb_agg(slot.value ORDER BY slot.ordinality), '[]'::jsonb)
+            |  FROM jsonb_array_elements(attributes) WITH ORDINALITY slot(value, ordinality)
+            |  WHERE slot.ordinality <= $newSize
+            |)
+            |WHERE attributes IS NOT NULL AND jsonb_array_length(attributes) > $newSize""".stripMargin
+      )
+    } else {
+      // Pads up to newSize from whatever length a row actually has rather than appending a fixed
+      // (newSize - oldSize) nulls, so a row that is short for any other reason ends up correct too.
+      t.query(
+        s"""|UPDATE $linkTable
+            |SET attributes = attributes || COALESCE(
+            |  (SELECT jsonb_agg('null'::jsonb) FROM generate_series(jsonb_array_length(attributes) + 1, $newSize)),
+            |  '[]'::jsonb
+            |)
+            |WHERE attributes IS NOT NULL AND jsonb_array_length(attributes) < $newSize""".stripMargin
+      )
+    }
+  }
+
+  // Applies a linkAttributes definition change to system_link_table plus, when needed, migrates existing values
+  // already stored on link_table_<linkId>. Diffing is by position, the same way a stored value array is positional:
+  // slot i of the old definitions and slot i of the new ones are the same slot regardless of name/displayName
+  // (those are cosmetic and don't affect how a stored value is interpreted) - reshape (multilanguage) then cast
+  // (kind) in place. Slots beyond the shorter of the two lists are not a migration but a resize: added ones have no
+  // value yet, removed ones have no definition left to interpret their values (see resizeLinkAttributeValues).
+  //
+  // What this deliberately does not do is match definitions up by name: a rename would then be indistinguishable
+  // from "remove one attribute, add another", and the whole point of the positional contract is that a rename is
+  // cosmetic and keeps its values.
+  private def updateLinkAttributesDefinition(
+      t: DbTransaction,
+      table: Table,
+      columnId: ColumnId,
+      newDefinitions: Seq[LinkAttributeDefinition],
+      langtags: Seq[String]
+  ): Future[(DbTransaction, JsonObject)] = {
+    for {
+      // All three invariants are already enforced while parsing the request (JsonUtils.parseLinkAttributes) and in
+      // the controller, so over HTTP none of them can fire. They are re-asserted here because this is the last point
+      // before stored values are rewritten: a definition list that got past the cap or the multilanguage gate some
+      // other way would be persisted against values migrated under a different one, and a multilanguage definition
+      // without langtags is what used to make the reshape wipe values.
+      //
+      // Inside a Future rather than a plain `_ =`: the caller applies rollbackAndFail() to the Future this method
+      // returns, so a throw that escaped synchronously would skip the rollback and leave the transaction open.
+      _ <- Future {
+        LinkAttributeDefinition.checkMaxCount(newDefinitions.size)
+        LinkAttributeDefinition.checkMultilanguageSupported(newDefinitions)
+        LinkAttributeDefinition.checkMultilanguageAllowed(langtags, newDefinitions)
+      }
+
+      (t, linkIdResult) <- t.query(
+        "SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?",
+        Json.arr(table.id, columnId)
+      )
+      // change() resolves the link's langtags before opening the transaction, which already fails for a column
+      // without a link_id, and the controller turns a non-link column away before even that - so over HTTP this
+      // is unreachable. Kept anyway because change() isn't private to the controller: without it a NULL link_id
+      // becomes an NPE on getLong, i.e. a 500 for what is really a wrong-kind-of-column request.
+      linkId = Option(selectNotNull(linkIdResult).head.getLong(0))
+        .map(_.longValue())
+        .getOrElse(throw UnprocessableEntityException(
+          s"Column $columnId of table ${table.id} is not a link column, it has no linkAttributes."
+        ))
+      linkTable = s"link_table_$linkId"
+
+      (t, currentResult) <- t.query("SELECT attributes FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
+      currentDefinitions = Option(selectNotNull(currentResult).head.getString(0))
+        .map(str => LinkAttributeDefinition.seqFromJson(new JsonArray(str)))
+        .getOrElse(Seq.empty)
+
+      // Slot by slot, in order, because they all rewrite the same `attributes` column of the same rows - running
+      // them concurrently on one transaction would have them overwrite each other's jsonb_set results.
+      (t, _) <- currentDefinitions.zip(newDefinitions).zipWithIndex.foldLeft(
+        Future.successful((t, Json.obj()))
+      )({
+        case (previous, ((oldDef, newDef), slot)) =>
+          previous.flatMap({
+            case (t, _) =>
+              // A rename or displayName edit is cosmetic and must not invalidate stored values, so it produces no
+              // query at all. Multilanguage/kind changes reshape/cast in place; an incompatible kind change fails
+              // and rolls back the whole update, same as when the name stays the same.
+              for {
+                (t, _) <- reshapeLinkAttributeValues(t, langtags, linkTable, slot, oldDef, newDef)
+                (t, result) <- castLinkAttributeValues(t, linkTable, slot, oldDef, newDef)
+              } yield (t, result)
+          })
+      })
+
+      (t, _) <- resizeLinkAttributeValues(t, linkTable, currentDefinitions.size, newDefinitions.size)
+
+      (t, result) <- t.query(
+        "UPDATE system_link_table SET attributes = ?::jsonb WHERE link_id = ?",
+        Json.arr(Json.arr(newDefinitions.map(LinkAttributeDefinition.getJson)*).encode(), linkId)
+      )
+    } yield (t, result)
+  }
+
   def change(
       table: Table,
       columnId: ColumnId,
@@ -1870,7 +2228,9 @@ class ColumnModel(val connection: DatabaseConnection)(
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
       decimalDigits: Option[Int],
-      formatPattern: Option[String]
+      // outer None: not submitted, leave untouched; Some(None): submitted as null, delete it
+      formatPattern: Option[Option[String]],
+      linkAttributes: Option[Seq[LinkAttributeDefinition]]
   )(implicit user: TableauxUser): Future[ColumnType[?]] = {
     val tableId = table.id
 
@@ -1889,6 +2249,15 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
 
     for {
+      // Resolved before the transaction opens: this reads on its own connection (it has to retrieve the link's other
+      // table), so doing it up front means the request doesn't occupy two connections from the pool at once. A
+      // preference, not a rule - createLinkColumn reads inside its transaction, as it already did before this feature
+      // for tableStruc.retrieve and retrieveAll. The reads carry no transactional guarantee either way, since a
+      // separate connection is not part of the transaction's snapshot.
+      linkLangtags <-
+        if (linkAttributes.isDefined) retrieveLinkLangtags(table, columnId)
+        else Future.successful(Seq.empty[String])
+
       t <- connection.begin()
 
       // change column settings
@@ -1905,7 +2274,9 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t, resultHidden) <- maybeUpdateColumn(t, "hidden", hidden)
       (t, resultShowMemberColumns) <- maybeUpdateColumn(t, "show_member_columns", showMemberColumns)
       (t, resultDecimalDigits) <- maybeUpdateColumn(t, "decimal_digits", decimalDigits)
-      (t, resultFormatPattern) <- maybeUpdateColumn(t, "format_pattern", formatPattern)
+      // trans unwraps the inner Option so a submitted null actually writes NULL instead of being skipped
+      (t, resultFormatPattern) <-
+        maybeUpdateColumn(t, "format_pattern", formatPattern, (p: Option[String]) => p.orNull)
 
       // cannot use optionToValidFuture here, we need to be able to set these settings to null
       (t, resultMaxLength) <- maxLength match {
@@ -1929,6 +2300,15 @@ class ColumnModel(val connection: DatabaseConnection)(
             s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}"
           )
 
+        }
+      ).recoverWith(t.rollbackAndFail())
+
+      // change linkAttributes definition, migrating already-stored values (see updateLinkAttributesDefinition)
+      (t, _) <- optionToValidFuture(
+        linkAttributes,
+        t,
+        { (newDefinitions: Seq[LinkAttributeDefinition]) =>
+          updateLinkAttributesDefinition(t, table, columnId, newDefinitions, linkLangtags)
         }
       ).recoverWith(t.rollbackAndFail())
 
