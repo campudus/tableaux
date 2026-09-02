@@ -885,7 +885,7 @@ class StructureController(
       // drifting apart - note that this counts `name` and `ordering` as structural, so a rename still invalidates.
       _ <-
         if (isAtLeastOneStructureProperty) {
-          invalidateDependentColumnCaches(tableId, columnId, changedColumn)
+          invalidateDependentColumnCaches(tableId, columnId, column, changedColumn)
         } else {
           Future.successful(())
         }
@@ -900,11 +900,23 @@ class StructureController(
   private def invalidateDependentColumnCaches(
       tableId: TableId,
       columnId: ColumnId,
+      columnBeforeChange: ColumnType[?],
       column: ColumnType[?]
   ): Future[Unit] = {
     def invalidateColumnCache: (TableId, ColumnId) => Future[?] = eventClient.invalidateColumn
 
     for {
+      // The whole-column analog of that method's "invalidate the concat cell if column is an identifier" step. It has
+      // to happen here because retrieveDependencies filters the own table out (d.table_id != ?), so the walk below
+      // never reaches this table's concat column. Both states of the column are checked: turning `identifier` off
+      // changes what the concat column resolves to just as much as turning it on does.
+      _ <-
+        if (columnBeforeChange.identifier || column.identifier) {
+          invalidateColumnCache(tableId, 0)
+        } else {
+          Future.successful(())
+        }
+
       _ <-
         if (column.columnInformation.groupColumnIds.nonEmpty) {
           Future.sequence(column.columnInformation.groupColumnIds.map(invalidateColumnCache(tableId, _)))

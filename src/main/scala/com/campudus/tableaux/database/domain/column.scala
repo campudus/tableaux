@@ -606,7 +606,14 @@ case class LinkColumn(
   // "attributes": [...]}` (single-value) shapes, so attributes are honored the same way
   // regardless of which key carries the target row id.
   private def buildLinkValue(id: RowId, obj: JsonObject): LinkValue = {
-    val attributes = Option(obj.getJsonArray("attributes"))
+    // Deliberately not getJsonArray: that casts, so anything but an array would escape as a ClassCastException and
+    // surface as a 500 for what is a plain request error - same reason as in TableauxRouter.changeLinkAttributes
+    // and JsonUtils.parseLinkAttributes. A missing key is the way to send no attributes at all, so it stays legal.
+    val attributes = (obj.getValue("attributes") match {
+      case null => None
+      case array: JsonArray => Some(array)
+      case other => throw InvalidJsonException(s"attributes must be an array, but got $other.", "link-value")
+    })
       .map(attrs =>
         LinkAttributeValueValidator
           .normalize(linkAttributes, attrs)
@@ -620,13 +627,30 @@ case class LinkColumn(
     LinkValue(id, attributes)
   }
 
+  // Deliberately not getLong: that returns null for a missing key (so `.longValue()` throws an NPE) and casts
+  // otherwise, so both a forgotten and a non-numeric id would escape as a 500 for what is a plain request error.
+  // Matched as an Any (like extractLinkValue below) because getValue is statically an Object, against which a
+  // primitive Long pattern is reported as an unreachable case - it does match, but the warning is noise. And
+  // deliberately not matched as a Number, which would let `{"id": 1.5}` through, silently truncated to row 1.
+  private def extractLinkId(obj: JsonObject): RowId = (obj.getValue("id"): Any) match {
+    case null =>
+      throw InvalidJsonException(s"A link value object expects an 'id' field, but got $obj", "link-value")
+    case id: RowId => id
+    case id: Integer => id.toLong
+    case other =>
+      throw InvalidJsonException(
+        s"A link value's 'id' must be an id (Int/Long), but got ${other.getClass.getSimpleName}",
+        "link-value"
+      )
+  }
+
   // Handles a bare id (Integer or Long) as well as a `{"id": ..., "attributes": [...]}` object; attributes are
   // optional on every element so all pre-existing request shapes (bare ids, or objects with only "id") keep
   // working unchanged.
   private def extractLinkValue(v: Any): LinkValue = v match {
     case id: RowId => LinkValue(id)
     case id: Integer => LinkValue(id.toLong)
-    case obj: JsonObject => buildLinkValue(obj.getLong("id").longValue(), obj)
+    case obj: JsonObject => buildLinkValue(extractLinkId(obj), obj)
     case other =>
       throw InvalidJsonException(
         s"Link value must be an id (Int/Long) or a JSON object with an 'id' field, but got ${other.getClass.getSimpleName}",
