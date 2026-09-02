@@ -136,6 +136,8 @@ Bare ids and objects can be mixed freely; an entry without `attributes` simply s
 }
 ```
 
+A malformed object entry is a request error, not a 500: a missing `id`, a non-numeric `id` (`{"id": "1"}`), or an `attributes` that isn't an array (`{"attributes": "50"}`) is rejected with `400 error.json.link-value`.
+
 #### Which verb actually updates an existing link
 
 Inline `attributes` are written **only when the link itself is created**. The insert into the link table is guarded by `WHERE NOT EXISTS`, and that insert is the only place an inline value is bound. So for a link that already exists:
@@ -253,6 +255,10 @@ Breaking this invariant is not theoretical: it previously made `duplicateRow` fa
 ### Cache invalidation
 
 `invalidateDependentColumnCaches` in [`StructureController.scala`](../../src/main/scala/com/campudus/tableaux/controller/StructureController.scala) runs after any structure change, `linkAttributes` included. It invalidates the dependent columns, each dependent table's column 0 (the concat column) and the group columns on both. Without it the backlink side, concat values and group columns kept serving stale cell values after a definition change.
+
+It also invalidates *this* table's column 0 when the column is an identifier either before or after the change — `retrieveDependencies` filters the own table out (`d.table_id != ?`), so the dependency walk never reaches it. Both states are checked because turning `identifier` off changes what the concat column resolves to just as much as turning it on does. This mirrors the `identifier` step of `TableauxModel.invalidateCellAndDependentColumns`, which does the same for a single cell.
+
+`CachedColumnModel.change` clears its process-local Guava cache both before and after `super.change`, the way `delete` does. Only clearing it up front leaves a window in which a concurrent `retrieve` repopulates the cache with the pre-change definition and nothing evicts it again — and a stale definition means values get validated against the wrong arity and kind. `eventClient.invalidateColumn` does not help here: it reaches the CacheVerticle's cell cache, not the in-process one.
 
 ### History
 
