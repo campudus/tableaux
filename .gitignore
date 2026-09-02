@@ -64,5 +64,8 @@ local_logging.properties
 
 *.local*
 
+# Agent skills: local issue tracker (specs and tickets), see docs/agents/issue-tracker.md
+.scratch/
+
 # VSCode specific
 .vscode/
