@@ -254,6 +254,67 @@ class LinkAttributesTest extends LinkTestBase with LinkAttributeTestOverrides {
       } yield ()
     }
 
+  // ---------------------------------------------------------------------------------------------------------------
+  // A malformed inline link value is a request error and has to be reported as one. Reading "attributes" with
+  // getJsonArray or the id with getLong would let a ClassCastException (or an NPE for a missing id) through as a 500 -
+  // the same trap the PUT .../attributes endpoint and the linkAttributes definition parser already avoid.
+  // ---------------------------------------------------------------------------------------------------------------
+
+  @Test
+  def rejectNonArrayAttributesInInlineValue(implicit c: TestContext): Unit =
+    exceptionTest("error.json.link-value") {
+      val putLink = Json.obj(
+        "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> "50")))
+      )
+
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumnWithAttributes(1, 2)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      } yield ()
+    }
+
+  // Same code path as above, reached through the other shape that can carry attributes.
+  @Test
+  def rejectNonArrayAttributesOnToShape(implicit c: TestContext): Unit =
+    exceptionTest("error.json.link-value") {
+      val putLink = Json.obj("value" -> Json.obj("to" -> 1, "attributes" -> "50"))
+
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumnWithAttributes(1, 2)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      } yield ()
+    }
+
+  @Test
+  def rejectInlineValueObjectWithoutId(implicit c: TestContext): Unit =
+    exceptionTest("error.json.link-value") {
+      val putLink = Json.obj(
+        "value" -> Json.obj("values" -> Json.arr(Json.obj("attributes" -> Json.arr(50))))
+      )
+
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumnWithAttributes(1, 2)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      } yield ()
+    }
+
+  @Test
+  def rejectInlineValueObjectWithNonNumericId(implicit c: TestContext): Unit =
+    exceptionTest("error.json.link-value") {
+      val putLink = Json.obj(
+        "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> "1", "attributes" -> Json.arr(50))))
+      )
+
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumnWithAttributes(1, 2)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      } yield ()
+    }
+
   @Test
   def multilanguageAttributeValueRoundtrips(implicit c: TestContext): Unit = okTest {
     val putLink = Json.obj(

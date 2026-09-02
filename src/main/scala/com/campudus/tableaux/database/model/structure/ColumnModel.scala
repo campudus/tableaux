@@ -249,6 +249,11 @@ class CachedColumnModel(
           formatPattern,
           linkAttributes
         )
+      // Again afterwards, exactly like delete: a concurrent retrieve between the first removeCache and the commit of
+      // super.change would repopulate the cache with the pre-change definition, and nothing else would ever evict it.
+      // eventClient.invalidateColumn only reaches the CacheVerticle's cell cache, not this process-local one - and a
+      // stale linkAttributes definition means values get validated against the wrong arity and kind.
+      _ <- removeCache(table.id, Some(columnId))
     } yield r
   }
 
@@ -1935,8 +1940,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       toLangtags <- retrieveEffectiveLangtags(toTable)
     } yield (fromLangtags ++ toLangtags).distinct
 
-  // Same union, resolved for an existing link column. Deliberately called before the caller opens its transaction:
-  // retrieveLinkInformation reads on its own connection, which must not happen while we hold one.
+  // Same union, resolved for an existing link column. retrieveLinkInformation reads on its own connection, so
+  // `change` calls this before opening its transaction to avoid occupying two pool connections at once (see there).
   private def retrieveLinkLangtags(table: Table, columnId: ColumnId)(
       implicit user: TableauxUser
   ): Future[Seq[String]] =
@@ -2244,8 +2249,11 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
 
     for {
-      // Resolved before the transaction opens on purpose: this reads on its own connection (it has to retrieve the
-      // link's other table), which must not happen while we are holding one.
+      // Resolved before the transaction opens: this reads on its own connection (it has to retrieve the link's other
+      // table), so doing it up front means the request doesn't occupy two connections from the pool at once. A
+      // preference, not a rule - createLinkColumn reads inside its transaction, as it already did before this feature
+      // for tableStruc.retrieve and retrieveAll. The reads carry no transactional guarantee either way, since a
+      // separate connection is not part of the transaction's snapshot.
       linkLangtags <-
         if (linkAttributes.isDefined) retrieveLinkLangtags(table, columnId)
         else Future.successful(Seq.empty[String])
