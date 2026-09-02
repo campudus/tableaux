@@ -1180,6 +1180,12 @@
                 "status"
               ]
             }
+          },
+          "400": {
+            "description": "The column definition is invalid. For link columns this covers the linkAttributes entries, sent as error.json.linkAttributes: more entries than are currently supported, an entry that is not a JSON object, a name that does not match \\w+, duplicate names, a kind outside text, numeric, integer, boolean, date and datetime, or multilanguage set to true while multilanguage link attributes are not supported yet."
+          },
+          "422": {
+            "description": "The column definition is well-formed but cannot be applied (unprocessable.entity). For link columns: formatPattern uses a placeholder other than {{value}} or one of the defined {{attributes.<name>}}, or a linkAttributes entry is multilanguage while neither of the two linked tables has any langtags."
           }
         }
       }
@@ -1255,6 +1261,15 @@
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
+          },
+          "400": {
+            "description": "The change is invalid. For linkAttributes this is sent as error.json.linkAttributes and covers the same cases as creating a column: too many entries, an entry that is not a JSON object, a name that does not match \\w+, duplicate names, a disallowed kind, or multilanguage set to true while that is not supported yet. A formatPattern that is neither a string nor null is sent as error.json.formatPattern."
+          },
+          "403": {
+            "description": "The submitted field is not allowed for this column kind, sent as error.request.forbidden.column. linkAttributes may only be changed on link columns, and formatPattern only on link and group columns."
+          },
+          "422": {
+            "description": "The change is well-formed but cannot be applied (unprocessable.entity). For link columns: the resulting formatPattern and linkAttributes do not match each other - both are validated as they will be after the change, so removing an attribute that the remaining pattern still refers to is rejected as well - or an attribute is made multilanguage while the link has no langtags. A stored value that cannot be cast to a changed kind fails the whole change and is reported as a database error instead."
           }
         }
       },
@@ -1412,7 +1427,7 @@
       },
       "post": {
         "summary": "DEPRECATED - Update cell or add link/attachment",
-        "description": "DEPRECATED: Use same route with PATCH instead. Updates the value of specified cell. This can add links, attachments, multi-language contents and replaces simple values such as numbers, booleans or strings.",
+        "description": "DEPRECATED: Use same route with PATCH instead. Updates the value of specified cell. This can add links, attachments, multi-language contents and replaces simple values such as numbers, booleans or strings.\nFor link columns a value entry may be an object carrying inline attributes. Those are only stored while the link is being created - this request appends links, so a link that already exists is rejected and its attributes are not updated. Use PUT /tables/{tableId}/columns/{columnId}/rows/{rowId}/link/{linkId}/attributes to change the attributes of an existing link.",
         "tags": [
           "content"
         ],
@@ -1429,6 +1444,9 @@
           "200": {
             "$ref": "#/responses/cell-value"
           },
+          "400": {
+            "description": "The value does not match the column. For link columns, inline attributes that do not match the column's linkAttributes definitions are sent as error.json.link-attributes, and a link entry that is neither an id nor an object with an id field is sent as error.json.link-value."
+          },
           "404": {
             "$ref": "#/responses/not-found-in-database"
           }
@@ -1436,7 +1454,7 @@
       },
       "patch": {
         "summary": "Update cell or add link/attachment",
-        "description": "Updates the value of specified cell. This can add links, attachments, multi-language contents and replaces simple values such as numbers, booleans or strings.",
+        "description": "Updates the value of specified cell. This can add links, attachments, multi-language contents and replaces simple values such as numbers, booleans or strings.\nFor link columns a value entry may be an object carrying inline attributes. Those are only stored while the link is being created - this request appends links, so a link that already exists is rejected and its attributes are not updated. Use PUT /tables/{tableId}/columns/{columnId}/rows/{rowId}/link/{linkId}/attributes to change the attributes of an existing link.",
         "tags": [
           "content"
         ],
@@ -1453,6 +1471,9 @@
           "200": {
             "$ref": "#/responses/cell-value"
           },
+          "400": {
+            "description": "The value does not match the column. For link columns, inline attributes that do not match the column's linkAttributes definitions are sent as error.json.link-attributes, and a link entry that is neither an id nor an object with an id field is sent as error.json.link-value."
+          },
           "404": {
             "$ref": "#/responses/not-found-in-database"
           }
@@ -1460,7 +1481,7 @@
       },
       "put": {
         "summary": "Replace cell value",
-        "description": "Replace the current value of the specified cell. This overwrites all languages in a multi-language cell or deletes all links and replaces the data with the provided value.",
+        "description": "Replace the current value of the specified cell. This overwrites all languages in a multi-language cell or deletes all links and replaces the data with the provided value.\nFor link columns a value entry may be an object carrying inline attributes. Because every link of the cell is deleted and re-created, those attributes are stored even for a link that existed before - but so is everything else about the cell, including link ordering.",
         "tags": [
           "content"
         ],
@@ -1476,6 +1497,9 @@
         "responses": {
           "200": {
             "$ref": "#/responses/cell-value"
+          },
+          "400": {
+            "description": "The value does not match the column. For link columns, inline attributes that do not match the column's linkAttributes definitions are sent as error.json.link-attributes, and a link entry that is neither an id nor an object with an id field is sent as error.json.link-value."
           },
           "404": {
             "$ref": "#/responses/not-found-in-database"
@@ -2555,7 +2579,15 @@
               "$ref": "#/definitions/LocationType"
             }
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/cell-value"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
       }
     },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/link/{linkId}": {
@@ -2621,7 +2653,15 @@
               "$ref": "#/definitions/LocationType"
             }
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/cell-value"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
       }
     },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/link/{linkId}/attributes": {
@@ -2672,8 +2712,14 @@
           "200": {
             "$ref": "#/responses/cell-value"
           },
+          "400": {
+            "description": "The request body is malformed, or the attribute values do not match the column's linkAttributes definitions. Sent as error.json.attributes if the attributes field is missing or is not an array, as error.json.link-attributes if the array length differs from the number of definitions or a value does not match its definition's kind, and as error.request.column.wrongtype if the addressed column is not a link column."
+          },
           "404": {
             "$ref": "#/responses/not-found-in-database"
+          },
+          "422": {
+            "description": "The addressed column is a link column but has no linkAttributes defined, so there is nothing to set (unprocessable.entity)."
           }
         }
       }

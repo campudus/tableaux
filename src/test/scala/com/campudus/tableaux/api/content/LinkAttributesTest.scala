@@ -752,4 +752,51 @@ class LinkAttributesTest extends LinkTestBase with LinkAttributeTestOverrides {
     }
   }
 
+  // ---------------------------------------------------------------------------------------------------------------
+  // Inline attributes are bound to the INSERT that creates the link, and that insert is guarded by
+  // `WHERE NOT EXISTS`. Writing the cell again therefore cannot update the attributes of a link that is already
+  // there: appending (POST/PATCH) hits the guard, gets zero rows back and fails the whole request via
+  // insertCheckSize, while replacing (PUT) only ends up rewriting them because it deletes and re-creates every
+  // link of the cell. Changing them in place is what the dedicated attributes endpoint is for. These two tests
+  // pin the difference because docs/features/link-attributes.md documents it per verb.
+  // ---------------------------------------------------------------------------------------------------------------
+
+  @Test
+  def postingAnExistingLinkAgainFailsInsteadOfUpdatingItsAttributes(implicit c: TestContext): Unit =
+    exceptionTest("error.database.checkSize") {
+      val putLink = Json.obj(
+        "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50))))
+      )
+      val postSameLinkAgain = Json.obj(
+        "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(99))))
+      )
+
+      for {
+        _ <- setupTwoTables()
+        linkColumnId <- createLinkColumnWithAttributes(1, 2)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", postSameLinkAgain)
+      } yield ()
+    }
+
+  @Test
+  def replacingTheCellRewritesLinkAttributes(implicit c: TestContext): Unit = okTest {
+    val putLink = Json.obj(
+      "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(50))))
+    )
+    val replaceWithSameLink = Json.obj(
+      "value" -> Json.obj("values" -> Json.arr(Json.obj("id" -> 1, "attributes" -> Json.arr(99))))
+    )
+
+    for {
+      _ <- setupTwoTables()
+      linkColumnId <- createLinkColumnWithAttributes(1, 2)
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", replaceWithSameLink)
+      cell <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      assertEquals(99, cell.getJsonArray("value").getJsonObject(0).getJsonArray("attributes").getInteger(0))
+    }
+  }
+
 }

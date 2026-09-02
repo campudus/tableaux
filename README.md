@@ -146,6 +146,12 @@ Feature flags are used to enable or disable certain features. They have to be co
 - `isRowPermissionCheckEnabled`: Enable or disable row permission checks (default: false)
 - `isPublicFileServerEnabled`: Enable or disable the public file server. If enabled, files are accessible without authentication (default: false)
 
+## Feature documentation
+
+Behaviour of individual features is documented in `docs/features/`. The field-by-field API reference stays in `swagger.json`, served at `/docs`.
+
+- [Link attributes](docs/features/link-attributes.md): values carried by a link itself rather than by the rows it connects
+
 ## Highlevel Features
 
 - Content Creation System
