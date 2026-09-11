@@ -64,6 +64,10 @@ trait BaseRouter extends VertxAccess {
   private def enrich(obj: DomainObject, returnType: ReturnType)(implicit user: TableauxUser): JsonObject = {
     val resultJson = obj.toJson(returnType)
     obj match {
+      case col: GroupColumn => {
+        val groupsWithPermissions = col.columns.map(groupCol => enrich(groupCol, returnType))
+        resultJson.mergeIn(Json.obj("groups" -> groupsWithPermissions))
+      }
       case col: ConcatenateColumn => {
         val concatsWithPermissions = col.columns.map(concatCol => enrich(concatCol, returnType))
         resultJson.mergeIn(Json.obj("concats" -> concatsWithPermissions))
