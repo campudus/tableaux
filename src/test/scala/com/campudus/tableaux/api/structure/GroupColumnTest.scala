@@ -762,4 +762,40 @@ class GroupColumnTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def retrieveGroupColumn_nestedColumnsContainPermissions(implicit c: TestContext): Unit = {
+    okTest {
+      val expectedPermission = Json.obj(
+        "editDisplayProperty" -> true,
+        "editStructureProperty" -> true,
+        "editCellValue" -> true,
+        "delete" -> true
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
+        booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
+
+        groupColumnId <- sendCreateColumnRequest(
+          1,
+          createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId))
+        )
+
+        groupColumn <- sendRequest("GET", s"/tables/1/columns/$groupColumnId")
+      } yield {
+        assertJSONEquals(
+          Json.obj(
+            "groups" -> Json.arr(
+              Json.obj("id" -> textColumnId, "permission" -> expectedPermission),
+              Json.obj("id" -> booleanColumnId, "permission" -> expectedPermission)
+            )
+          ),
+          groupColumn
+        )
+      }
+    }
+  }
 }
