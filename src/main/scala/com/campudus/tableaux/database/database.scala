@@ -20,6 +20,15 @@ import scala.jdk.CollectionConverters._
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 
+object SqlStatement {
+  private val leadingWhitespaceAndLineComments = """\A(?:\s|--[^\n]*)*""".r
+
+  /** Statement without leading whitespace and `--` comment lines, for recognising its command only. */
+  def withoutLeadingComments(stmt: String): String = leadingWhitespaceAndLineComments.replaceFirstIn(stmt, "")
+
+  def commandOf(stmt: String): String = withoutLeadingComments(stmt).split("\\s+").head.toUpperCase
+}
+
 trait DatabaseQuery extends LazyLogging {
   protected val connection: DatabaseConnection
 
@@ -198,8 +207,8 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
   }
 
   private def doMagicQuery(stmt: String, values: Option[JsonArray], connection: DatabaseAction): Future[JsonObject] = {
-    val command = stmt.trim().split("\\s+").head.toUpperCase
-    val returning = stmt.trim().toUpperCase.contains("RETURNING")
+    val command = SqlStatement.commandOf(stmt)
+    val returning = SqlStatement.withoutLeadingComments(stmt).toUpperCase.contains("RETURNING")
 
     (command, returning) match {
       case ("CREATE", _) | ("DROP", _) | ("ALTER", _) | ("LOCK", _) =>
