@@ -1374,7 +1374,8 @@ class TableauxModel(
         if (config.isRowPermissionCheckEnabled) {
           for {
             _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(row.rowPermissions), isInternalCall = false)
-            mutatedRow <- removeUnauthorizedLinkAndConcatValuesFromRow(filteredColumns, row)
+            // the row only holds values of the columns the filter lets through
+            mutatedRow <- removeUnauthorizedLinkAndConcatValuesFromRow(filteredColumns.filter(columnFilter.filter), row)
           } yield mutatedRow
         } else {
           Future.successful(row)
@@ -1663,7 +1664,7 @@ class TableauxModel(
           ColumnFilter(None, None),
           true
         )
-        resultRows <- filterRows(filteredColumns, rowSeq.rows)
+        resultRows <- filterRows(relevantFilteredColumns, rowSeq.rows)
         filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
         originColumnValue = originTable.getDisplayNameJson
 
@@ -1735,7 +1736,8 @@ class TableauxModel(
         columns <- retrieveColumns(table)
         filteredColumns = filterColumns(table, columns)
         rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
-        resultRows <- filterRows(filteredColumns, rowSeq.rows)
+        // the rows only hold values of the columns the filter lets through
+        resultRows <- filterRows(filteredColumns.filter(columnFilter.filter), rowSeq.rows)
       } yield {
         val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
         RowSeq(filteredRows, rowSeq.page)

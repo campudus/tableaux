@@ -3,7 +3,7 @@ package com.campudus.tableaux.api.permission
 import com.campudus.tableaux.api.auth.AuthorizationTest
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.domain.Pagination
+import com.campudus.tableaux.database.domain.{ColumnFilter, Pagination}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel
@@ -469,6 +469,85 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
     } yield {
       val resultRows = retrievedRows.getJson.getJsonArray("rows")
       assertEquals(expectedJson, resultRows)
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveRowsWithColumnFilterPermissionsTest extends AuthorizationTest with TestHelper {
+
+  // two identifier columns, so the table has a concat column in front of the filtered ones
+  private def createTableWithTwoIdentifiers(name: String): Future[Long] = {
+    val columns = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("name" -> "articleNumber", "kind" -> "shorttext", "identifier" -> true),
+        Json.obj("name" -> "color", "kind" -> "shorttext", "identifier" -> true),
+        Json.obj("name" -> "price", "kind" -> "numeric")
+      )
+    )
+    val rows = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2), Json.obj("id" -> 3)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr("37081427", "milk", 3499)))
+    )
+
+    for {
+      tableId <- sendRequest("POST", "/tables", Json.obj("name" -> name)).map(_.getLong("id").longValue())
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", columns)
+      _ <- sendRequest("POST", s"/tables/$tableId/rows", rows)
+    } yield tableId
+  }
+
+  @Test
+  def retrieveRowsWithColumnFilter_severalIdentifiers(implicit c: TestContext): Unit = okTest {
+    val expectedJson: JsonArray = Json.arr(Json.obj("id" -> 1, "values" -> Json.arr(3499)))
+    val controller: TableauxController = createTableauxController()
+    for {
+      tableId <- createTableWithTwoIdentifiers("variants")
+      retrievedRows <- controller.retrieveRows(tableId, columnFilter = ColumnFilter(Some(Seq(3L))))
+    } yield {
+      assertJSONEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
+    }
+  }
+
+  @Test
+  def retrieveRowWithColumnFilter_severalIdentifiers(implicit c: TestContext): Unit = okTest {
+    val expectedJson: JsonObject = Json.obj("id" -> 1, "values" -> Json.arr(3499))
+    val controller: TableauxController = createTableauxController()
+    for {
+      tableId <- createTableWithTwoIdentifiers("variants")
+      retrievedRow <- controller.retrieveRow(tableId, 1, ColumnFilter(Some(Seq(3L))))
+    } yield {
+      assertJSONEquals(expectedJson, retrievedRow.getJson)
+    }
+  }
+
+  @Test
+  def retrieveUnionTableRows_originTablesWithSeveralIdentifiers(implicit c: TestContext): Unit = okTest {
+    val controller: TableauxController = createTableauxController()
+    for {
+      roadbikesId <- createTableWithTwoIdentifiers("roadbikes")
+      gravelbikesId <- createTableWithTwoIdentifiers("gravelbikes")
+      unionTable =
+        Json.obj("name" -> "variants", "type" -> "union", "originTables" -> Json.arr(roadbikesId, gravelbikesId))
+      unionTableId <- sendRequest("POST", "/tables", unionTable).map(_.getLong("id").longValue())
+      originColumns = Json.arr(
+        Json.obj("tableId" -> roadbikesId, "columnId" -> 1),
+        Json.obj("tableId" -> gravelbikesId, "columnId" -> 1)
+      )
+      unionColumns = Json.obj(
+        "columns" -> Json.arr(Json.obj(
+          "name" -> "articleNumber",
+          "kind" -> "shorttext",
+          "originColumns" -> originColumns
+        ))
+      )
+      _ <- sendRequest("POST", s"/tables/$unionTableId/columns", unionColumns)
+      retrievedRows <- controller.retrieveRows(unionTableId)
+    } yield {
+      val rows = retrievedRows.getJson.getJsonArray("rows")
+      val articleNumbers = (0 until rows.size()).map(rows.getJsonObject(_).getJsonArray("values").getValue(1))
+
+      assertEquals(Seq("37081427", "37081427"), articleNumbers)
     }
   }
 }
