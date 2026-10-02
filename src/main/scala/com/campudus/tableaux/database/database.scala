@@ -231,9 +231,12 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
         future.map(rowSet => mapUpdateResult(command, rowSet))
 
       case (_, _) =>
-        throw DatabaseException(
-          s"Command $command in Statement $stmt not supported",
-          "error.database.command_not_supported"
+        // Failed future instead of throw: callers attach their rollback handling to the returned future
+        Future.failed(
+          DatabaseException(
+            s"Command $command in Statement $stmt not supported",
+            "error.database.command_not_supported"
+          )
         )
     }
   }
