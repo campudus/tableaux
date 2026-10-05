@@ -21,7 +21,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 
 object SqlStatement {
-  private val leadingWhitespaceAndLineComments = """\A(?:\s|--[^\n]*)*""".r
+  private val leadingWhitespaceAndLineComments = """\A(?:\s|--[^\n]*+)*+""".r
 
   /** Statement without leading whitespace and `--` comment lines, for recognising its command only. */
   def withoutLeadingComments(stmt: String): String = leadingWhitespaceAndLineComments.replaceFirstIn(stmt, "")
