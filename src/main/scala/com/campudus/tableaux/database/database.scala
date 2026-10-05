@@ -14,6 +14,7 @@ import io.vertx.sqlclient.Row
 import io.vertx.sqlclient.RowSet
 import io.vertx.sqlclient.data.Numeric
 
+import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
@@ -21,10 +22,18 @@ import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 
 object SqlStatement {
-  private val leadingWhitespaceAndLineComments = """\A(?:\s|--[^\n]*+)*+""".r
+  private val lineCommentMarker = "--"
 
   /** Statement without leading whitespace and `--` comment lines, for recognising its command only. */
-  def withoutLeadingComments(stmt: String): String = leadingWhitespaceAndLineComments.replaceFirstIn(stmt, "")
+  @tailrec
+  def withoutLeadingComments(stmt: String): String = {
+    val trimmed = stmt.stripLeading()
+    if (trimmed.startsWith(lineCommentMarker)) {
+      withoutLeadingComments(trimmed.dropWhile(_ != '\n'))
+    } else {
+      trimmed
+    }
+  }
 
   def commandOf(stmt: String): String = withoutLeadingComments(stmt).split("\\s+").head.toUpperCase
 }
