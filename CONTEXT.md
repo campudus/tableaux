@@ -76,6 +76,14 @@ _Avoid_: filtered column — that suggests the column filter, not permissions
 The selection of columns, by id or by name, that a request makes to restrict which columns a row response carries values for.
 _Avoid_: filtered columns — say visible columns when permissions are meant
 
+**Page**:
+The slice of a table's rows that one row request returns, chosen by offset and limit over the rows in id order and reported together with the table's total row count.
+_Avoid_: chunk, batch
+
+**Full table load**:
+Fetching every row of a table by requesting consecutive pages until the total row count is reached, as a client does when it shows a whole table.
+_Avoid_: initial load, bulk load
+
 ### Process
 
 **Rollout gate**:
