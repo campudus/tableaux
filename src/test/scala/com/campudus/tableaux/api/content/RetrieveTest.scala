@@ -870,6 +870,67 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
+  def retrievePagedRowsMatchSliceOfAllRows(implicit c: TestContext): Unit = okTest {
+    import scala.jdk.CollectionConverters._
+
+    def sourceRow(index: Int, linkedRowIds: Seq[Long]) =
+      Json.obj(
+        "values" -> Json.arr(
+          s"row $index",
+          Json.obj("de-DE" -> s"Zeile $index", "en-GB" -> s"row $index"),
+          index,
+          Json.arr(linkedRowIds*)
+        )
+      )
+
+    def assertPagesMatchSlices(tableId: TableId, pages: Seq[(Int, Option[Int])]): Future[Unit] = {
+      for {
+        allRows <- sendRequest("GET", s"/tables/$tableId/rows").map(_.getJsonArray("rows"))
+        pagedRows <- Future.sequence(pages.map({
+          case (offset, limitOpt) =>
+            val limitParam = limitOpt.map(limit => s"&limit=$limit").getOrElse("")
+            sendRequest("GET", s"/tables/$tableId/rows?offset=$offset$limitParam").map(_.getJsonArray("rows"))
+        }))
+      } yield {
+        pages.zip(pagedRows).foreach({
+          case ((offset, limitOpt), rows) =>
+            val end = limitOpt.fold(allRows.size())(limit => Math.min(offset + limit, allRows.size()))
+            val expected = new JsonArray((offset until end).map(allRows.getValue).toList.asJava)
+            assertEquals(s"table $tableId, offset $offset, limit $limitOpt", expected, rows)
+        })
+      }
+    }
+
+    for {
+      (targetTableId, _, targetRowIds) <- createFullTableWithMultilanguageColumns("target")
+      (sourceTableId, columnIds, linkColumnId) <- createTableWithComplexColumns("source", targetTableId)
+      linkedRowIds = Seq(Seq.empty[Long], Seq(targetRowIds.head), Seq(targetRowIds(1), targetRowIds.head))
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$sourceTableId/rows",
+        Json.obj(
+          "columns" -> Json.arr(
+            Json.obj("id" -> columnIds.head),
+            Json.obj("id" -> columnIds(1)),
+            Json.obj("id" -> columnIds(2)),
+            Json.obj("id" -> linkColumnId)
+          ),
+          "rows" -> Json.arr((1 to 5).map(index => sourceRow(index, linkedRowIds(index % 3)))*)
+        )
+      )
+      _ <- sendRequest("POST", s"/tables/$sourceTableId/columns/${columnIds.head}/rows/3/annotations", Json.obj("type" -> "error"))
+      _ <- sendRequest("PATCH", s"/tables/$sourceTableId/rows/2/annotations", Json.obj("final" -> true))
+
+      // the source table carries link and multilanguage values, the target table the backlink column
+      _ <- assertPagesMatchSlices(
+        sourceTableId,
+        Seq((0, Some(2)), (2, Some(2)), (4, Some(2)), (1, Some(3)), (3, None), (0, Some(10)), (5, Some(2)))
+      )
+      _ <- assertPagesMatchSlices(targetTableId, Seq((0, Some(1)), (1, Some(1)), (1, None)))
+    } yield ()
+  }
+
+  @Test
   def retrieveRows_offsetIsLowerZero_returns422(implicit c: TestContext): Unit = {
     exceptionTest("error.arguments") {
       for {

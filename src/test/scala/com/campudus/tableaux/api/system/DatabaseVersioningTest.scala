@@ -101,6 +101,71 @@ class DatabaseVersioningTest extends TableauxTestBase {
     }
   }
 
+  private def id2IndexesOf(dbConnection: DatabaseConnection, linkTableName: String) =
+    dbConnection
+      .query(
+        "SELECT indexname, indexdef FROM pg_indexes WHERE tablename = ? AND indexname = ?",
+        Json.arr(linkTableName, s"idx_${linkTableName}_id_2")
+      )
+      .map(_.getJsonArray("results"))
+
+  @Test
+  def checkUpdateAddsId2IndexToExistingLinkTables(implicit c: TestContext): Unit = okTest {
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    val system = SystemModel(dbConnection)
+
+    for {
+      _ <- system.uninstall()
+      _ <- system.install(Some(43))
+
+      // a link table as version 43 created it, without an index on id_2
+      _ <- dbConnection.query(
+        """|CREATE TABLE link_table_1 (
+           |  id_1 bigint,
+           |  id_2 bigint,
+           |  ordering_1 serial,
+           |  ordering_2 serial,
+           |  attributes jsonb,
+           |  PRIMARY KEY(id_1, id_2)
+           |)""".stripMargin
+      )
+      indexesBefore <- id2IndexesOf(dbConnection, "link_table_1")
+
+      _ <- system.update()
+      indexesAfter <- id2IndexesOf(dbConnection, "link_table_1")
+    } yield {
+      assertEquals(0, indexesBefore.size())
+      assertEquals(1, indexesAfter.size())
+      assertTrue(indexesAfter.getJsonArray(0).getString(1).endsWith("(id_2)"))
+    }
+  }
+
+  @Test
+  def checkNewLinkTableHasId2Index(implicit c: TestContext): Unit = okTest {
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+    for {
+      tableId1 <- createDefaultTable()
+      tableId2 <- createDefaultTable("Test Table 2", 2)
+      linkColumn <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/columns",
+        Json.obj("columns" -> Json.arr(Json.obj("name" -> "link", "kind" -> "link", "toTable" -> tableId2)))
+      )
+      linkColumnId = linkColumn.getJsonArray("columns").getJsonObject(0).getLong("id")
+      linkId <- dbConnection.selectSingleValue[java.lang.Long](
+        "SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?",
+        Json.arr(tableId1, linkColumnId)
+      )
+      indexes <- id2IndexesOf(dbConnection, s"link_table_$linkId")
+    } yield {
+      assertEquals(1, indexes.size())
+      assertTrue(indexes.getJsonArray(0).getString(1).endsWith("(id_2)"))
+    }
+  }
+
   @Test
   def checkUpdateOverHttp(implicit c: TestContext): Unit = {
     okTest {
