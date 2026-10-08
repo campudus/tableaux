@@ -36,6 +36,33 @@ gradlew -v
 At first you need to setup your database and create a new `conf.json` based on `./conf-example.json`.
 After that you can need to call `POST /system/reset` once to initialize system tables. If you wish you can fill in the demo data with `POST /system/resetDemo`.
 
+### PostgreSQL configuration
+
+Run PostgreSQL with JIT compilation disabled (`jit=off`).
+
+Row requests such as `GET /tables/:id/rows` build a single query that contains one subquery per link column. PostgreSQL decides whether to JIT-compile a query based on its estimated cost, and that estimate grows with the number of rows the query may touch (the table size, or `limit` + `offset`). Once a table with many link columns grows past the cost threshold, compiling the query takes far longer than executing it, and response times jump from milliseconds to seconds without any change to GRUD itself. GRUD does not run the kind of long, CPU-heavy analytical queries that benefit from JIT.
+
+Example: for a table with 85 columns, 64 of them link columns, `GET /tables/:id/rows?limit=1000` took 7.7 s with JIT and 0.9 s without.
+
+1. Disable JIT in the server start command, e.g. with Docker Compose:
+
+   ```yaml
+   services:
+     postgres:
+       image: postgres:18
+       command: postgres -c jit=off
+   ```
+
+   A changed `command` only takes effect once the container is recreated (`docker compose up -d`).
+
+2. Verify the setting, connected as the GRUD database user:
+
+   ```sql
+   SELECT setting, source FROM pg_settings WHERE name = 'jit';
+   ```
+
+   Expected result: `off` with source `command line`.
+
 ### Update DB schema (optionally)
 
 If you upgrade from an older schema version you need to call `POST /system/update` before that. Schema will be upgraded automatically.
