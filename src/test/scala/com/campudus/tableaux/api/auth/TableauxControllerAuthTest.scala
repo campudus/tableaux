@@ -562,6 +562,54 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
     }
 
   @Test
+  def retrieveRows_annotationsOfHiddenColumnsAreLeftOut_ok(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "view-text-columns": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["viewColumn", "viewCellValue"],
+                                      |      "condition": {
+                                      |        "column": {
+                                      |          "kind": "text"
+                                      |        }
+                                      |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["viewTable"]
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        // column 3 is numeric and hidden from this user, column 1 is text and visible
+        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1/annotations", Json.obj("type" -> "error"))
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/2/annotations", Json.obj("type" -> "error"))
+        rows <- controller.retrieveRows(1).map(_.rows.map(_.getJson))
+        row1 <- controller.retrieveRow(1, 1).map(_.getJson)
+        row2 <- controller.retrieveRow(1, 2).map(_.getJson)
+      } yield {
+        for (row <- Seq(rows.head, row1)) {
+          assertEquals(2, row.getJsonArray("values").size())
+          assertFalse("only a hidden column of row 1 has annotations", row.containsKey("annotations"))
+        }
+
+        for (row <- Seq(rows(1), row2)) {
+          val annotations = row.getJsonArray("annotations")
+          assertEquals(row.getJsonArray("values").size(), annotations.size())
+          assertEquals("error", annotations.getJsonArray(0).getJsonObject(0).getString("type"))
+          assertNull(annotations.getValue(1))
+        }
+      }
+    }
+
+  @Test
   def createRow_notAuthorized_throwsException(implicit c: TestContext): Unit =
     okTest {
       val controller = createTableauxController()

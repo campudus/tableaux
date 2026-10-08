@@ -1368,14 +1368,14 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[RowLike] = {
     for {
       columns <- retrieveColumns(table)
-      filteredColumns = filterColumns(table, columns)
-      row <- retrieveRow(table, filteredColumns, rowId, columnFilter)
+      visibleColumns = filterColumns(table, columns)
+      row <- retrieveRow(table, columnsToRetrieve(visibleColumns, columnFilter), rowId, columnFilter)
       resultRow <-
         if (config.isRowPermissionCheckEnabled) {
           for {
             _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(row.rowPermissions), isInternalCall = false)
             // the row only holds values of the columns the filter lets through
-            mutatedRow <- removeUnauthorizedLinkAndConcatValuesFromRow(filteredColumns.filter(columnFilter.filter), row)
+            mutatedRow <- removeUnauthorizedLinkAndConcatValuesFromRow(visibleColumns.filter(columnFilter.filter), row)
           } yield mutatedRow
         } else {
           Future.successful(row)
@@ -1489,11 +1489,16 @@ class TableauxModel(
     }
   }
 
-  private def copyFirstColumnOfRowsSeq(rowsSeq: RowSeq): RowSeq =
+  private def copyFirstColumnOfRowsSeq(rowsSeq: RowSeq): RowSeq = {
+    def firstColumnOnly(annotations: CellLevelAnnotations) = annotations.restrictTo(annotations.columns.take(1))
+
     rowsSeq.copy(rows = rowsSeq.rows.map({
-      case row: Row => row.copy(values = row.values.take(1))
-      case row: UnionTableRow => row.copy(values = row.values.take(1))
+      case row: Row =>
+        row.copy(values = row.values.take(1), cellLevelAnnotations = firstColumnOnly(row.cellLevelAnnotations))
+      case row: UnionTableRow =>
+        row.copy(values = row.values.take(1), cellLevelAnnotations = firstColumnOnly(row.cellLevelAnnotations))
     }))
+  }
 
   private def filterColumns(table: Table, columns: Seq[ColumnType[?]])(
       implicit user: TableauxUser
@@ -1504,6 +1509,28 @@ class TableauxModel(
       ComparisonObjects(table),
       isInternalCall = false
     )
+  }
+
+  /**
+    * The visible columns a row query must contain to answer the column filter: the columns the filter lets through plus
+    * the member columns of concat and group columns among them, because their values are composed after the query.
+    * Status columns load their member columns themselves. Keeps the order of `visibleColumns`.
+    */
+  private def columnsToRetrieve(
+      visibleColumns: Seq[ColumnType[?]],
+      columnFilter: ColumnFilter
+  ): Seq[ColumnType[?]] = {
+    val idsToRetrieve = visibleColumns
+      .filter(columnFilter.filter)
+      .flatMap({
+        case c: ConcatColumn => c.columns.+:(c)
+        case c: GroupColumn => c.columns.+:(c)
+        case c => Seq(c)
+      })
+      .map(_.id)
+      .toSet
+
+    visibleColumns.filter(column => idsToRetrieve.contains(column.id))
   }
 
   private def filterRows(columns: Seq[ColumnType[?]], rows: Seq[RowLike])(implicit
@@ -1734,10 +1761,11 @@ class TableauxModel(
     } else {
       for {
         columns <- retrieveColumns(table)
-        filteredColumns = filterColumns(table, columns)
-        rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
+        visibleColumns = filterColumns(table, columns)
+        columnsForQuery = columnsToRetrieve(visibleColumns, columnFilter)
+        rowSeq <- retrieveRows(table, columnsForQuery, finalFlagOpt, archivedFlagOpt, pagination, columnFilter)
         // the rows only hold values of the columns the filter lets through
-        resultRows <- filterRows(filteredColumns.filter(columnFilter.filter), rowSeq.rows)
+        resultRows <- filterRows(visibleColumns.filter(columnFilter.filter), rowSeq.rows)
       } yield {
         val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
         RowSeq(filteredRows, rowSeq.page)
@@ -1888,16 +1916,8 @@ class TableauxModel(
       rawRows: Seq[RawRow],
       columnFilter: ColumnFilter = ColumnFilter(None, None)
   )(implicit user: TableauxUser): Future[Seq[RowLike]] = {
-    val idsOfFilteredColumnsWithConcats = columns
-      .filter(columnFilter.filter)
-      .flatMap(c =>
-        c match {
-          case c: ConcatenateColumn => c.columns.+:(c)
-          case _ => Seq(c)
-        }
-      )
-      .map(_.id)
-      .distinct
+    val idsOfColumnsToPostProcess = columnsToRetrieve(columns, columnFilter).map(_.id).toSet
+    val columnsInValues = columns.filter(columnFilter.filter)
 
     /**
       * Fetches ConcatColumn values for linked rows
@@ -2004,7 +2024,7 @@ class TableauxModel(
                 .zip(rawValues)
                 .filter({
                   // Only fetch values for columns which are included in filter (directly or indirectly via concat)
-                  case (column: ColumnType[_], _) => idsOfFilteredColumnsWithConcats.contains(column.id)
+                  case (column: ColumnType[_], _) => idsOfColumnsToPostProcess.contains(column.id)
                 })
                 .map({
                   case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatenateColumn] =>
@@ -2052,7 +2072,10 @@ class TableauxModel(
                 value
             })
         } yield {
-          Row(table, rowId, rowLevelFlags, rowPermissions, cellLevelFlags, columnsWithPostProcessedValues)
+          // the raw row carries the annotations of every column of the row, including hidden ones and the
+          // member columns that were only queried to compose a concat or group value
+          val cellAnnotations = cellLevelFlags.restrictTo(columnsInValues)
+          Row(table, rowId, rowLevelFlags, rowPermissions, cellAnnotations, columnsWithPostProcessedValues)
         }
       }
     }))

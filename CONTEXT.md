@@ -54,6 +54,10 @@ _Avoid_: identifier column, combined column
 A column that combines several other columns into one field for display purposes.
 _Avoid_: composite column
 
+**Member column**:
+A column whose value a concat column or group column is composed of.
+_Avoid_: part, component, sub-column
+
 **Format pattern**:
 A display template on a column, given as `formatPattern`, with `{{...}}` placeholders that are filled from the column's own value or its parts.
 _Avoid_: template, display pattern
@@ -61,6 +65,16 @@ _Avoid_: template, display pattern
 **Langtag**:
 An RFC 5646 language tag. A multilanguage value is an object keyed by langtag.
 _Avoid_: locale, language code
+
+### Row retrieval
+
+**Visible column**:
+A column whose cell values the current user is allowed to see.
+_Avoid_: filtered column — that suggests the column filter, not permissions
+
+**Column filter**:
+The selection of columns, by id or by name, that a request makes to restrict which columns a row response carries values for.
+_Avoid_: filtered columns — say visible columns when permissions are meant
 
 ### Process
 
