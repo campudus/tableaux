@@ -4,6 +4,7 @@ import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel
+import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.helper.Json
 import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -13,6 +14,8 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.json.JsonObject
 import io.vertx.scala.SQLConnection
+
+import scala.concurrent.Future
 
 import java.net.URLEncoder
 import org.junit.Assert._
@@ -624,6 +627,223 @@ class RetrieveRowsTest extends TableauxTestBase {
       assertEquals(expectedJsonTwo, testTwo)
       assertEquals(expectedJsonBoth, testBoth)
       assertEquals(expectedJsonBoth, testWithNonExisting)
+    }
+  }
+
+  /**
+    * Columns: 0 concat of 1 and 2, 1 "first" and 2 "second" (identifiers), 3 "neighbour", 4 "flag", 5 "group" of 3 and
+    * 4, 6 "status" with one rule on 4. Row 1 has annotations on columns 1 and 3, row 2 has none.
+    */
+  private def createTableForColumnFilter(): Future[TableId] = {
+    val columns = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> "first", "identifier" -> true),
+        Json.obj("kind" -> "numeric", "name" -> "second", "identifier" -> true),
+        Json.obj("kind" -> "text", "name" -> "neighbour"),
+        Json.obj("kind" -> "boolean", "name" -> "flag")
+      )
+    )
+    val groupColumn =
+      Json.obj("columns" -> Json.arr(Json.obj("kind" -> "group", "name" -> "group", "groups" -> Json.arr(3, 4))))
+    val statusRule = Json.obj(
+      "name" -> "flagged",
+      "displayName" -> Json.obj("de" -> "markiert"),
+      "color" -> "#ffffff",
+      "icon" -> Json.obj("type" -> "fa", "value" -> "flag"),
+      "tooltip" -> Json.obj("de" -> "markiert"),
+      "conditions" -> Json.obj(
+        "composition" -> "AND",
+        "values" -> Json.arr(Json.obj("column" -> 4, "operator" -> "IS", "value" -> true))
+      )
+    )
+    val statusColumn =
+      Json.obj("columns" -> Json.arr(Json.obj("kind" -> "status", "name" -> "status", "rules" -> Json.arr(statusRule))))
+    val rows = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2), Json.obj("id" -> 3), Json.obj("id" -> 4)),
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("a", 1, "n1", true)),
+        Json.obj("values" -> Json.arr("b", 2, "n2", false))
+      )
+    )
+
+    for {
+      tableId <- sendRequest("POST", "/tables", Json.obj("name" -> "column filter")).map(_.getLong("id").toLong)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", columns)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", groupColumn)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", statusColumn)
+      _ <- sendRequest("POST", s"/tables/$tableId/rows", rows)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1/annotations", Json.obj("type" -> "error"))
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId/columns/3/rows/1/annotations",
+        Json.obj("type" -> "info", "value" -> "check")
+      )
+    } yield tableId
+  }
+
+  private def assertRow(expected: JsonObject, actual: JsonObject): Unit = {
+    // STRICT_ORDER: values and annotations must match in length and order, extra keys like uuid are fine
+    assertJSONEquals(expected, actual, JSONCompareMode.STRICT_ORDER)
+    if (!expected.containsKey("annotations")) {
+      assertFalse(s"row ${actual.getLong("id")} must not have annotations", actual.containsKey("annotations"))
+    }
+  }
+
+  private def assertRows(expected: Seq[JsonObject], actual: JsonObject): Unit = {
+    val actualRows = actual.getJsonArray("rows")
+    assertEquals(expected.size, actualRows.size())
+    expected.zipWithIndex.foreach({ case (row, index) => assertRow(row, actualRows.getJsonObject(index)) })
+  }
+
+  @Test
+  def retrieveRowWithFilteredConcatColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createTableForColumnFilter()
+      row <- sendRequest("GET", s"/tables/$tableId/rows/1?columnIds=0")
+    } yield {
+      // column 1 is a member column of the concat column, its annotation is not requested
+      assertRow(Json.obj("id" -> 1, "values" -> Json.arr(Json.arr("a", 1))), row)
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredConcatColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createTableForColumnFilter()
+      rows <- sendRequest("GET", s"/tables/$tableId/rows?columnIds=0")
+    } yield {
+      assertRows(
+        Seq(
+          Json.obj("id" -> 1, "values" -> Json.arr(Json.arr("a", 1))),
+          Json.obj("id" -> 2, "values" -> Json.arr(Json.arr("b", 2)))
+        ),
+        rows
+      )
+    }
+  }
+
+  @Test
+  def retrieveRowWithFilteredColumnNextToAnnotatedColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createTableForColumnFilter()
+      flagOnly <- sendRequest("GET", s"/tables/$tableId/rows/1?columnIds=4")
+      concatAndNeighbour <- sendRequest("GET", s"/tables/$tableId/rows/1?columnIds=0,3")
+    } yield {
+      assertRow(Json.obj("id" -> 1, "values" -> Json.arr(true)), flagOnly)
+      assertRow(
+        Json.obj(
+          "id" -> 1,
+          "values" -> Json.arr(Json.arr("a", 1), "n1"),
+          "annotations" -> Json.arr(null, Json.arr(Json.obj("type" -> "info", "value" -> "check")))
+        ),
+        concatAndNeighbour
+      )
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredColumnNextToAnnotatedColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createTableForColumnFilter()
+      flagOnly <- sendRequest("GET", s"/tables/$tableId/rows?columnIds=4")
+      concatAndNeighbour <- sendRequest("GET", s"/tables/$tableId/rows?columnIds=0,3")
+    } yield {
+      assertRows(
+        Seq(Json.obj("id" -> 1, "values" -> Json.arr(true)), Json.obj("id" -> 2, "values" -> Json.arr(false))),
+        flagOnly
+      )
+      assertRows(
+        Seq(
+          Json.obj(
+            "id" -> 1,
+            "values" -> Json.arr(Json.arr("a", 1), "n1"),
+            "annotations" -> Json.arr(null, Json.arr(Json.obj("type" -> "info", "value" -> "check")))
+          ),
+          Json.obj("id" -> 2, "values" -> Json.arr(Json.arr("b", 2), "n2"))
+        ),
+        concatAndNeighbour
+      )
+    }
+  }
+
+  @Test
+  def retrieveRowWithFilteredGroupColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createTableForColumnFilter()
+      row <- sendRequest("GET", s"/tables/$tableId/rows/1?columnIds=5")
+    } yield {
+      // column 3 is a member column of the group column, its annotation is not requested
+      assertRow(Json.obj("id" -> 1, "values" -> Json.arr(Json.arr("n1", true))), row)
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredGroupColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createTableForColumnFilter()
+      rows <- sendRequest("GET", s"/tables/$tableId/rows?columnIds=5")
+    } yield {
+      assertRows(
+        Seq(
+          Json.obj("id" -> 1, "values" -> Json.arr(Json.arr("n1", true))),
+          Json.obj("id" -> 2, "values" -> Json.arr(Json.arr("n2", false)))
+        ),
+        rows
+      )
+    }
+  }
+
+  @Test
+  def retrieveRowWithFilteredStatusColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createTableForColumnFilter()
+      row <- sendRequest("GET", s"/tables/$tableId/rows/1?columnIds=6")
+    } yield {
+      assertRow(Json.obj("id" -> 1, "values" -> Json.arr(Json.arr(true))), row)
+    }
+  }
+
+  @Test
+  def retrieveRowsWithFilteredStatusColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createTableForColumnFilter()
+      rows <- sendRequest("GET", s"/tables/$tableId/rows?columnIds=6")
+    } yield {
+      assertRows(
+        Seq(
+          Json.obj("id" -> 1, "values" -> Json.arr(Json.arr(true))),
+          Json.obj("id" -> 2, "values" -> Json.arr(Json.arr(false)))
+        ),
+        rows
+      )
+    }
+  }
+
+  @Test
+  def retrieveRowsOfColumnOnlyCarriesAnnotationsOfThatColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- createTableForColumnFilter()
+      concatRows <- sendRequest("GET", s"/tables/$tableId/columns/0/rows")
+      neighbourRows <- sendRequest("GET", s"/tables/$tableId/columns/3/rows")
+    } yield {
+      assertRows(
+        Seq(
+          Json.obj("id" -> 1, "values" -> Json.arr(Json.arr("a", 1))),
+          Json.obj("id" -> 2, "values" -> Json.arr(Json.arr("b", 2)))
+        ),
+        concatRows
+      )
+      assertRows(
+        Seq(
+          Json.obj(
+            "id" -> 1,
+            "values" -> Json.arr("n1"),
+            "annotations" -> Json.arr(Json.arr(Json.obj("type" -> "info", "value" -> "check")))
+          ),
+          Json.obj("id" -> 2, "values" -> Json.arr("n2"))
+        ),
+        neighbourRows
+      )
     }
   }
 

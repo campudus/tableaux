@@ -163,6 +163,17 @@ case class CellLevelAnnotations(columns: Seq[ColumnType[?]], annotations: Map[Co
 
   def isDefined: Boolean = annotations.values.exists(_.nonEmpty)
 
+  /**
+    * Keeps only the annotations of the given columns, so they line up with values that hold exactly these columns.
+    */
+  def restrictTo(columnsToKeep: Seq[ColumnType[?]]): CellLevelAnnotations = {
+    val columnIdsToKeep = columnsToKeep.map(_.id).toSet
+    CellLevelAnnotations(
+      columnsToKeep,
+      annotations.filter({ case (columnId, _) => columnIdsToKeep.contains(columnId) })
+    )
+  }
+
   override def getJson: JsonObject = {
     val seqOpt = columns.map(column => annotations.get(column.id))
 
