@@ -1642,7 +1642,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
             s"utl.column_${c.id}"
         }
 
-        s"CASE WHEN COUNT(utl.id) = 0 THEN NULL ELSE json_object_agg(DISTINCT COALESCE(utl.langtag, 'IGNORE'), $column) FILTER (WHERE utl.column_${c.id} IS NOT NULL) END AS column_${c.id}"
+        s"CASE WHEN COUNT(utl.id) = 0 THEN NULL ELSE ${multiLanguageObjectAgg("utl", column)} FILTER (WHERE utl.column_${c.id} IS NOT NULL) END AS column_${c.id}"
 
       case c: DateTimeColumn =>
         parseDateTimeSql(s"ut.column_${c.id}") + s" AS column_${c.id}"
@@ -1662,6 +1662,16 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     Seq(Seq("ut.id"), Seq(generateFlagsAndAnnotationsProjection(tableId)), projection).flatten
       .mkString(",")
+  }
+
+  /**
+    * Aggregates the values of one multilanguage column into an object keyed by langtag. Every langtag occurs once per
+    * row (primary key of the language table), so the aggregate needs no DISTINCT; ordering by the key keeps the key
+    * order DISTINCT used to produce, and lets every such aggregate share one sort of its input.
+    */
+  private def multiLanguageObjectAgg(langTableAlias: String, value: String): String = {
+    val key = s"COALESCE($langTableAlias.langtag, 'IGNORE')"
+    s"json_object_agg($key, $value ORDER BY $key)"
   }
 
   private def generateLinkProjection(tableId: TableId, c: LinkColumn): String = {
@@ -1688,7 +1698,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         (
           s"column_${c.to.id}",
           // only build multilanguage value if possible
-          s"CASE WHEN COUNT(utl$toTableId.id) = 0 THEN NULL ELSE json_object_agg(DISTINCT COALESCE(utl$toTableId.langtag, 'IGNORE'), $linkedColumn) FILTER (WHERE $linkedColumn IS NOT NULL) END"
+          s"CASE WHEN COUNT(utl$toTableId.id) = 0 THEN NULL ELSE ${multiLanguageObjectAgg(s"utl$toTableId", linkedColumn)} FILTER (WHERE $linkedColumn IS NOT NULL) END"
         )
 
       case _: DateTimeColumn =>
@@ -1705,6 +1715,15 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         throw new IllegalArgumentException(
           s"Linking to a LinkColumn or AttachmentColumn (column ${c.to.id}) is not supported"
         )
+    }
+
+    // only a multilanguage target needs its language table; for any other target the join would just multiply the
+    // rows that GROUP BY then collapses again
+    val langJoin = c.to match {
+      case _: ConcatenateColumn => ""
+      case MultiLanguageColumn(_) =>
+        s"LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)"
+      case _ => ""
     }
 
     // attributes must not go through jsonb_strip_nulls: that works recursively, so an explicitly null langtag of a
@@ -1734,7 +1753,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
        | FROM
        |    link_table_$linkId lt$linkId
        |    JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
-       |    LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
+       |    $langJoin
        |  GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}, lt$linkId.attributes
        |  ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
        |) sub
