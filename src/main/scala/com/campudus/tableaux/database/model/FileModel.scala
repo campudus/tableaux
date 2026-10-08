@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.NotFoundInDatabaseException
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.database.domain.{Folder, MultiLanguageValue, TableauxFile}
@@ -154,6 +155,25 @@ class FileModel(override protected val connection: DatabaseConnection) extends D
       resultRow = selectNotNull(resultJson).head
     } yield {
       convertRowToFile(resultRow)
+    }
+  }
+
+  /**
+    * Retrieves several files at once, keyed by their uuid. Fails like [[retrieve]] if one of them doesn't exist.
+    */
+  def retrieveMany(ids: Seq[UUID]): Future[Map[UUID, TableauxFile]] = {
+    val distinctIds = ids.distinct
+    for {
+      chunks <- Future.sequence(distinctIds.grouped(idsPerQuery).toSeq.map({ chunk =>
+        val placeholders = chunk.map(_ => "?").mkString(", ")
+        connection.query(select(s"f.uuid IN ($placeholders) AND tmp = FALSE"), Json.arr(chunk.map(_.toString)*))
+      }))
+    } yield {
+      val files = chunks.flatMap(resultObjectToJsonArray).map(convertRowToFile).map(file => file.uuid -> file).toMap
+      if (distinctIds.exists(id => !files.contains(id))) {
+        throw NotFoundInDatabaseException("Warning: SELECT 0 query failed", "select")
+      }
+      files
     }
   }
 

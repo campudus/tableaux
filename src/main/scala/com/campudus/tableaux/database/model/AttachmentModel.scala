@@ -142,6 +142,40 @@ class AttachmentModel(protected val connection: DatabaseConnection, protected va
     } yield files
   }
 
+  /**
+    * Retrieves the attachments of several cells at once, keyed by column and row, each in its ordering. Cells without
+    * attachments are missing from the map.
+    */
+  def retrieveAllOfCells(
+      tableId: TableId,
+      columnIds: Seq[ColumnId],
+      rowIds: Seq[RowId]
+  ): Future[Map[(ColumnId, RowId), Seq[AttachmentFile]]] = {
+    val columnPlaceholders = columnIds.map(_ => "?").mkString(", ")
+
+    for {
+      chunks <- Future.sequence(rowIds.distinct.grouped(idsPerQuery).toSeq.map({ chunk =>
+        val rowPlaceholders = chunk.map(_ => "?").mkString(", ")
+        connection.query(
+          s"""|SELECT column_id, row_id, attachment_uuid, ordering FROM $table
+              |WHERE table_id = ? AND column_id IN ($columnPlaceholders) AND row_id IN ($rowPlaceholders)
+              |ORDER BY column_id, row_id, ordering""".stripMargin,
+          Json.arr(Seq(tableId) ++ columnIds ++ chunk*)
+        )
+      }))
+      attachments = chunks
+        .flatMap(resultObjectToJsonArray)
+        .map(e => (e.get[ColumnId](0), e.get[RowId](1), UUID.fromString(e.get[String](2)), e.get[Ordering](3)))
+      files <- fileModel.retrieveMany(attachments.map({ case (_, _, uuid, _) => uuid }))
+    } yield {
+      attachments
+        .groupBy({ case (columnId, rowId, _, _) => (columnId, rowId) })
+        .view
+        .mapValues(_.map({ case (_, _, uuid, ordering) => AttachmentFile(ExtendedFile(files(uuid)), ordering) }))
+        .toMap
+    }
+  }
+
   def delete(a: Attachment): Future[Unit] = {
     val delete = s"DELETE FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ? AND attachment_uuid = ?"
 

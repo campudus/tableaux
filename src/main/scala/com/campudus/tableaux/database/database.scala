@@ -43,6 +43,9 @@ trait DatabaseQuery extends LazyLogging {
 
   implicit val executionContext: VertxExecutionContext = connection.executionContext
 
+  /** Ids per statement when a query lists them as placeholders, well below PostgreSQL's limit of bind parameters. */
+  protected val idsPerQuery: Int = 1000
+
   protected def checkUpdateResults(seq: JsonObject*): Unit = {
     seq.map(json => if (json.containsKey("message")) updateNotNull(json))
   }

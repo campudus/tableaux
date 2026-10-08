@@ -12,9 +12,12 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.*
 import io.vertx.lang.scala.json._
 
+import scala.concurrent.Future
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.skyscreamer.jsonassert.JSONCompareMode
 
 @RunWith(classOf[VertxUnitRunner])
 class IdentifierTest extends TableauxTestBase {
@@ -507,6 +510,66 @@ class IdentifierTest extends TableauxTestBase {
         assertEquals(linkColId2, concats3.getLong("id"))
         assertEquals("link", concats3.getString("kind"))
       }
+    }
+  }
+
+  @Test
+  def retrieveRowsLinkingTheSameConcatRowSeveralTimes(implicit c: TestContext): Unit = okTest {
+    def putLinks(ids: Seq[Long]) = Json.obj("value" -> Json.obj("values" -> Json.arr(ids*)))
+
+    for {
+      (targetTableId, _, targetRowIds) <- createSimpleTableWithValues(
+        "target",
+        List(Identifier(NumericCol("number")), Identifier(TextCol("text"))),
+        List(List(1, "a"), List(2, "b"))
+      )
+      _ <-
+        sendRequest("PATCH", s"/tables/$targetTableId/rows/${targetRowIds(1)}/annotations", Json.obj("final" -> true))
+      (sourceTableId, _, sourceRowIds) <- createSimpleTableWithValues(
+        "source",
+        List(Identifier(TextCol("name"))),
+        List(List("row1"), List("row2"), List("row3"), List("row4"))
+      )
+      linkColumn <- sendRequest(
+        "POST",
+        s"/tables/$sourceTableId/columns",
+        Json.obj("columns" -> Json.arr(Json.obj("name" -> "link", "kind" -> "link", "toTable" -> targetTableId)))
+      )
+      linkColumnId = linkColumn.getJsonArray("columns").getJsonObject(0).getLong("id")
+      linkedRowIdsPerSourceRow = Seq(
+        Seq(targetRowIds.head),
+        Seq(targetRowIds.head, targetRowIds(1)),
+        Seq(targetRowIds.head),
+        Seq.empty[Long]
+      )
+      _ <- sourceRowIds.zip(linkedRowIdsPerSourceRow).foldLeft(Future.successful(())) {
+        case (previous, (sourceRowId, linkedRowIds)) =>
+          previous.flatMap(_ =>
+            sendRequest(
+              "POST",
+              s"/tables/$sourceTableId/columns/$linkColumnId/rows/$sourceRowId",
+              putLinks(linkedRowIds)
+            ).map(_ => ())
+          )
+      }
+
+      rows <- sendRequest("GET", s"/tables/$sourceTableId/rows").map(_.getJsonArray("rows"))
+      pagedRows <- sendRequest("GET", s"/tables/$sourceTableId/rows?offset=1&limit=2").map(_.getJsonArray("rows"))
+    } yield {
+      val first = Json.obj("id" -> targetRowIds.head, "value" -> Json.arr(1, "a"))
+      // the target row's final flag shows on the link value, as with a cell fetched on its own
+      val second = Json.obj("id" -> targetRowIds(1), "value" -> Json.arr(2, "b"), "final" -> true)
+      val expectedLinkValues = Seq(Json.arr(first), Json.arr(first, second), Json.arr(first), Json.arr())
+
+      expectedLinkValues.zipWithIndex.foreach({
+        case (expected, index) =>
+          assertJSONEquals(
+            expected,
+            rows.getJsonObject(index).getJsonArray("values").getJsonArray(1),
+            JSONCompareMode.STRICT
+          )
+      })
+      assertEquals(Json.arr(rows.getValue(1), rows.getValue(2)), pagedRows)
     }
   }
 
