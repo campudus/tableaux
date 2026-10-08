@@ -901,6 +901,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                               |  CONSTRAINT link_table_${linkId}_foreign_2
                               |  FOREIGN KEY(id_2) REFERENCES user_table_${linkColumnInfo.toTable} (id) ON DELETE CASCADE
                               |)""".stripMargin)
+        // the primary key only serves lookups by id_1; the backlink column looks its links up by id_2
+        (t, _) <- t.query(s"CREATE INDEX idx_link_table_${linkId}_id_2 ON link_table_$linkId (id_2)")
       } yield {
         (t, (linkId, toCol, columnInfo))
       }

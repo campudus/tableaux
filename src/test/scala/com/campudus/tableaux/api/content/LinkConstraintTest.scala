@@ -1691,6 +1691,51 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
   }
 
   @Test
+  def retrievePagedRowsWithFinalAndArchivedFilter(implicit c: TestContext): Unit = {
+    import scala.jdk.CollectionConverters._
+
+    def rowIds(obj: JsonObject): Seq[Long] =
+      obj.getJsonArray("rows").asScala.map(_.asInstanceOf[JsonObject].getLong("id").longValue()).toSeq
+
+    val filters = Seq("final=true", "final=false", "archived=true", "archived=false", "final=true&archived=false")
+
+    okTest {
+      for {
+        _ <- createDefaultTable(name = "table1")
+
+        // same rows as in retrieveMixedFinalAndArchivedRows
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("PATCH", s"/tables/1/rows/2/annotations", Json.obj("final" -> true))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/3/annotations", Json.obj("archived" -> true))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/4/annotations", Json.obj("final" -> true, "archived" -> true))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/5/annotations", Json.obj("final" -> true, "archived" -> false))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/6/annotations", Json.obj("final" -> true, "archived" -> false))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/7/annotations", Json.obj("final" -> true, "archived" -> true))
+
+        results <- Future.sequence(filters.map(filter =>
+          for {
+            all <- sendRequest("GET", s"/tables/1/rows?$filter")
+            page <- sendRequest("GET", s"/tables/1/rows?$filter&offset=1&limit=2")
+            rest <- sendRequest("GET", s"/tables/1/rows?$filter&offset=2")
+          } yield (filter, all, page, rest)
+        ))
+      } yield {
+        results.foreach({
+          case (filter, all, page, rest) =>
+            // the filter applies before paging: a page is a slice of the filtered rows
+            assertEquals(s"$filter&offset=1&limit=2", rowIds(all).slice(1, 3), rowIds(page))
+            assertEquals(s"$filter&offset=2", rowIds(all).drop(2), rowIds(rest))
+            assertEquals(s"$filter totalSize", toRowsArrayAndTotalSize(all)._2, toRowsArrayAndTotalSize(page)._2)
+        })
+      }
+    }
+  }
+
+  @Test
   def retrieveForeignRowsOfLinkCell_finalAndArchivedRows(implicit c: TestContext): Unit = {
     okTest {
       for {

@@ -1473,12 +1473,26 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       pagination: Pagination
   ): Future[Seq[RawRow]] = {
     val projection = generateProjection(tableId, columns)
-    val fromClause = generateFromClause(tableId)
     val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
-    val stmt = s"""|SELECT $projection
-                   |FROM $fromClause
-                   |WHERE TRUE $rowAnnotationFilter
-                   |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin
+    val isPaginated = pagination.offset.isDefined || pagination.limit.isDefined
+    val stmt =
+      if (isPaginated) {
+        // PostgreSQL computes the whole projection, one subquery per link column included, for every row the OFFSET
+        // skips. So the page's ids are selected first and only those rows are projected. Its OFFSET/LIMIT keeps the
+        // planner from pulling that subquery up into the outer query.
+        s"""|SELECT $projection
+            |FROM (
+            |  SELECT id FROM user_table_$tableId WHERE TRUE $rowAnnotationFilter ORDER BY id $pagination
+            |) page
+            |JOIN user_table_$tableId ut ON (ut.id = page.id)
+            |LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)
+            |GROUP BY ut.id ORDER BY ut.id""".stripMargin
+      } else {
+        s"""|SELECT $projection
+            |FROM ${generateFromClause(tableId)}
+            |WHERE TRUE $rowAnnotationFilter
+            |GROUP BY ut.id ORDER BY ut.id""".stripMargin
+      }
     for {
       result <- connection.query(stmt)
     } yield {

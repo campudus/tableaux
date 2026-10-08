@@ -219,7 +219,8 @@ class SystemModel(override protected val connection: DatabaseConnection) extends
     setupVersion(readSchemaFile("schema_v40"), 40),
     setupVersion(readSchemaFile("schema_v41"), 41),
     setupVersion(readSchemaFile("schema_v42"), 42),
-    setupVersion(readSchemaFile("schema_v43"), 43)
+    setupVersion(readSchemaFile("schema_v43"), 43),
+    setupVersion(readSchemaFile("schema_v44"), 44)
   )
 
   private val setupShortCutFunction: Seq[DbTransaction => Future[DbTransaction]] = Seq(
