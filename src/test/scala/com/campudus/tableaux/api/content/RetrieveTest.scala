@@ -918,7 +918,11 @@ class RetrieveRowsTest extends TableauxTestBase {
           "rows" -> Json.arr((1 to 5).map(index => sourceRow(index, linkedRowIds(index % 3)))*)
         )
       )
-      _ <- sendRequest("POST", s"/tables/$sourceTableId/columns/${columnIds.head}/rows/3/annotations", Json.obj("type" -> "error"))
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$sourceTableId/columns/${columnIds.head}/rows/3/annotations",
+        Json.obj("type" -> "error")
+      )
       _ <- sendRequest("PATCH", s"/tables/$sourceTableId/rows/2/annotations", Json.obj("final" -> true))
 
       // the source table carries link and multilanguage values, the target table the backlink column
