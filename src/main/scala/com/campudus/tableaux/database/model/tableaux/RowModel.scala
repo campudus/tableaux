@@ -1428,6 +1428,31 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     }
   }
 
+  /**
+    * Retrieves several rows at once, ordered by id. Fails like [[retrieve]] if one of them doesn't exist.
+    */
+  def retrieveMany(tableId: TableId, rowIds: Seq[RowId], columns: Seq[ColumnType[?]]): Future[Seq[RawRow]] = {
+    val distinctRowIds = rowIds.distinct
+    val projection = generateProjection(tableId, columns)
+    val fromClause = generateFromClause(tableId)
+
+    for {
+      chunks <- Future.sequence(distinctRowIds.sorted.grouped(idsPerQuery).toSeq.map({ chunk =>
+        val placeholders = chunk.map(_ => "?").mkString(", ")
+        connection.query(
+          s"SELECT $projection FROM $fromClause WHERE ut.id IN ($placeholders) GROUP BY ut.id ORDER BY ut.id",
+          Json.arr(chunk*)
+        )
+      }))
+    } yield {
+      val rawRows = chunks.flatMap(resultObjectToJsonArray).map(jsonArrayToSeq).map(mapRowToRawRow(columns))
+      if (rawRows.size != distinctRowIds.size) {
+        throw NotFoundInDatabaseException("Warning: SELECT 0 query failed", "select")
+      }
+      rawRows
+    }
+  }
+
   def retrieveForeign(
       linkColumn: LinkColumn,
       rowId: RowId,

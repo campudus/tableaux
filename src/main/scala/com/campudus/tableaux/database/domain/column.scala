@@ -769,7 +769,8 @@ case class AttachmentColumn(override val columnInformation: ColumnInformation)(
             })
             .toSeq
 
-        case attachments: LazyList[_] =>
+        // a retrieved cell value, e.g. when a row is duplicated
+        case attachments: Seq[_] =>
           attachments.map({
             case file: AttachmentFile =>
               (file.file.file.uuid, Some(file.ordering))

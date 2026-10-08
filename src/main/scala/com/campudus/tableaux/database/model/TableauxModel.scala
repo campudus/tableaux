@@ -1919,6 +1919,24 @@ class TableauxModel(
     val idsOfColumnsToPostProcess = columnsToRetrieve(columns, columnFilter).map(_.id).toSet
     val columnsInValues = columns.filter(columnFilter.filter)
 
+    // With row permissions, retrieveCell also filters the values nested in a linked row, so that check stays
+    // cell by cell; union tables have their own row mapping
+    val isPrefetched = !config.isRowPermissionCheckEnabled && table.tableType != UnionTable
+
+    def linkValueWithConcatTarget(linkedRow: JsonObject, cell: Cell[?]): JsonObject = {
+      // The projection can't compute a value for a concat target, so the row is rebuilt around the
+      // separately fetched one. Only `attributes` is carried over from the raw row - deliberately not
+      // everything it happens to hold: passing its flags through as well would newly surface
+      // final/archived on link values whose target is a concat column, and inconsistently at that,
+      // since removeUnauthorizedLinkAndConcatValues rebuilds the object without them further down.
+      val attributesJson = Option(linkedRow.getValue("attributes")) match {
+        case Some(attributes) => Json.obj("attributes" -> attributes)
+        case None => Json.obj()
+      }
+
+      Json.obj("id" -> cell.rowId).mergeIn(cell.getJson).mergeIn(attributesJson)
+    }
+
     /**
       * Fetches ConcatColumn values for linked rows
       */
@@ -1936,20 +1954,24 @@ class TableauxModel(
             list <- futureList
             cell <- retrieveCell(concatenateColumn, rowId, true)
           } yield {
-            val cellJson = cell.getJson
-            // The projection can't compute a value for a concat target, so the row is rebuilt around the
-            // separately fetched one. Only `attributes` is carried over from the raw row - deliberately not
-            // everything it happens to hold: passing its flags through as well would newly surface
-            // final/archived on link values whose target is a concat column, and inconsistently at that,
-            // since removeUnauthorizedLinkAndConcatValues rebuilds the object without them further down.
-            val attributesJson = Option(linkedRow.getValue("attributes")) match {
-              case Some(attributes) => Json.obj("attributes" -> attributes)
-              case None => Json.obj()
-            }
-
-            list ++ List(Json.obj("id" -> rowId).mergeIn(cellJson).mergeIn(attributesJson))
+            list ++ List(linkValueWithConcatTarget(linkedRow, cell))
           }
       }
+    }
+
+    def prefetchedConcatValuesForLinkedRows(
+        prefetched: PrefetchedValues,
+        concatenateColumn: ConcatenateColumn,
+        linkedRows: JsonArray
+    ): List[JsonObject] = {
+      linkedRows.asScala.map(_.asInstanceOf[JsonObject]).toList.map({ linkedRow =>
+        val linkedRowId = linkedRow.getLong("id").longValue()
+        val row = prefetched.linkedRow(concatenateColumn, linkedRowId)
+        linkValueWithConcatTarget(
+          linkedRow,
+          Cell(concatenateColumn, linkedRowId, row.values.head, row.rowLevelAnnotations)
+        )
+      })
     }
 
     def fetchValuesForStatusColumn(
@@ -2012,7 +2034,7 @@ class TableauxModel(
 
     }
 
-    Future.sequence(rawRows.map({
+    def postProcessRow(rawRow: RawRow, prefetchedOpt: Option[PrefetchedValues]): Future[RowLike] = rawRow match {
       case RawRow(rowId, rowLevelFlags, rowPermissions, cellLevelFlags, rawValues) => {
         for {
           // Chain post-processing RawRows
@@ -2029,19 +2051,32 @@ class TableauxModel(
                 .map({
                   case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatenateColumn] =>
                     // Fetch linked values of each linked row
-                    fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatenateColumn], array)
-                      .map(cellValue => (c, cellValue))
+                    val concatenateColumn = c.to.asInstanceOf[ConcatenateColumn]
+                    prefetchedOpt match {
+                      case Some(prefetched) =>
+                        Future.successful((
+                          c,
+                          prefetchedConcatValuesForLinkedRows(prefetched, concatenateColumn, array)
+                        ))
+                      case None =>
+                        fetchConcatValuesForLinkedRows(concatenateColumn, array).map(cellValue => (c, cellValue))
+                    }
 
                   case (c: StatusColumn, value) =>
                     for {
-                      dependentColumnValues <- fetchValuesForStatusColumn(c.asInstanceOf[ConcatenateColumn], rowId)
+                      dependentColumnValues <- prefetchedOpt match {
+                        case Some(prefetched) => Future.successful(prefetched.statusMemberValues(c, rowId))
+                        case None => fetchValuesForStatusColumn(c.asInstanceOf[ConcatenateColumn], rowId)
+                      }
                       statusValue = calcStatusValue(c.rules, dependentColumnValues)
                     } yield { (c, statusValue) }
 
                   case (c: AttachmentColumn, _) =>
                     // AttachmentColumns are fetched via AttachmentModel
-                    retrieveCell(c, rowId, true)
-                      .map(cell => (c, cell.value))
+                    prefetchedOpt match {
+                      case Some(prefetched) => Future.successful((c, prefetched.attachments(c, rowId)))
+                      case None => retrieveCell(c, rowId, true).map(cell => (c, cell.value))
+                    }
 
                   case (c, value) =>
                     // All other column types were already fetched by RetrieveRowModel
@@ -2078,7 +2113,108 @@ class TableauxModel(
           Row(table, rowId, rowLevelFlags, rowPermissions, cellAnnotations, columnsWithPostProcessedValues)
         }
       }
+    }
+
+    for {
+      prefetchedOpt <-
+        if (isPrefetched) {
+          val columnsToPostProcess = columns.zip(rawRows.map(_.values: Seq[Any]).transpose).filter({
+            case (column, _) => idsOfColumnsToPostProcess.contains(column.id)
+          })
+          prefetchPostProcessedValues(table, columnsToPostProcess, rawRows.map(_.id)).map(Some(_))
+        } else {
+          Future.successful(None)
+        }
+      rows <- Future.sequence(rawRows.map(postProcessRow(_, prefetchedOpt)))
+    } yield rows
+  }
+
+  /**
+    * The values of a page that the row query can't compute, loaded for the whole page at once instead of cell by cell,
+    * and without the cell cache.
+    */
+  private case class PrefetchedValues(
+      attachmentsByCell: Map[(ColumnId, RowId), Seq[AttachmentFile]],
+      linkedRowsByConcatColumn: Map[(TableId, ColumnId), Map[RowId, RowLike]],
+      statusMembersByCell: Map[(ColumnId, RowId), Map[ColumnId, (ColumnType[?], Any)]]
+  ) {
+
+    def attachments(column: AttachmentColumn, rowId: RowId): Seq[AttachmentFile] =
+      attachmentsByCell.getOrElse((column.id, rowId), Seq.empty)
+
+    def linkedRow(concatenateColumn: ConcatenateColumn, rowId: RowId): RowLike =
+      linkedRowsByConcatColumn((concatenateColumn.table.id, concatenateColumn.id))(rowId)
+
+    def statusMemberValues(column: StatusColumn, rowId: RowId): Map[ColumnId, (ColumnType[?], Any)] =
+      statusMembersByCell((column.id, rowId))
+  }
+
+  /**
+    * Loads what [[mapRawRows]] would otherwise fetch cell by cell, with a constant number of queries per page:
+    *   - the attachments of all attachment columns,
+    *   - the rows linked through link columns whose target is a concat column, once per target, run through
+    *     [[mapRawRows]] themselves so that their own concat, attachment and link values are composed the same way,
+    *   - the member values of each status column.
+    *
+    * @param columnsWithRawValues
+    *   the columns to post-process, each with its raw value in every row of the page
+    */
+  private def prefetchPostProcessedValues(
+      table: Table,
+      columnsWithRawValues: Seq[(ColumnType[?], Seq[Any])],
+      rowIds: Seq[RowId]
+  )(implicit user: TableauxUser): Future[PrefetchedValues] = {
+    val attachmentColumns = columnsWithRawValues.collect({ case (c: AttachmentColumn, _) => c })
+    val statusColumns = columnsWithRawValues.collect({ case (c: StatusColumn, _) => c })
+
+    val linkedRowIdsByConcatColumn: Seq[(ConcatenateColumn, Seq[RowId])] = columnsWithRawValues
+      .collect({
+        case (c: LinkColumn, rawValues) if c.to.isInstanceOf[ConcatenateColumn] =>
+          val linkedRowIds = rawValues.collect({ case links: JsonArray => links }).flatMap(
+            _.asScala.map(_.asInstanceOf[JsonObject].getLong("id").longValue())
+          )
+          (c.to.asInstanceOf[ConcatenateColumn], linkedRowIds)
+      })
+      .groupBy({ case (concatenateColumn, _) => (concatenateColumn.table.id, concatenateColumn.id) })
+      .values
+      .map(grouped => (grouped.head._1, grouped.flatMap(_._2).distinct))
+      .toSeq
+
+    def rowsById(rowsTable: Table, ids: Seq[RowId], columns: Seq[ColumnType[?]]): Future[Map[RowId, RowLike]] = {
+      if (ids.isEmpty) {
+        Future.successful(Map.empty)
+      } else {
+        for {
+          rawRows <- retrieveRowModel.retrieveMany(rowsTable.id, ids, columns)
+          rows <- mapRawRows(rowsTable, columns, rawRows)
+        } yield rows.map(row => row.id -> row).toMap
+      }
+    }
+
+    val attachmentsFuture: Future[Map[(ColumnId, RowId), Seq[AttachmentFile]]] =
+      if (attachmentColumns.isEmpty || rowIds.isEmpty) Future.successful(Map.empty)
+      else attachmentModel.retrieveAllOfCells(table.id, attachmentColumns.map(_.id), rowIds)
+
+    val linkedRowsFuture = Future.sequence(linkedRowIdsByConcatColumn.map({
+      case (concatenateColumn, linkedRowIds) =>
+        // the same columns retrieveCell queries for a concat column: the column itself and its member columns
+        rowsById(concatenateColumn.table, linkedRowIds, concatenateColumn.columns.+:(concatenateColumn))
+          .map(rows => (concatenateColumn.table.id, concatenateColumn.id) -> rows)
     }))
+
+    val statusMembersFuture = Future.sequence(statusColumns.map({ statusColumn =>
+      rowsById(table, rowIds, statusColumn.columns).map(_.toSeq.map({
+        case (rowId, row) =>
+          val memberValues = statusColumn.columns.zip(row.values).map({ case (c, value) => c.id -> (c, value) })
+          (statusColumn.id, rowId) -> memberValues.toMap
+      }))
+    }))
+
+    for {
+      attachments <- attachmentsFuture
+      linkedRows <- linkedRowsFuture
+      statusMembers <- statusMembersFuture
+    } yield PrefetchedValues(attachments, linkedRows.toMap, statusMembers.flatten.toMap)
   }
 
   def retrieveColumnValues(table: Table, columnId: ColumnId, langtagOpt: Option[String])(
