@@ -2177,7 +2177,11 @@ class TableauxModel(
       })
       .groupBy({ case (concatenateColumn, _) => (concatenateColumn.table.id, concatenateColumn.id) })
       .values
-      .map(grouped => (grouped.head._1, grouped.flatMap(_._2).distinct))
+      .map({ linksToSameConcatColumn =>
+        val (concatenateColumn, _) = linksToSameConcatColumn.head
+        val linkedRowIds = linksToSameConcatColumn.flatMap({ case (_, idsOfOneColumn) => idsOfOneColumn }).distinct
+        (concatenateColumn, linkedRowIds)
+      })
       .toSeq
 
     def rowsById(rowsTable: Table, ids: Seq[RowId], columns: Seq[ColumnType[?]]): Future[Map[RowId, RowLike]] = {
